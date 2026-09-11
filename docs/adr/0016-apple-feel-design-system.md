@@ -154,7 +154,7 @@ what `.num` and `.mono` set. The retired `--face-data` was solving a problem SF 
   Motion is a signal, not a flourish, so it goes away entirely when asked — and a preference
   that can be out-specified by a component is not a preference. It is not, however, the only
   `!important` in the codebase, and the honest inventory is worth stating so nobody has to
-  re-derive it: `lineops.css` carries **14 declarations across 6 sites** and `mud-bridge.css`
+  re-derive it: `desk.css` carries **14 declarations across 6 sites** and `mud-bridge.css`
   carries none (its three matches are prose, so ADR 0008's claim about the bridge still
   holds). Besides reduced motion, they divide three ways rather than into one tidy category:
 
@@ -200,7 +200,7 @@ and one was pre-empted:
 - The `@supports` material fallback block, shadowed on source order for **three of its four
   consumers**, so three rules at once — see the Consequences note above.
 - `DeskSheet`'s `.mud-dialog` styling was written as `.mud-dialog.desk-sheet` from the start,
-  which is why it is the one that never broke: `mud-bridge.css` loads after `lineops.css`, so
+  which is why it is the one that never broke: `mud-bridge.css` loads after `desk.css`, so
   a single-class sheet rule could not have won on source order either.
 
 That is one, one, two and three — seven that lost, plus the sheet's, which is the eighth
@@ -212,7 +212,7 @@ found by looking at the rendered page; the eighth never shipped, because the she
 written compound from the start. Verify a design-system migration in a browser, on the real
 screen, with computed styles — not in the stylesheet.
 
-**Retired tokens hide outside stylesheets.** Task 10 drove `lineops.css` to zero retired
+**Retired tokens hide outside stylesheets.** Task 10 drove `desk.css` to zero retired
 tokens and the gate was believed clean for five more tasks. Eight sites kept the old names in
 inline `style=` attributes and in a style string emitted from C#, where no CSS grep reached
 them. Each resolved to nothing, so the declaration was dropped: every team heading on the desk

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    @* Both, because there are two desks: this tells the browser to paint the canvas behind
+       the app and its own scrollbars to match whichever is showing. *@
+    <meta name="color-scheme" content="dark light" />
+    <base href="/" />
+    <ResourcePreloader />
+
+    @*
+        Order is load-bearing. MudBlazor first, so it can be overridden; desk.css next,
+        because it defines the tokens; mud-bridge.css last, because it spends them on
+        MudBlazor's variables and out-specifies what MudBlazor hard-codes.
+    *@
+    <link rel="stylesheet" href="_content/MudBlazor/MudBlazor.min.css" />
+    <link rel="stylesheet" href="@Assets["_content/TicketMiser.Desk/css/desk.css"]" />
+    <link rel="stylesheet" href="@Assets["_content/TicketMiser.Desk/css/mud-bridge.css"]" />
+    @* Scoped-component styles — the desk's reconnect modal relies on these. *@
+    <link rel="stylesheet" href="@Assets["TicketMiser.Web.styles.css"]" />
+    <ImportMap />
+    <HeadOutlet @rendermode="InteractiveServer" />
+</head>
+
+<body>
+    <Routes @rendermode="InteractiveServer" />
+    <ReconnectModal />
+    <script src="@Assets["_framework/blazor.web.js"]"></script>
+    <script src="_content/MudBlazor/MudBlazor.min.js"></script>
+    <script src="@Assets["_content/TicketMiser.Desk/js/desk-glide.js"]"></script>
+</body>
+
+</html>

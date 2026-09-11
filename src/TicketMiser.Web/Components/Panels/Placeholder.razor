@@ -1,0 +1,37 @@
+@inherits DeskPanel
+
+@*
+    Stands in for a window that has not been built yet. Every catalogue entry points here
+    until it has a panel of its own, so the desk — the strip, the drawers, the workspaces,
+    the follow-up layer — can be driven end to end from day one. The subject id, if the
+    window was opened about something, is shown so a shortcut can be seen to have worked.
+*@
+
+<div class="stack" style="gap:12px; padding:16px">
+    <EmptyState Kind="EmptyStateKind.New">
+        @Title is not built yet.
+        @if (Subject is { } s)
+        {
+            <span> Opened about @s.Key @s.Value.</span>
+        }
+    </EmptyState>
+    <p class="empty" style="padding:0">
+        See docs/superpowers/specs/2026-09-11-ticket-tracker-desk-reuse-plan.md, section 5, for what
+        this window is meant to show.
+    </p>
+</div>
+
+@code {
+    /// <summary>
+    /// What the catalogue calls this window, read from the window it sits in — the host passes
+    /// a panel only its subject, and the placeholder has no other identity.
+    /// </summary>
+    private string Title
+        => (WindowId is { } id ? Manager.Windows.FirstOrDefault(w => w.Id == id)?.Title : null) ?? "This window";
+
+    /// <summary>The id parameter a destination or follow-up was opened with — EventId, PerformerId, VenueId.</summary>
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? Parameters { get; set; }
+
+    private KeyValuePair<string, object>? Subject
+        => Parameters is { Count: > 0 } p ? p.First() : null;
+}

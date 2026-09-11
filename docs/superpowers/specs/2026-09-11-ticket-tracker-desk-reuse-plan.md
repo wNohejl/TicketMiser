@@ -26,11 +26,11 @@ observation instead of an odds snapshot. Most of the work is the domain, not the
 | `Components/Desk/` | 43 | 3,926 | The primitive set: buttons, fields, grid, tabs, sheets, dialogs, toasts, metrics, chart |
 | `Components/Layout/` | 4 | 309 | `MainLayout`, reconnect modal |
 | `Theming/` | 3 | — | `DeskTheme` tokens and `MudTheme`, `ThemeService`, mode |
-| `wwwroot/css/` | 2 | 4,096 | `lineops.css` — the whole visual system |
+| `wwwroot/css/` | 2 | 4,096 | `desk.css` — the whole visual system |
 | `wwwroot/js/` | 4 | 616 | `desk-glide`, `windowing`, `theme`, `dialogs` |
 | `Components/Panels/` | 19 | 6,467 | **Sports domain.** Board, Game, Team, Player, Journal, Ops, … |
 | `Components/Snippets/` | 5 | 608 | **Sports domain.** Floating follow-ups |
-| `tests/LineOps.Web.Tests` | 16 | — | bUnit render tests on a `DeskTestContext` bench |
+| `tests/TicketMiser.Desk.Tests` | 16 | — | bUnit render tests on a `DeskTestContext` bench |
 
 The design is recorded in three ADRs, which the new project should adopt as written:
 
@@ -59,7 +59,7 @@ Inside the windowing core itself the coupling is three lines and two brand marks
   `WindowCatalog.Ops` once as the default primary; `WindowShortcuts.cs` is entirely
   catalogue lookups. The catalogue is a static class.
 - The wordmark `LINE<em>OPS</em>` is hard-coded in `Desk.razor` (empty desk) and
-  `RailMenu.razor` (brand trigger). `lineops.css` contains the string once. The theme id is
+  `RailMenu.razor` (brand trigger). `desk.css` contains the string once. The theme id is
   `apple-dark`, not a product name.
 
 Everything else in `Windowing/`, `Components/Windowing/`, `Components/Desk/` (40 of 43 files),
@@ -214,13 +214,13 @@ Copy, do not extract yet (see §7 for why):
 1. `Windowing/` minus `WindowCatalog.cs` and `WindowShortcuts.cs`; `Components/Windowing/`;
    `Components/Desk/` minus `PriceCell.razor`, `PullMenu.razor`, `RunbookSteps.razor` (the
    last two return in Phase 3 once ingestion and reliability exist); `Components/Layout/`;
-   `Theming/`; `wwwroot/css/lineops.css` (rename), `wwwroot/js/`.
+   `Theming/`; `wwwroot/css/desk.css` (rename), `wwwroot/js/`.
 2. Make the two brand marks a parameter: a `DeskBrand` record (wordmark, tagline) registered
    in DI and read by `Desk.razor` and `RailMenu.razor`.
 3. Write the new `WindowCatalog` with the §5 entries pointing at placeholder panels, and a
    `WindowShortcuts` for Event / Performer / Venue. `WindowModels.cs` line 120 names the
    default primary window; point it at Watchlist.
-4. Copy `tests/LineOps.Web.Tests` minus `PriceCellTests`; the bench and fifteen files should
+4. Copy `tests/TicketMiser.Desk.Tests` minus `PriceCellTests`; the bench and fifteen files should
    pass on the first build. This is the acceptance test for the lift.
 5. Copy ADRs 0007, 0013, 0016 into the new `docs/adr` with a note that they were adopted.
 
