@@ -108,11 +108,12 @@ short-lived feature branches merged and deleted in the same sitting.
 
 Write `CLAUDE.md` from the LineOps one with these changes:
 
-- **Branches:** `main` only, since there is no second developer and no release train yet.
-  A feature branch is merged and deleted in the same sitting. Push after every commit.
+- **Branches:** `main` and `TicketMiser_Development`, the LineOps shape. Work lands on the
+  development branch; `main` takes merges that have passed `release-check`. A feature
+  branch is merged and deleted in the same sitting. Push after every commit.
 - **Authorship:** the LineOps rule stands. Commits carry the developer's identity and no
-  `Co-Authored-By` trailer. The three commits on `main` today carry one; strip them once,
-  now, while the history is three commits long, and never again.
+  `Co-Authored-By` trailer. The four commits that carried one were stripped on
+  2026-09-11; it is not to be rewritten again.
 - **Scope:** Nashville, concerts, two markets. `Sources` with `Kind` primary or resale;
   `Enabled` follows configuration. Do not add a city without a venue list and a DMA id.
 - **Data:** the snapshot workflow (`publish-data.ps1` / `restore-data.ps1`) as in LineOps,
@@ -163,7 +164,10 @@ integration bench; the snapshot scripts.
 ## 5. Order of work
 
 1. Un-ignore `.claude/skills` and `launch.json`; copy the four existing skills; write
-   `CLAUDE.md`; strip the trailers. One commit.
+   `CLAUDE.md`; strip the trailers. One commit. **Done 2026-09-11**, with the five product
+   skills written in the same commit as shells whose scripts run today and whose
+   database-dependent steps say what they are waiting for. `design-to-phases` came in as
+   `phase-plan`, the phase-plan half only.
 2. Write `source-fixture` and use it to answer the four open questions. One commit per
    fixture, with its parse test.
 3. Phase 2 of the reuse plan, test-first, with the `OnSaleTick` table and the `AllIn`

@@ -1,0 +1,42 @@
+---
+name: monthly-report
+description: Produce the Nashville monthly on-sale report from the database — minutes to primary sellout against resale listings present at that minute, fee gap by venue, primary re-releases — as a fixed-shape markdown file, and stop short of publishing. Use on the first of the month or when asked for "the Nashville report".
+---
+
+# monthly-report
+
+The loudest thing a small tool can do is publish what it saw. This skill renders the
+numbers; a person publishes them after reading. Its inputs are the `OnSaleTick` and
+`PriceObservation` tables from the source research §4; until they exist the skill says so
+and stops.
+
+## Steps
+
+1. **Check the prerequisites.** `src/TicketMiser.Data` exists, Postgres is up
+   (`docker compose ps`), and `on_sale_ticks` has rows for the month. If not, stop and say
+   which is missing.
+2. **Run the queries** in `queries/` against the local database, for the month given or
+   the previous calendar month:
+
+   | Query | Produces |
+   |---|---|
+   | `sellout-vs-resale.sql` | Per event: venue, on-sale time, minutes until primary status left `TICKETS_AVAILABLE`, SeatGeek listing count and lowest price at that minute, and whether primary later reappeared. |
+   | `fee-gap-by-venue.sql` | Per venue: median all-in minus face, as a percentage, across the month's primary observations with `all_in = true` and a face value recorded. |
+   | `price-vs-onsale.sql` | Per event: final price per source as a percentage of the on-sale price. |
+
+   ```powershell
+   $env:PGPASSWORD = (Get-Content .env | Select-String '^POSTGRES_PASSWORD=' | ForEach-Object { $_.Line.Split('=')[1] })
+   psql -h localhost -U ticketmiser -d ticketmiser -v month='2026-09' -f .claude/skills/monthly-report/queries/sellout-vs-resale.sql
+   ```
+
+3. **Render** `docs/reports/<yyyy-mm>-nashville.md` in the fixed shape: a one-paragraph
+   summary with no adjectives, the three tables, a "how this was measured" section naming
+   the sources, the cadence and the all-in rule, and a "what we could not see" section
+   listing AXS venues, which are resale-only in our data.
+4. **Stop.** Do not publish, post, or push the report. Say it is ready to read.
+
+## Rules
+
+- Every number in the report traces to a query in `queries/`. No hand-typed figures.
+- Summaries only. No listing, seat, or copied marketplace content appears in the report.
+- Say "we could not see" rather than inferring. The AXS rooms are the standing example.

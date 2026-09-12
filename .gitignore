@@ -6,7 +6,10 @@ obj/
 *.suo
 
 # Local agent/editor tooling. Machine-specific and nobody else's business.
-.claude/
+# Local agent tooling: settings are machine-specific; skills and the launch config travel with the code.
+.claude/*
+!.claude/skills/
+!.claude/launch.json
 
 # Local secrets: API keys belong in user-secrets or environment variables, never in the repo.
 # .env holds the database and certificate passwords; .env.example is the committed template.
