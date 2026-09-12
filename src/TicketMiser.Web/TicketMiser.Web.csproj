@@ -2,6 +2,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\TicketMiser.Desk\TicketMiser.Desk.csproj" />
+    <ProjectReference Include="..\TicketMiser.Core\TicketMiser.Core.csproj" />
+    <ProjectReference Include="..\TicketMiser.Data\TicketMiser.Data.csproj" />
+    <ProjectReference Include="..\TicketMiser.Reliability\TicketMiser.Reliability.csproj" />
+    <ProjectReference Include="..\TicketMiser.Observability\TicketMiser.Observability.csproj" />
+    <ProjectReference Include="..\TicketMiser.Ingestion\TicketMiser.Ingestion.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -13,6 +18,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+    <UserSecretsId>dotnet-TicketMiser.Web-2b7e4c9a-1d3f-4e8b-9c0a-5f6d7e8a9b0c</UserSecretsId>
   </PropertyGroup>
 
 </Project>
