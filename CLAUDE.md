@@ -33,6 +33,8 @@ long.
   its source; SeatGeek's logo appears where its numbers do; raw responses are not kept past
   the run that parsed them.
 - `OnSaleTick` rows are never pruned and are in every data snapshot.
+- The terms behind these rules, per source, and the checks a change must pass are in
+  `docs/legal-guidelines.md`. A feature that conflicts with a rule there does not merge.
 
 ## Skills
 
