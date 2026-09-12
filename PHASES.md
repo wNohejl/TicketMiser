@@ -56,7 +56,11 @@ Gate: `source-fixture` for every adapter change.
 - [x] `PriceIngestionService`: reserve budget, fetch, resolve, store on change.
 - [x] Integration tests on the Postgres fixture: store-on-change, resolver drift, budget
       refusal, the all-in comparison guard.
-- [ ] One manual run against the real sources with a key.
+- [x] One live run against the real sources: on 2026-09-12 discovery resolved 847
+      Ticketmaster and 519 SeatGeek Nashville events in twelve calls, and the resolver joined
+      Trans-Siberian Orchestra across both without the drift window. Six watches seeded: the
+      two Friday 2026-09-18 Bridgestone on-sales, Victoria Monét, and three Bluebird rounds
+      that open Monday to Wednesday.
 
 Exit: `dotnet test --filter Adapters` green on committed fixtures only;
 `dotnet test --filter Integration` green on Testcontainers; one manual run writes Nashville
