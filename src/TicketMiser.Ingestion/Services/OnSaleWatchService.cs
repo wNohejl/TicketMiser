@@ -72,6 +72,7 @@ public class OnSaleWatchService(
 
         var written = 0;
         var ticksByEvent = new Dictionary<int, OnSaleTick>();
+        var marketplaceTicksByEvent = new Dictionary<int, OnSaleTick>();
 
         foreach (var source in registry.PricedSources)
         {
@@ -143,6 +144,8 @@ public class OnSaleWatchService(
                     db.OnSaleTicks.Add(tick);
                     if (row.Kind == SourceKind.Primary)
                         ticksByEvent[evt.Id] = tick;
+                    else if (row.Key != source.Key)
+                        marketplaceTicksByEvent[evt.Id] = tick;
 
                     written++;
                 }
@@ -165,7 +168,12 @@ public class OnSaleWatchService(
             }
         }
 
-        // Availability rides on the primary tick, one call for the whole list.
+        // Availability rides on the primary tick, one call for the whole list. The same answer
+        // carries the resale status of Ticketmaster's own marketplace for every room it
+        // tickets, so it is written under the marketplace row as well: the resale line of the
+        // record exists for Bridgestone as it does for the Ryman, as a status with no price.
+        // A room with its own marketplace listing already has a marketplace tick this pass;
+        // the status is set on it rather than duplicated.
         foreach (var availability in registry.AvailabilitySources)
         {
             var primaryKey = TicketmasterKeyFor(availability.Key);
@@ -178,6 +186,7 @@ public class OnSaleWatchService(
                 continue;
 
             var sourceRow = await db.Sources.FirstAsync(s => s.Key == availability.Key, ct);
+            var marketplaceRow = await db.Sources.FirstOrDefaultAsync(s => s.Key == MarketplaceKeyFor(availability.Key), ct);
             var run = new IngestionRun { SourceId = sourceRow.Id, JobKey = JobKey, StartedAt = now, Status = RunStatus.Running };
             db.IngestionRuns.Add(run);
             await db.SaveChangesAsync(ct);
@@ -193,6 +202,9 @@ public class OnSaleWatchService(
                     if (reference is null)
                         continue;
 
+                    var evt = due.First(e => e.Id == reference.EventId);
+                    var minutes = (int)Math.Round((now - evt.OnSaleAt!.Value).TotalMinutes);
+
                     if (ticksByEvent.TryGetValue(reference.EventId, out var tick))
                     {
                         tick.PrimaryStatus = status.PrimaryStatus;
@@ -200,14 +212,34 @@ public class OnSaleWatchService(
                     }
                     else
                     {
-                        var evt = due.First(e => e.Id == reference.EventId);
                         db.OnSaleTicks.Add(new OnSaleTick
                         {
                             EventId = evt.Id,
                             SourceId = sourceRow.Id,
                             ObservedAt = now,
-                            MinutesFromOnSale = (int)Math.Round((now - evt.OnSaleAt!.Value).TotalMinutes),
+                            MinutesFromOnSale = minutes,
                             PrimaryStatus = status.PrimaryStatus,
+                            ResaleStatus = status.ResaleStatus,
+                            IngestionRunId = run.Id
+                        });
+                        written++;
+                    }
+
+                    if (marketplaceRow is null || status.ResaleStatus is null)
+                        continue;
+
+                    if (marketplaceTicksByEvent.TryGetValue(reference.EventId, out var marketplaceTick))
+                    {
+                        marketplaceTick.ResaleStatus = status.ResaleStatus;
+                    }
+                    else
+                    {
+                        db.OnSaleTicks.Add(new OnSaleTick
+                        {
+                            EventId = evt.Id,
+                            SourceId = marketplaceRow.Id,
+                            ObservedAt = now,
+                            MinutesFromOnSale = minutes,
                             ResaleStatus = status.ResaleStatus,
                             IngestionRunId = run.Id
                         });
@@ -240,4 +272,8 @@ public class OnSaleWatchService(
     /// <summary>The Inventory Status API answers for Ticketmaster ids; its own key is a separate budget.</summary>
     private static string TicketmasterKeyFor(string availabilityKey)
         => availabilityKey == "ticketmaster-inventory" ? "ticketmaster" : availabilityKey;
+
+    /// <summary>The resale row the Inventory Status API's <c>resaleStatus</c> belongs to: Ticketmaster's own marketplace.</summary>
+    private static string MarketplaceKeyFor(string availabilityKey)
+        => availabilityKey == "ticketmaster-inventory" ? "ticketmaster-resale" : availabilityKey + "-resale";
 }

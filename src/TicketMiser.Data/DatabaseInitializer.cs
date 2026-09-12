@@ -83,9 +83,11 @@ public class DatabaseInitializer(TicketMiserDbContext db, ILogger<DatabaseInitia
             },
             new Source
             {
-                // Ticketmaster's own resale marketplace, which the Discovery API returns as a
-                // second event for rooms it does not ticket. Same adapter, same key, same
-                // quota; a different market, so a different source row.
+                // Ticketmaster's own resale marketplace. For rooms it does not ticket the
+                // Discovery API returns it as a second event with prices; for every room it
+                // does, the Inventory Status API's resaleStatus is written here as a status
+                // with no price. Same adapter, same key, same quota; a different market, so a
+                // different source row.
                 Key = "ticketmaster-resale",
                 Name = "Ticketmaster marketplace",
                 Kind = SourceKind.Resale,

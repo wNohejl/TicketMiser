@@ -34,9 +34,12 @@ public class OnSaleWatchTests(PostgresFixture fixture)
         var primaryRow = new Source { Key = $"tm-{suffix}", Name = "Primary", Kind = SourceKind.Primary };
         var resaleRow = new Source { Key = $"sg-{suffix}", Name = "Resale", Kind = SourceKind.Resale };
         var inventoryRow = new Source { Key = "ticketmaster-inventory", Name = "Inventory", Kind = SourceKind.Primary };
+        var marketplaceRow = new Source { Key = "ticketmaster-resale", Name = "Ticketmaster marketplace", Kind = SourceKind.Resale };
         db.Sources.AddRange(primaryRow, resaleRow);
         if (!await db.Sources.AnyAsync(s => s.Key == inventoryRow.Key))
             db.Sources.Add(inventoryRow);
+        if (!await db.Sources.AnyAsync(s => s.Key == marketplaceRow.Key))
+            db.Sources.Add(marketplaceRow);
         await db.SaveChangesAsync();
 
         var primary = new StubPriceSource(primaryRow.Key, SourceKind.Primary) { Clock = clock };
@@ -107,6 +110,20 @@ public class OnSaleWatchTests(PostgresFixture fixture)
         Assert.Contains(primaryTicks, t => t.PrimaryStatus == InventoryStatus.Available && t.MinutesFromOnSale == 60);
         Assert.All(primaryTicks, t => Assert.True(t.AllIn));
         Assert.All(resaleTicks, t => Assert.False(t.AllIn));
+
+        // Bridgestone has no marketplace listing of its own, yet Ticketmaster's marketplace
+        // line exists for it at every mark: the resale status from the same availability
+        // call, under the resale row, with no price and no all-in claim.
+        var marketplaceId = (await db.Sources.SingleAsync(s => s.Key == "ticketmaster-resale")).Id;
+        var marketplaceTicks = await db.OnSaleTicks
+            .Where(t => t.EventId == evt.Id && t.SourceId == marketplaceId)
+            .OrderBy(t => t.ObservedAt).ToListAsync();
+
+        Assert.Equal(expectedMarks, marketplaceTicks.Select(t => t.ObservedAt));
+        Assert.All(marketplaceTicks, t => Assert.Equal(InventoryStatus.Available, t.ResaleStatus));
+        Assert.All(marketplaceTicks, t => Assert.Null(t.PrimaryStatus));
+        Assert.All(marketplaceTicks, t => Assert.Null(t.Lowest));
+        Assert.All(marketplaceTicks, t => Assert.Null(t.AllIn));
 
         // And the alert engine reads it as the one alert nobody else sends.
         var engine = new AlertEngine(db, new KpiCalculator(db), new BudgetCalculator(db),

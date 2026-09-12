@@ -79,7 +79,10 @@ range to another site's all-in number.
 around 350 event ids per call, near real time. Returns `TICKETS_AVAILABLE`,
 `FEW_TICKETS_LEFT`, `TICKETS_NOT_AVAILABLE`, `UNKNOWN` plus a `resaleStatus`. This is the
 cheap way to watch a sale sell through without spending Discovery quota: one call covers
-the whole Nashville watchlist.
+the whole Nashville watchlist. Since 2026-09-12 the `resaleStatus` in that answer is also
+written under the `ticketmaster-resale` row for every Ticketmaster room, so the marketplace
+line of the on-sale record exists for Bridgestone as it does for the Ryman: a status, never
+a price, and no all-in claim.
 
 **The other companion: the Discovery Feed.** A daily bulk file per country, gzipped CSV,
 JSON or XML, open to the public on the same developer key. It carries event ids, names,
