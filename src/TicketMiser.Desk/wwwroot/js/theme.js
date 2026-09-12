@@ -1,27 +1,25 @@
-// The desk's theme, on the browser side.
+// The desk's appearance, on the browser side.
 //
-// Three jobs, and only three: read and write the operator's choice in localStorage,
-// stamp the resolved theme onto <html> so the token block switches, and report what
-// prefers-color-scheme currently says. Everything about *which* theme should be
-// showing is decided in ThemeService; this file holds no policy, because a policy
-// living in two languages is a policy that disagrees with itself.
-
-const KEY = 'lineops.theme';
+// Three jobs, and only three: read and write the operator's choices in localStorage,
+// stamp the resolved appearance onto <html> so the token blocks switch, and report what
+// prefers-color-scheme currently says. Everything about *which* theme, accent or size
+// should be showing is decided in ThemeService; this file holds no policy, because a
+// policy living in two languages is a policy that disagrees with itself.
 
 // Every localStorage touch is guarded. It throws outright — not returns null — in a
-// Safari private window and under a "block all cookies" setting, and a theme
+// Safari private window and under a "block all cookies" setting, and an appearance
 // preference is not worth taking the circuit down for. The desk simply forgets.
-export function read() {
+export function read(key) {
     try {
-        return localStorage.getItem(KEY);
+        return localStorage.getItem(key);
     } catch {
         return null;
     }
 }
 
-export function store(mode) {
+export function store(key, value) {
     try {
-        localStorage.setItem(KEY, mode);
+        localStorage.setItem(key, value);
     } catch {
         /* forgotten, not fatal */
     }
@@ -33,12 +31,31 @@ export function prefersDark() {
         : true;
 }
 
-// The whole switch, in one attribute. Both token blocks weigh (0,1,0) and the light
-// one is written second, so stamping "light" here is enough to hand the entire desk
-// over; "apple-dark" is set explicitly rather than by removing the attribute so that
-// what is showing is always readable in the DOM inspector.
-export function apply(theme) {
-    document.documentElement.setAttribute('data-theme', theme);
+// The whole switch, in two attributes and two custom properties. Both theme blocks
+// weigh (0,1,0) and the light one is written second, so stamping "light" is enough to
+// hand the entire desk over; the accent blocks are compound selectors on top of them.
+// "apple-dark" and "blue" are set explicitly rather than by removing the attributes so
+// that what is showing is always readable in the DOM inspector.
+//
+// --type-scale multiplies every font-size in the desk's stylesheets; --ui-scale is
+// the zoom on <body>. Both land on the root so a component that wants to know can
+// read them back with getComputedStyle.
+export function apply(theme, accent, typeScale, uiScale) {
+    const root = document.documentElement;
+    const scaleMoved = root.style.getPropertyValue('--ui-scale') !== String(uiScale);
+
+    root.setAttribute('data-theme', theme);
+    root.setAttribute('data-accent', accent);
+    root.style.setProperty('--type-scale', String(typeScale));
+    root.style.setProperty('--ui-scale', String(uiScale));
+
+    // A new zoom changes how many CSS pixels the desk has without the browser window
+    // moving, and the windowing script only re-measures on resize. Telling it the
+    // window resized is the truth as far as layout is concerned, and it keeps this
+    // module from knowing anything about how the desk lays windows out.
+    if (scaleMoved) {
+        window.dispatchEvent(new Event('resize'));
+    }
 }
 
 // Watch the machine's own preference so System mode keeps meaning "system" rather

@@ -11,7 +11,7 @@ public enum ResolutionMode
 }
 
 /// <summary>
-/// Operator-controlled desk configuration, edited in the Window manager window.
+/// Operator-controlled desk configuration, edited in the Desk settings window.
 ///
 /// There is no layout setting: the desk is always a horizontal row of full-height columns,
 /// and every window is its own tab in that row — there is no separate taskbar to configure.

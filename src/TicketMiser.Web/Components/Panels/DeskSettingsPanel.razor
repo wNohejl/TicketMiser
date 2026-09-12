@@ -7,6 +7,11 @@
 @*
     Desk configuration. Every control here changes the desk immediately — there is no Save,
     because the desk behind this window *is* the preview.
+
+    Appearance leads, because it is what most operators open this window for and because
+    it is the only section that changes the window itself: the gate under the pointer
+    repaints as the accent lands, the words grow as the size moves. Then the window
+    ceiling, then the primary window, then resolution — in the order they are reached for.
 *@
 
 <MetricRow Style="margin-bottom:16px">
@@ -30,28 +35,57 @@
     </Note>
 }
 
-<Note Style="margin:12px 0 16px">
-    Windows always tile as one horizontal row — every window is its own tab. Drag a title
-    bar past a neighbour to reorder them, or the divider between two to resize them.
-</Note>
-
-@*
-    Appearance leads, because it is the only setting on this panel that changes the panel
-    itself. The note above is truer here than anywhere: there is no preview, because the
-    desk under this gate repaints as the cap slides.
-*@
 <PanelHeader>Appearance</PanelHeader>
-<div class="row">
-    <DeskSwitch Options="_themes" Label="Appearance"
-                Value="Theme.Mode"
-                ValueChanged="@((DeskThemeMode mode) => Theme.SetModeAsync(mode))" />
+
+<div class="stack" style="gap:14px">
+    <div class="row">
+        <span class="dim" style="min-width:70px; font-size: var(--text-subheadline)">Theme</span>
+        <DeskSwitch Options="_themes" Label="Theme"
+                    Value="Theme.Mode"
+                    ValueChanged="@((DeskThemeMode mode) => Theme.SetModeAsync(mode))" />
+        @* Naming the resolved theme is the point of the sentence. "System" alone does not tell
+           an operator which desk they are about to get, and it is the one position where the
+           answer is not written on the control. *@
+        <span class="dim" style="font-size: var(--text-footnote)">
+            @(Theme.Mode == DeskThemeMode.System
+                ? $"following your machine — {(Theme.IsDark ? "dark" : "light")} right now"
+                : Theme.IsDark ? "dark, whatever your machine says" : "light, whatever your machine says")
+        </span>
+    </div>
+
+    <div class="row">
+        <span class="dim" style="min-width:70px; font-size: var(--text-subheadline)">Accent</span>
+        <DeskAccentPicker Value="Theme.Accent" IsDark="Theme.IsDark"
+                          ValueChanged="@((DeskAccent accent) => Theme.SetAccentAsync(accent))" />
+        <span class="dim" style="font-size: var(--text-footnote)">@DeskAccents.Label(Theme.Accent)</span>
+    </div>
+
+    <div class="row">
+        <span class="dim" style="min-width:70px; font-size: var(--text-subheadline)">Text size</span>
+        <DeskSwitch Options="_textSizes" Label="Text size"
+                    Value="Theme.TextSize"
+                    ValueChanged="@((DeskTextSize size) => Theme.SetTextSizeAsync(size))" />
+        <span class="dim num" style="font-size: var(--text-footnote)">body @DeskTextSizes.BodyPx(Theme.TextSize) px</span>
+    </div>
+
+    <div class="row">
+        <span class="dim" style="min-width:70px; font-size: var(--text-subheadline)">Scale</span>
+        <DeskSwitch Options="_scales" Label="Interface scale" Mono="true"
+                    Value="Theme.UiScale"
+                    ValueChanged="@((int percent) => Theme.SetUiScaleAsync(percent))" />
+    </div>
 </div>
-<p class="empty" style="padding-top:6px">
-    @* Naming the resolved theme is the point of the sentence. "System" alone does not tell
-       an operator which desk they are about to get, and it is the one position where the
-       answer is not written on the control. *@
-    Kept in this browser. System follows your machine and keeps following it — right now
-    that is @(Theme.IsDark ? "dark" : "light").
+
+<p class="empty" style="padding-top:8px">
+    Kept in this browser. Text size grows the words and leaves the desk where it is; scale
+    draws the whole desk larger or smaller, spacing included, so a big screen can hold
+    more windows at once.
+    @if (!IsDefaultAppearance)
+    {
+        <DeskButton style="height:22px" OnClick="@(_ => Theme.ResetAppearanceAsync())">
+            Back to the defaults
+        </DeskButton>
+    }
 </p>
 
 <PanelHeader>Concurrent windows</PanelHeader>
@@ -60,7 +94,7 @@
                 OnClick="() => AdjustMax(-1)" Disabled="@(S.MaxConcurrentWindows <= 1)">
         <Glyph Icon="@Icons.Material.Filled.Remove" />
     </DeskButton>
-    <span class="num" style="min-width:2.5ch; text-align:center; font-size:19px">@S.MaxConcurrentWindows</span>
+    <span class="num" style="min-width:2.5ch; text-align:center; font-size: var(--text-title2)">@S.MaxConcurrentWindows</span>
     <DeskButton Title="One more window" aria-label="One more window"
                 OnClick="() => AdjustMax(1)" Disabled="@(S.MaxConcurrentWindows >= 12)">
         <Glyph Icon="@Icons.Material.Filled.Add" />
@@ -70,8 +104,10 @@
     </DeskButton>
 </div>
 <p class="empty" style="padding-top:6px">
-    Opening past this closes the least recently used window — named in the footer when it
-    happens, and in the launcher before it does.
+    Windows tile as one horizontal row — every window is its own tab. Opening past this
+    closes the least recently used window, named in the footer when it happens and in the
+    launcher before it does. Drag a title bar past a neighbour to reorder, or the divider
+    between two to resize.
 </p>
 
 <PanelHeader>Primary window</PanelHeader>
@@ -92,8 +128,9 @@
 @if (S.PrimaryWindowKey is not null)
 {
     <div class="row" style="margin-top:10px">
-        <span class="dim" style="min-width:70px; font-size:12px">Share</span>
+        <span class="dim" style="min-width:70px; font-size: var(--text-subheadline)">Share</span>
         <input type="range" min="20" max="80" step="5"
+               aria-label="Primary window share"
                value="@((int)(S.PrimaryShare * 100))"
                @oninput="OnShareChanged"
                style="flex:1; max-width:240px; accent-color: var(--accent)" />
@@ -126,7 +163,7 @@
     </div>
 
     <div class="row" style="margin-top:10px">
-        <span class="dim" style="min-width:70px; font-size:12px">Custom</span>
+        <span class="dim" style="min-width:70px; font-size: var(--text-subheadline)">Custom</span>
         @* int? rather than int so that clearing the box is "no number yet" rather than a
            zero the clamp would turn into 640. *@
         <DeskField TValue="int?" Mono="true" type="number" min="640" max="7680" step="10"
@@ -158,6 +195,16 @@
         new(DeskThemeMode.System, "System")
     ];
 
+    private static readonly IReadOnlyList<DeskSwitchOption<DeskTextSize>> _textSizes =
+        DeskTextSizes.All
+            .Select(size => new DeskSwitchOption<DeskTextSize>(size, DeskTextSizes.Label(size), $"Body text at {DeskTextSizes.BodyPx(size)}px"))
+            .ToList();
+
+    private static readonly IReadOnlyList<DeskSwitchOption<int>> _scales =
+        DeskUiScale.Steps
+            .Select(percent => new DeskSwitchOption<int>(percent, $"{percent}%", $"Draw the whole desk at {percent}%"))
+            .ToList();
+
     private static readonly IReadOnlyList<DeskSwitchOption<ResolutionMode>> _modes =
     [
         new(ResolutionMode.Auto, "Follow browser"),
@@ -172,12 +219,18 @@
         new((3440, 1440), "3440×1440")
     ];
 
+    private bool IsDefaultAppearance =>
+        Theme.Mode == DeskThemeMode.System
+        && Theme.Accent == DeskAccent.Blue
+        && Theme.TextSize == DeskTextSize.Default
+        && Theme.UiScale == DeskUiScale.Default;
+
     protected override void OnInitialized()
     {
         Report(PulseState.Idle, $"{Manager.OpenCount}/{S.MaxConcurrentWindows}");
 
         // The machine's own preference can move while this panel is open, and under
-        // System that changes both the cap's position and the sentence beneath it.
+        // System that changes both the gate's position and the sentence beneath it.
         // Neither is a parameter, so nothing else would ask this panel to look again.
         Theme.Changed += OnThemeChanged;
     }

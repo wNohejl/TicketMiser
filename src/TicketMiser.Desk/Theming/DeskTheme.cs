@@ -144,18 +144,41 @@ public static class DeskTheme
     // replaces had gone stale in nine values and was read by nothing.
 
     /// <summary>
-    /// The single theme instance, carrying both palettes.
+    /// The default theme, carrying both palettes in the default blue.
     ///
     /// <para>
-    /// Static because it still never varies per circuit: which of the two palettes is
-    /// live is <see cref="MudThemeProvider.IsDarkMode"/>, a per-circuit flag driven by
-    /// <c>ThemeService</c>, not a second theme object. The desk's own components do not
-    /// consult either palette — they read the <c>[data-theme]</c> token block, and these
-    /// two are here only so MudBlazor's derivations (<c>-hover</c>, <c>-darken</c>,
-    /// <c>-rgb</c>) land on the desk's colours in whichever theme is showing.
+    /// Which of the two palettes is live is <see cref="MudThemeProvider.IsDarkMode"/>, a
+    /// per-circuit flag driven by <c>ThemeService</c>, not a second theme object; which
+    /// accent is live is <see cref="For"/>, also driven from there. The desk's own
+    /// components do not consult either palette — they read the <c>[data-theme]</c> and
+    /// <c>[data-accent]</c> token blocks, and these are here only so MudBlazor's
+    /// derivations (<c>-hover</c>, <c>-darken</c>, <c>-rgb</c>) land on the desk's colours
+    /// in whichever theme is showing.
     /// </para>
     /// </summary>
-    public static readonly MudTheme Instance = new()
+    public static MudTheme Instance => For(DeskAccent.Blue);
+
+    private static readonly Dictionary<DeskAccent, MudTheme> Themes = [];
+
+    /// <summary>
+    /// The theme for one accent. Built once per accent and shared: nothing in a theme varies
+    /// per circuit except which of its two palettes is live, and that is still
+    /// <see cref="MudThemeProvider.IsDarkMode"/>. The accent is the only thing that differs
+    /// between two of these objects, and it reaches Mud here because a primary handed only to
+    /// CSS would leave <c>--mud-palette-primary-hover</c> derived from the blue.
+    /// </summary>
+    public static MudTheme For(DeskAccent accent)
+    {
+        lock (Themes)
+        {
+            if (!Themes.TryGetValue(accent, out var theme))
+                Themes[accent] = theme = Build(DeskAccents.Dark(accent), DeskAccents.Light(accent));
+
+            return theme;
+        }
+    }
+
+    private static MudTheme Build(AccentPalette dark, AccentPalette light) => new()
     {
         PaletteDark = new PaletteDark
         {
@@ -205,9 +228,9 @@ public static class DeskTheme
             GrayDarker = Surface1,
 
             // One accent. Interactivity, focus, selection — nothing else.
-            Primary = Accent,
+            Primary = dark.Accent,
             PrimaryContrastText = OnAccent,
-            Info = Accent,
+            Info = dark.Accent,
             InfoContrastText = OnAccent,
             Success = StatePositive,
             SuccessContrastText = OnAccent,
@@ -220,9 +243,9 @@ public static class DeskTheme
             // brand colour, only states. Pointing them at the accent means a component
             // that reaches for one degrades to the desk's one interactive colour rather
             // than importing Material's pink.
-            Secondary = Accent,
+            Secondary = dark.Accent,
             SecondaryContrastText = OnAccent,
-            Tertiary = Accent,
+            Tertiary = dark.Accent,
             TertiaryContrastText = OnAccent,
 
             Dark = Surface2,
@@ -280,9 +303,9 @@ public static class DeskTheme
             GrayDark = LightSurface2,
             GrayDarker = LightSurface1,
 
-            Primary = LightAccent,
+            Primary = light.Accent,
             PrimaryContrastText = LightOnAccent,
-            Info = LightAccent,
+            Info = light.Accent,
             InfoContrastText = LightOnAccent,
             Success = LightStatePositive,
             SuccessContrastText = LightOnAccent,
@@ -291,9 +314,9 @@ public static class DeskTheme
             Warning = LightStateWarning,
             WarningContrastText = LightOnAccent,
 
-            Secondary = LightAccent,
+            Secondary = light.Accent,
             SecondaryContrastText = LightOnAccent,
-            Tertiary = LightAccent,
+            Tertiary = light.Accent,
             TertiaryContrastText = LightOnAccent,
 
             Dark = LightSurface2,

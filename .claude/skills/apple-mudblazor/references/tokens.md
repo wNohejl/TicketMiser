@@ -86,6 +86,14 @@ sites, not a one-line token change.
 interface stops meaning anything: once two colours both mean "you can press this",
 neither does.
 
+**Which hue is the operator's.** The desk offers five — blue, teal, indigo, purple,
+graphite — chosen from Desk settings the way macOS's own accent is. Each is a
+`[data-theme="…"][data-accent="…"]` block redeclaring exactly these five tokens
+(`--accent`, `-hover`, `-press`, `-wash`, `-wash-strong`) for each desk, paired
+with `DeskAccents` in C# so MudBlazor's primary follows. No accent is a state hue:
+a primary button and a positive tag must never share a colour. `DeskThemeTests`
+pins the pairing, the five-token shape, and the distance from every state hue.
+
 `--on-accent` is the ink for **any saturated fill**, not only the accent one. A
 destructive filled button is exactly as saturated, so it spends the same token
 rather than restating white.
@@ -203,6 +211,26 @@ is how Apple does it and why the ramp does not need a size between 13 and 15.
 
 These sizes are tuned for a dense operations console. Scale the whole ramp up for
 a consumer app — but keep the style names, because the names are the interface.
+
+### The two dials: `--type-scale` and `--ui-scale`
+
+In TicketMiser the ramp is not written in bare pixels. Every step is
+`calc(13px * var(--type-scale))`, and so is **every other `font-size` in `desk.css`
+and `mud-bridge.css`** — the ones that are not on the ramp (`10.5px`, `11.5px`) are
+written `calc(10.5px * var(--type-scale))`. `theme.js` writes the multiplier onto
+`<html>` from the operator's Text size setting (0.90 – 1.25).
+
+> **A `font-size` written in bare pixels is a size that ignores the operator.** Use a
+> ramp token; if the size is genuinely off-ramp, multiply it by `--type-scale`.
+> `DeskThemeTests` does not catch this — grep `font-size: [0-9]` before you commit.
+
+`--ui-scale` is the other dial and it is not a token you spend: it is the `zoom` on
+`<body>`, set from the operator's Scale setting (75 – 125%). Spacing, radii, shadows
+and type all grow together, which is the point — text size is legibility, scale is
+density. The consequence for scripts: `getBoundingClientRect` and pointer `clientX`
+are viewport pixels, `offsetWidth` and `style.left` are CSS pixels, and under zoom
+they differ by `element.currentCSSZoom`. `windowing.js` and `desk-glide.js` divide
+where the two meet; any new script that measures the desk must too.
 
 ```css
 --leading-title: 1.25;  --leading-body: 1.45;  --leading-tight: 1.2;

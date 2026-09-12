@@ -138,11 +138,11 @@ public static class WindowCatalog
         new()
         {
             Key = Desk,
-            Title = "Window manager",
+            Title = "Desk settings",
             Icon = Icons.Material.Filled.Tune,
             Group = "System",
-            ComponentType = typeof(WindowManagerPanel),
-            Description = "The window ceiling, the primary window and its share, resolution, and the theme.",
+            ComponentType = typeof(DeskSettingsPanel),
+            Description = "Appearance — theme, accent, text size and scale — then the window ceiling, the primary window and its share, and resolution.",
             MinWidth = 360
         },
 

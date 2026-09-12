@@ -1,4 +1,5 @@
 using Bunit;
+using MudBlazor.Utilities;
 using TicketMiser.Desk.Theming;
 
 namespace TicketMiser.Desk.Tests;
@@ -26,11 +27,27 @@ public class ThemeServiceTests : TestContext
     private BunitJSModuleInterop _module = default!;
 
     private ThemeService Arrange(string? stored, bool prefersDark)
+        => Arrange(prefersDark, mode: stored);
+
+    /// <summary>
+    /// Each setting is its own localStorage key, so the stub answers <c>read</c> by key:
+    /// a value the product has stopped writing is simply never read rather than breaking
+    /// the parse of the ones it still does.
+    /// </summary>
+    private ThemeService Arrange(
+        bool prefersDark,
+        string? mode = null,
+        string? accent = null,
+        string? text = null,
+        string? scale = null)
     {
         _module = JSInterop.SetupModule("./_content/TicketMiser.Desk/js/theme.js");
 
         _module.Setup<bool>("prefersDark").SetResult(prefersDark);
-        _module.Setup<string?>("read").SetResult(stored);
+        _module.Setup<string?>("read", i => (string)i.Arguments[0]! == ThemeService.ModeKey).SetResult(mode);
+        _module.Setup<string?>("read", i => (string)i.Arguments[0]! == ThemeService.AccentKey).SetResult(accent);
+        _module.Setup<string?>("read", i => (string)i.Arguments[0]! == ThemeService.TextSizeKey).SetResult(text);
+        _module.Setup<string?>("read", i => (string)i.Arguments[0]! == ThemeService.UiScaleKey).SetResult(scale);
         _module.SetupVoid("store", _ => true).SetVoidResult();
         _module.SetupVoid("watch", _ => true).SetVoidResult();
         _module.SetupVoid("unwatch").SetVoidResult();
@@ -46,7 +63,15 @@ public class ThemeServiceTests : TestContext
     // an empty list that Last() turns into a failure and Contains() turns into a pass.
     private string LastPaint() => Calls("apply").Last();
 
-    private IEnumerable<string> Stored() => Calls("store");
+    /// <summary>The whole last paint: theme, accent key, type scale, ui scale.</summary>
+    private object?[] LastPaintArguments() => _module.Invocations["apply"].Last().Arguments.ToArray();
+
+    /// <summary>Every value stored, under any key.</summary>
+    private IEnumerable<string> Stored() => _module.Invocations["store"]
+        .Select(i => (string)i.Arguments[1]!);
+
+    private IEnumerable<(string Key, string Value)> StoredPairs() => _module.Invocations["store"]
+        .Select(i => ((string)i.Arguments[0]!, (string)i.Arguments[1]!));
 
     private IEnumerable<string> Calls(string identifier) => _module.Invocations[identifier]
         .Select(i => (string)i.Arguments[0]!);
@@ -223,5 +248,146 @@ public class ThemeServiceTests : TestContext
         await service.DisposeAsync();
 
         Assert.Equal(1, CallCount("unwatch"));
+    }
+
+    // ---- The rest of the appearance ------------------------------------------
+
+    /// <summary>
+    /// With nothing stored the desk is the one the product ships as: blue, unscaled. That
+    /// is what makes the one unavoidable frame before localStorage is read invisible to
+    /// anyone who has never changed a setting.
+    /// </summary>
+    [Fact]
+    public async Task With_nothing_stored_the_appearance_is_the_default()
+    {
+        var service = Arrange(prefersDark: true);
+
+        await service.InitializeAsync();
+
+        Assert.Equal(DeskAccent.Blue, service.Accent);
+        Assert.Equal(DeskTextSize.Default, service.TextSize);
+        Assert.Equal(DeskUiScale.Default, service.UiScale);
+        Assert.Equal(new object?[] { DarkAttribute, "blue", 1.0, 1.0 }, LastPaintArguments());
+    }
+
+    [Fact]
+    public async Task Stored_accent_text_size_and_scale_are_read_back()
+    {
+        var service = Arrange(prefersDark: true, accent: "Purple", text: "Large", scale: "125");
+
+        await service.InitializeAsync();
+
+        Assert.Equal(DeskAccent.Purple, service.Accent);
+        Assert.Equal(DeskTextSize.Large, service.TextSize);
+        Assert.Equal(125, service.UiScale);
+        Assert.Equal(new object?[] { DarkAttribute, "purple", 1.12, 1.25 }, LastPaintArguments());
+    }
+
+    /// <summary>
+    /// A scale is a number, and a number can be anything a previous version or a curious
+    /// operator wrote. It is snapped to the nearest step the gate offers, so a stored 3
+    /// cannot draw a desk at 3% and a stored 400 cannot draw one nobody can close.
+    /// </summary>
+    [Theory]
+    [InlineData("3", 75)]
+    [InlineData("118", 125)]
+    [InlineData("104", 100)]
+    [InlineData("400", 125)]
+    public async Task A_stored_scale_off_the_steps_snaps_to_the_nearest(string stored, int expected)
+    {
+        var service = Arrange(prefersDark: true, scale: stored);
+
+        await service.InitializeAsync();
+
+        Assert.Equal(expected, service.UiScale);
+    }
+
+    [Theory]
+    [InlineData("Sepia", "Huge", "big")]
+    [InlineData("", "", "")]
+    public async Task Unreadable_appearance_values_fall_back_to_the_defaults(string accent, string text, string scale)
+    {
+        var service = Arrange(prefersDark: true, accent: accent, text: text, scale: scale);
+
+        await service.InitializeAsync();
+
+        Assert.Equal(DeskAccent.Blue, service.Accent);
+        Assert.Equal(DeskTextSize.Default, service.TextSize);
+        Assert.Equal(DeskUiScale.Default, service.UiScale);
+    }
+
+    /// <summary>
+    /// Each setting persists under its own key, and every change repaints the whole
+    /// appearance in one call — the browser never holds a new accent under an old theme
+    /// between two round trips.
+    /// </summary>
+    [Fact]
+    public async Task Choosing_an_accent_persists_it_under_its_own_key_and_repaints()
+    {
+        var service = Arrange(prefersDark: true);
+        await service.InitializeAsync();
+
+        await service.SetAccentAsync(DeskAccent.Indigo);
+
+        Assert.Contains((ThemeService.AccentKey, "Indigo"), StoredPairs());
+        Assert.Equal(new object?[] { DarkAttribute, "indigo", 1.0, 1.0 }, LastPaintArguments());
+        Assert.Equal(new MudColor(DeskAccents.Dark(DeskAccent.Indigo).Accent).Value, service.MudTheme.PaletteDark.Primary.Value);
+    }
+
+    [Fact]
+    public async Task Choosing_a_text_size_persists_it_and_scales_the_ramp()
+    {
+        var service = Arrange(prefersDark: false, mode: "Light");
+        await service.InitializeAsync();
+
+        await service.SetTextSizeAsync(DeskTextSize.ExtraLarge);
+
+        Assert.Contains((ThemeService.TextSizeKey, "ExtraLarge"), StoredPairs());
+        Assert.Equal(new object?[] { LightAttribute, "blue", 1.25, 1.0 }, LastPaintArguments());
+    }
+
+    [Fact]
+    public async Task Choosing_a_scale_snaps_persists_and_zooms()
+    {
+        var service = Arrange(prefersDark: true);
+        await service.InitializeAsync();
+
+        await service.SetUiScaleAsync(112);
+
+        Assert.Equal(110, service.UiScale);
+        Assert.Contains((ThemeService.UiScaleKey, "110"), StoredPairs());
+        Assert.Equal(new object?[] { DarkAttribute, "blue", 1.0, 1.1 }, LastPaintArguments());
+    }
+
+    [Fact]
+    public async Task Choosing_what_is_already_showing_does_nothing()
+    {
+        var service = Arrange(prefersDark: true, accent: "Teal", text: "Small", scale: "90");
+        await service.InitializeAsync();
+
+        var announced = 0;
+        service.Changed += () => { announced++; return Task.CompletedTask; };
+
+        await service.SetAccentAsync(DeskAccent.Teal);
+        await service.SetTextSizeAsync(DeskTextSize.Small);
+        await service.SetUiScaleAsync(90);
+
+        Assert.Equal(0, announced);
+        Assert.Empty(Stored());
+    }
+
+    [Fact]
+    public async Task Resetting_the_appearance_returns_every_setting_to_its_default()
+    {
+        var service = Arrange(prefersDark: true, mode: "Light", accent: "Graphite", text: "Large", scale: "75");
+        await service.InitializeAsync();
+
+        await service.ResetAppearanceAsync();
+
+        Assert.Equal(DeskThemeMode.System, service.Mode);
+        Assert.Equal(DeskAccent.Blue, service.Accent);
+        Assert.Equal(DeskTextSize.Default, service.TextSize);
+        Assert.Equal(DeskUiScale.Default, service.UiScale);
+        Assert.Equal(new object?[] { DarkAttribute, "blue", 1.0, 1.0 }, LastPaintArguments());
     }
 }

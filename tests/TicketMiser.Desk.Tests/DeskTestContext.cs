@@ -31,7 +31,7 @@ public abstract class DeskTestContext : TestContext
         // The desk asks its host two things — what it is called and what it can open — and
         // a render test should not have to say either. The application's own catalogue is
         // the honest answer for the second: these tests read its keys by name.
-        Services.AddSingleton(new TicketMiser.Desk.DeskBrand("LINE", "OPS", "test desk"));
+        Services.AddSingleton(new TicketMiser.Desk.DeskBrand("TICKET", "MISER", "test desk"));
         Services.AddSingleton<TicketMiser.Desk.IWindowCatalog, TicketMiser.Web.Windowing.AppWindowCatalog>();
 
         JSInterop.Mode = JSRuntimeMode.Loose;

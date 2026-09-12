@@ -391,6 +391,163 @@ public class DeskThemeTests
             DeskChartPalette.For(DeskChartFamily.Ledger));
     }
 
+    // ---- The accents ---------------------------------------------------------
+
+    public static IEnumerable<object[]> ChosenAccents =>
+        DeskAccents.All.Where(a => a != DeskAccent.Blue).Select(a => new object[] { a });
+
+    /// <summary>
+    /// Every accent other than blue is a compound block on each desk, and each block
+    /// redeclares exactly the five accent tokens — the colour, hover, press and the two
+    /// washes — and nothing else. A sixth token in an accent block is a token the other
+    /// accents fall through on; a fourth is a hover state the default keeps in blue.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(ChosenAccents))]
+    public void Each_accent_redeclares_exactly_the_five_accent_tokens_on_both_desks(DeskAccent accent)
+    {
+        string[] expected = ["--accent", "--accent-hover", "--accent-press", "--accent-wash", "--accent-wash-strong"];
+
+        var dark = Declarations(AccentBlock("apple-dark", accent));
+        var light = Declarations(AccentBlock("light", accent));
+
+        Assert.Equal(expected.Order(), dark.Keys.Order());
+        Assert.Equal(expected.Order(), light.Keys.Order());
+    }
+
+    /// <summary>
+    /// The pairing seam, once per accent. MudBlazor derives hover and darken shades from
+    /// its palette primary; an accent handed only to CSS would hover to a blue.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(ChosenAccents))]
+    public void Csharp_mirrors_each_accent_block(DeskAccent accent)
+    {
+        var dark = AccentBlock("apple-dark", accent);
+        var light = AccentBlock("light", accent);
+        var darkTable = DeskAccents.Dark(accent);
+        var lightTable = DeskAccents.Light(accent);
+
+        Assert.Equal(ColorValue(darkTable.Accent), ColorValue(TokenValue(dark, "--accent", "dark " + accent)), ignoreCase: true);
+        Assert.Equal(ColorValue(darkTable.Hover), ColorValue(TokenValue(dark, "--accent-hover", "dark " + accent)), ignoreCase: true);
+        Assert.Equal(ColorValue(darkTable.Press), ColorValue(TokenValue(dark, "--accent-press", "dark " + accent)), ignoreCase: true);
+        Assert.Equal(ColorValue(darkTable.Wash), ColorValue(TokenValue(dark, "--accent-wash", "dark " + accent)), ignoreCase: true);
+        Assert.Equal(ColorValue(darkTable.WashStrong), ColorValue(TokenValue(dark, "--accent-wash-strong", "dark " + accent)), ignoreCase: true);
+
+        Assert.Equal(ColorValue(lightTable.Accent), ColorValue(TokenValue(light, "--accent", "light " + accent)), ignoreCase: true);
+        Assert.Equal(ColorValue(lightTable.Hover), ColorValue(TokenValue(light, "--accent-hover", "light " + accent)), ignoreCase: true);
+        Assert.Equal(ColorValue(lightTable.Press), ColorValue(TokenValue(light, "--accent-press", "light " + accent)), ignoreCase: true);
+        Assert.Equal(ColorValue(lightTable.Wash), ColorValue(TokenValue(light, "--accent-wash", "light " + accent)), ignoreCase: true);
+        Assert.Equal(ColorValue(lightTable.WashStrong), ColorValue(TokenValue(light, "--accent-wash-strong", "light " + accent)), ignoreCase: true);
+    }
+
+    /// <summary>
+    /// Blue has no block of its own — it is the value the theme blocks already carry — so
+    /// the C# table for blue has to agree with those blocks rather than with a block that
+    /// does not exist.
+    /// </summary>
+    [Fact]
+    public void The_blue_accent_is_the_theme_blocks_own_value()
+    {
+        Assert.Equal(ColorValue(TokenValue("--accent")), ColorValue(DeskAccents.Dark(DeskAccent.Blue).Accent), ignoreCase: true);
+        Assert.Equal(ColorValue(TokenValue("--accent-hover")), ColorValue(DeskAccents.Dark(DeskAccent.Blue).Hover), ignoreCase: true);
+        Assert.Equal(ColorValue(TokenValue("--accent-press")), ColorValue(DeskAccents.Dark(DeskAccent.Blue).Press), ignoreCase: true);
+        Assert.Equal(ColorValue(LightTokenValue("--accent")), ColorValue(DeskAccents.Light(DeskAccent.Blue).Accent), ignoreCase: true);
+        Assert.Equal(ColorValue(LightTokenValue("--accent-hover")), ColorValue(DeskAccents.Light(DeskAccent.Blue).Hover), ignoreCase: true);
+        Assert.Equal(ColorValue(LightTokenValue("--accent-press")), ColorValue(DeskAccents.Light(DeskAccent.Blue).Press), ignoreCase: true);
+    }
+
+    [Theory]
+    [MemberData(nameof(ChosenAccents))]
+    public void The_theme_for_an_accent_hands_mudblazor_that_accent_on_both_palettes(DeskAccent accent)
+    {
+        var theme = DeskTheme.For(accent);
+
+        Assert.Equal(ColorValue(DeskAccents.Dark(accent).Accent), theme.PaletteDark.Primary.Value, ignoreCase: true);
+        Assert.Equal(ColorValue(DeskAccents.Light(accent).Accent), theme.PaletteLight.Primary.Value, ignoreCase: true);
+
+        // Only the accent moved. The surfaces, the states and the scrim are the desk's.
+        Assert.Equal(DeskTheme.Instance.PaletteDark.Surface.Value, theme.PaletteDark.Surface.Value);
+        Assert.Equal(DeskTheme.Instance.PaletteDark.Error.Value, theme.PaletteDark.Error.Value);
+        Assert.Equal(DeskTheme.Instance.PaletteLight.OverlayDark, theme.PaletteLight.OverlayDark);
+    }
+
+    [Fact]
+    public void The_theme_for_an_accent_is_built_once()
+    {
+        Assert.Same(DeskTheme.For(DeskAccent.Purple), DeskTheme.For(DeskAccent.Purple));
+        Assert.Same(DeskTheme.Instance, DeskTheme.For(DeskAccent.Blue));
+    }
+
+    /// <summary>
+    /// Hue is not an affordance channel. An accent that landed on a state hue would make
+    /// a primary button and a positive tag the same colour, so every accent has to sit
+    /// well clear of positive, negative and warning on both desks.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(ChosenAccents))]
+    public void No_accent_borrows_a_state_hue(DeskAccent accent)
+    {
+        foreach (var isDark in new[] { true, false })
+        {
+            var hue = Hue(DeskAccents.For(accent, isDark).Accent);
+            string[] states = isDark
+                ? [DeskTheme.StatePositive, DeskTheme.StateNegative, DeskTheme.StateWarning]
+                : [DeskTheme.LightStatePositive, DeskTheme.LightStateNegative, DeskTheme.LightStateWarning];
+
+            if (hue is null)
+                continue; // graphite has no hue to borrow
+
+            foreach (var state in states)
+            {
+                var distance = Math.Abs(hue.Value - Hue(state)!.Value);
+                distance = Math.Min(distance, 360 - distance);
+
+                Assert.True(distance > 40, $"{accent} sits {distance:F0}° from a state hue");
+            }
+        }
+    }
+
+    /// <summary>
+    /// The accent picker draws its swatches from this ramp, so the whole ramp must be a
+    /// colour the chart palette can also carry — the accent series on a chart follows the
+    /// operator's choice.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(ChosenAccents))]
+    public void The_chart_accent_series_follows_the_chosen_accent(DeskAccent accent)
+    {
+        var dark = DeskChartPalette.For(DeskChartFamily.Movement, isDark: true, accent);
+        var light = DeskChartPalette.For(DeskChartFamily.Movement, isDark: false, accent);
+
+        Assert.Equal(DeskAccents.Dark(accent).Accent, dark[0]);
+        Assert.Equal(DeskAccents.Light(accent).Accent, light[0]);
+    }
+
+    /// <summary>HSL hue in degrees, or null for a grey.</summary>
+    private static double? Hue(string css)
+    {
+        var c = new MudColor(css);
+        double r = c.R / 255d, g = c.G / 255d, b = c.B / 255d;
+        var max = Math.Max(r, Math.Max(g, b));
+        var min = Math.Min(r, Math.Min(g, b));
+        var delta = max - min;
+
+        if (delta < 0.05)
+            return null;
+
+        double hue;
+        if (max == r) hue = ((g - b) / delta) % 6;
+        else if (max == g) hue = (b - r) / delta + 2;
+        else hue = (r - g) / delta + 4;
+
+        hue *= 60;
+        return hue < 0 ? hue + 360 : hue;
+    }
+
+    private static string AccentBlock(string theme, DeskAccent accent)
+        => Block($"\\[data-theme=\"{theme}\"\\]\\[data-accent=\"{DeskAccents.Key(accent)}\"\\]");
+
     /// <summary>Normalizes a colour literal the same way MudColor does, for apples-to-apples comparison.</summary>
     private static string ColorValue(string cssColor) => new MudColor(cssColor).Value;
 

@@ -60,15 +60,22 @@
         const c = container.getBoundingClientRect();
         const t = target.getBoundingClientRect();
 
+        // Rects are viewport pixels; the plate is positioned in the container's own
+        // CSS pixels, which differ when the desk is drawn at a zoom (the UI scale
+        // setting). currentCSSZoom is the standard property; the fallback derives it.
+        const zoom = typeof container.currentCSSZoom === 'number'
+            ? (container.currentCSSZoom || 1)
+            : (container.offsetWidth ? (c.width / container.offsetWidth) || 1 : 1);
+
         // A fresh plate materialises under the control rather than sliding in
         // from wherever it last was.
         if (fresh) plate.classList.add('glide-plate--still');
 
-        plate.style.width = t.width + 'px';
-        plate.style.height = t.height + 'px';
+        plate.style.width = (t.width / zoom) + 'px';
+        plate.style.height = (t.height / zoom) + 'px';
         plate.style.transform =
-            'translate(' + (t.left - c.left + container.scrollLeft) + 'px,'
-                         + (t.top - c.top + container.scrollTop) + 'px)';
+            'translate(' + ((t.left - c.left) / zoom + container.scrollLeft) + 'px,'
+                         + ((t.top - c.top) / zoom + container.scrollTop) + 'px)';
 
         const tone = target.getAttribute('data-glide-tone');
         if (tone) plate.setAttribute('data-tone', tone);

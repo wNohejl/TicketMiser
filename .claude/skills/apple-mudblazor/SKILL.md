@@ -61,7 +61,12 @@ These are the decisions that make the system cohere. Breaking one does not produ
 a variation; it produces an interface that looks like MudBlazor wearing a costume.
 
 - **One accent.** Interactivity, focus, and selection, and nothing else. A second
-  accent is how an interface stops meaning anything.
+  accent is how an interface stops meaning anything. *Which* accent is the operator's
+  (five, from Desk settings); a component never names the hue.
+- **No bare font sizes.** Every `font-size` is a ramp token or
+  `calc(Npx * var(--type-scale))`, so the Text size setting reaches it. Every script
+  that measures the desk divides by `currentCSSZoom`, so the Scale setting does not
+  break it. See the "two dials" section of `references/tokens.md`.
 - **Exactly one Filled button per context.** If a panel seems to need two, one of
   them is not the primary action.
 - **Hue is not an affordance channel.** State colours (green, red, orange) belong

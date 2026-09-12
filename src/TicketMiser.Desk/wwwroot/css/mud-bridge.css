@@ -1,5 +1,5 @@
 /* ============================================================================
-   LineOps — MudBlazor bridge
+   TicketMiser — MudBlazor bridge
 
    MudBlazor arrives with Material Design's opinions baked in: 4px radii, six
    layered drop shadows per elevation step, Roboto, ripples, and a palette that
@@ -65,6 +65,20 @@
        gloss — Apple sets button labels in the same face and case as everything
        else, and leans on weight instead. */
     --mud-typography-button-size: var(--text-body);
+
+    /* Every text role Mud sizes in rem is re-pointed at the ramp, so the text
+       size setting reaches a Mud component the bridge has no rule for. The
+       pairing follows the HIG names: body1 is body, subtitle2 is the headline
+       (body size, heavier), caption is the footnote. */
+    --mud-typography-body1-size: var(--text-body);
+    --mud-typography-body2-size: var(--text-subheadline);
+    --mud-typography-subtitle1-size: var(--text-title3);
+    --mud-typography-subtitle2-size: var(--text-headline);
+    --mud-typography-caption-size: var(--text-footnote);
+    --mud-typography-overline-size: var(--text-caption);
+    --mud-typography-h6-size: var(--text-title2);
+    --mud-typography-h5-size: var(--text-title1);
+    --mud-typography-h4-size: var(--text-largetitle);
     --mud-typography-button-weight: var(--weight-medium);
     --mud-typography-button-letterspacing: 0;
     --mud-typography-button-text-transform: none;
@@ -124,7 +138,7 @@
 }
 
 .mud-list-item {
-    font-size: 13px;
+    font-size: calc(13px * var(--type-scale));
     padding-top: 6px;
     padding-bottom: 6px;
 }
@@ -254,7 +268,7 @@
 .deskgrid .column-header:hover .sort-direction-icon { opacity: .6; }
 .deskgrid .sort-direction-icon.mud-direction-asc,
 .deskgrid .sort-direction-icon.mud-direction-desc { opacity: 1; }
-.deskgrid .sort-direction-icon .mud-icon-root { font-size: 14px; }
+.deskgrid .sort-direction-icon .mud-icon-root { font-size: calc(14px * var(--type-scale)); }
 
 .deskgrid .mud-table-cell.mud-table-cell-hide { display: none; }
 
@@ -438,7 +452,7 @@
     box-shadow: var(--shadow-sheet);
     color: var(--text-primary);
     font-family: var(--face-ui);
-    font-size: 12.5px;
+    font-size: calc(12.5px * var(--type-scale));
     font-weight: 400; /* .mud-alert-filled-* asks for 500; nothing else on the desk does */
     letter-spacing: .01em;
     padding: 4px 12px;
@@ -464,7 +478,7 @@
     opacity: 1;
 }
 
-.mud-snackbar.desk-toast .mud-snackbar-icon .mud-icon-root { font-size: 16px; }
+.mud-snackbar.desk-toast .mud-snackbar-icon .mud-icon-root { font-size: calc(16px * var(--type-scale)); }
 
 /* The close button is an escape, not a button — flat, dim, and it brightens rather than
    fills. Giving it a fill would make the notice look pressable.
@@ -478,12 +492,12 @@
 }
 
 .mud-snackbar.desk-toast .mud-snackbar-close-button:hover { color: var(--text-primary); }
-.mud-snackbar.desk-toast .mud-snackbar-close-button .mud-icon-root { font-size: 15px; }
+.mud-snackbar.desk-toast .mud-snackbar-close-button .mud-icon-root { font-size: calc(15px * var(--type-scale)); }
 
 /* Charts are the one thing MudBlazor was already trusted with. Their labels get the same
    face as everything else, named explicitly because MudChart draws its own SVG text rather
    than inheriting the typography block above. */
-.mud-chart text { font-family: var(--face-ui); font-size: 10px; fill: var(--text-secondary); }
+.mud-chart text { font-family: var(--face-ui); font-size: calc(10px * var(--type-scale)); fill: var(--text-secondary); }
 .mud-charts-grid-line { stroke: var(--separator); }
 
 /* ----------------------------------------------------------------- charts ---- */
@@ -512,14 +526,14 @@
    the window already said what this panel is. */
 .deskchart__headline {
     color: var(--text-primary);
-    font-size: 12.5px;
+    font-size: calc(12.5px * var(--type-scale));
     font-weight: 600;
     letter-spacing: .01em;
 }
 
 .deskchart__takeaway {
     color: var(--text-tertiary);
-    font-size: 11px;
+    font-size: calc(11px * var(--type-scale));
     line-height: 1.35;
 }
 
@@ -533,7 +547,7 @@
 .deskchart .mud-chart-legend {
     color: var(--text-secondary);
     font-family: var(--face-ui);
-    font-size: 10.5px;
+    font-size: calc(10.5px * var(--type-scale));
     letter-spacing: .04em;
 }
 

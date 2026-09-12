@@ -224,3 +224,24 @@ at all. A token gate has to cover `*.razor` and `*.cs`, not just `*.css`.
 a `DeskState`, doc comments describing "the desk's dial" and "steam for money you kept", a
 summary reading "Critical reads as Stop" over a method returning `Negative`. The compiler is
 indifferent to prose, and prose is what the next reader learns the system from.
+
+## Amendment, 2026-09-12: the operator's appearance
+
+Three settings were added to the Desk settings window, and each is one more thing the
+token system absorbed rather than a component change.
+
+**Accent.** Five hues (blue, teal, indigo, purple, graphite), each a
+`[data-theme][data-accent]` block redeclaring exactly the five accent tokens, paired with
+`DeskAccents` in C# so `MudTheme.For(accent)` hands MudBlazor the same primary. The "one
+accent" rule stands; the rule now says the operator picks which one. No accent is a state
+hue, and the test suite measures the hue distance.
+
+**Text size.** The ramp became `calc(Npx * var(--type-scale))`, and so did every off-ramp
+`font-size` in both stylesheets. The setting moves the words and nothing else.
+
+**Scale.** CSS `zoom` on `<body>` from `--ui-scale`. The one consequence outside the
+stylesheet is that viewport pixels and CSS pixels stop agreeing, so the windowing and
+glide scripts divide by `currentCSSZoom` wherever a pointer or a rect meets a style.
+
+Both dials are persisted per browser beside the theme, under `ticketmiser.*` keys.
+
