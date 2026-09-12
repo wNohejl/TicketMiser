@@ -257,7 +257,78 @@ was $Y at on-sale and is sold out". That sentence is the product.
 
 ---
 
-## 5. Open questions to settle by fixture, not by reading
+## 5. Catching the on-sale moment, continuously
+
+The mission's hard part is not the price fetch, it is knowing *when*. Researched
+2026-09-11 against the feed and API documentation, and built into Phase 2 and 3 as follows.
+
+### 5.1 Where the on-sale time comes from
+
+| Source | What it gives | When |
+|---|---|---|
+| **Discovery Feed** | `onsaleStartDateTime`, `onsaleEndDateTime`, `apiOnsaleStartDateTime`, `presales[]` with start and end, `eventStatus`, `venueTimezone`, for every US event | Regenerated daily; one gzipped file per country; no quota cost |
+| **Discovery API** | `sales.public.startDateTime`, `startTBD`, `sales.presales[]`, `dates.status.code`; filters `onsaleStartDateTime` / `onsaleOnAfterStartDate`; sort `onSaleStartDate,asc` | Live; costs quota |
+| **SeatGeek** | `announce_date` only. No on-sale time. | Live |
+| **AXS, Etix** | Nothing programmatic. JamBase's paid feed carries their on-sale signals. | |
+
+So the calendar of on-sales is the feed's, refreshed daily, and the Discovery API is used
+only to confirm a specific event's time inside the last day before it opens, when a
+correction would still matter. A time the feed does not have yet (`startTBD`) is polled
+again by discovery daily until it appears.
+
+### 5.2 The conventions, and why they matter to the cadence
+
+Public on-sales in the US overwhelmingly open at **10:00 local time**, most often on a
+**Friday**, after a presale run that starts **Tuesday** and closes **Thursday night**.
+Nashville is Central Time, so a Friday 10:00 CT on-sale is 15:00 UTC in the feed. Two
+consequences:
+
+- **On-sale days cluster.** A Friday may hold several Nashville on-sales at the same
+  minute. The on-sale watch is therefore driven by the event's own window, not by a
+  per-event timer, and the quota arithmetic in `cadence-check` takes the count of events
+  on sale *today*, because that is the day the budget is under pressure.
+- **Presales are where the price is set.** Platinum and dynamic pricing are live from the
+  first presale, and the Senate report found resale activated before the public on-sale on
+  20 of 29 shows. The public on-sale is the reference the record is anchored on, but the
+  record starts at the first presale for events where the feed lists one: the tick job
+  treats a presale start as a second anchor with the same five-minute window.
+
+### 5.3 The mechanism, as built
+
+1. **Discovery, daily.** The feed adapter streams the US file, keeps Tennessee, and the
+   resolver records `OnSaleAt`, `OnSaleTbd` and the presale windows on each event. The
+   SeatGeek sweep follows and resolves onto the same rows, so the resale id is known before
+   the sale opens. Only a primary or feed source may set or move an on-sale time; a resale
+   source fills a gap and never moves a value.
+2. **The window is arithmetic over T.** `OnSaleWindow` computes marks at T minus 15 minutes,
+   every five minutes to T plus two hours, then hourly for a day. A tick is owed when the
+   current mark has no row yet. A host that restarts inside the window owes the current
+   mark, not the missed ones, so a five-minute outage costs one tick and never a burst.
+3. **The scheduler ticks every minute and asks.** `OnSaleWatchService` finds watched events
+   whose window contains now and whose current mark is unrecorded, fetches every priced
+   source for exactly those events, fetches Inventory Status for the whole batch in one
+   call, and writes one `OnSaleTick` per event per source, with the primary availability on
+   the primary row. Every mark is written whether or not anything changed.
+4. **A watch is the ask.** Nothing is fetched for an event nobody watches. The progression
+   sweep is manual by default; the on-sale watch runs unattended because the watch itself
+   is the operator's instruction, and its cost is quoted in the pull menu.
+5. **Clock.** Every service takes a `TimeProvider`. The cadence test walks a whole window in
+   one-minute steps on a fake clock and asserts that exactly the planned marks land, for
+   every source, and that the alert engine then reads the scripted sellout-and-reappearance
+   out of the record.
+
+### 5.4 What is still unknown, and where it is caught
+
+- Whether the feed's field names match the documentation. The adapter reads them leniently
+  and the first `source-fixture` against the real file is what settles it.
+- Whether `priceRanges` appears before the public on-sale for a presale-only event. The
+  first on-sale window recorded will show it; until then the tick stores a null price and
+  the status code, which is itself the answer.
+- Whether the Inventory Status API needs a partner-level key. Its documentation says a
+  dedicated key on the same portal; if that is refused, the on-sale record still holds
+  price and status from Discovery, and `PrimaryStatus` stays null and says so.
+
+## 6. Open questions to settle by fixture, not by reading
 
 1. Do SeatGeek `stats` prices include fees? Save one Nashville event's response and one
    checkout screen on the same minute.

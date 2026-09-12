@@ -9,9 +9,9 @@ Goal: the repository has the operations shell and working rules.
 
 - [x] Solution, central package versions, `.gitattributes`, `.gitignore`, README.
 - [x] `CLAUDE.md` working rules; `.claude/skills` and `launch.json` travel with the code.
-- [ ] `docker-compose.yml`, `compose.dev.yml`, `.env.example`, `scripts/setup.ps1`,
+- [x] `docker-compose.yml`, `compose.dev.yml`, `.env.example`, `scripts/setup.ps1`,
       `publish-data.ps1`, `restore-data.ps1` carried from LineOps with names changed.
-- [ ] `.github/workflows/ci.yml` carried from LineOps (build, format, test, pending-migration).
+- [x] `.github/workflows/ci.yml` carried from LineOps (build, format, test, pending-migration).
 - [ ] bunit 1.40 → 2.x, so AngleSharp moves off the advisory line and the
       `NuGetAuditSuppress` in `Directory.Packages.props` can go. Eleven test files, about
       seventy call sites (`TestContext` → `BunitContext`, `RenderComponent` → `Render`).
@@ -38,19 +38,23 @@ Goal: real Nashville responses are parsed into canonical observations and stored
 
 Gate: `source-fixture` for every adapter change.
 
-- [ ] Fixtures answering the four open questions in the source research §5
+- [ ] Fixtures answering the four open questions in the source research §6
       (SeatGeek fees, Ticketmaster on-sale sequence, JamBase AXS coverage, Nashville DMA id).
-- [ ] Entities per research §4 plus `OnSaleTick`, `AllIn`, `FaceMin`/`FaceMax`, `Source.Kind`.
-- [ ] `TicketMiser.Data` with partitioned `price_observations` and `on_sale_ticks`, the
+      The committed fixtures are documentation samples until a key exists; each says so in
+      its `.meta.json`.
+- [x] Entities per research §4 plus `OnSaleTick`, `AllIn`, `FaceMin`/`FaceMax`, `Source.Kind`.
+- [x] `TicketMiser.Data` with partitioned `PriceObservations` and `OnSaleTicks`, the
       monthly partition function, `DatabaseInitializer` seeding categories, sources with
       published limits, and Nashville venues with their ticketing provider.
-- [ ] `IPriceSource` contract with `FetchCost`; adapters for Ticketmaster Discovery,
+- [x] `IPriceSource` contract with `FetchCost`; adapters for Ticketmaster Discovery,
       Inventory Status, Discovery Feed (zero quota, disk cap), SeatGeek.
-- [ ] `EventResolver`: fast path on external id, slow path on performer + venue + start
-      within six hours; venue never optional; only the creating source moves a start.
-- [ ] `PriceIngestionService`: reserve budget, fetch, resolve, store on change.
-- [ ] Integration tests on the Postgres fixture: store-on-change, resolver drift, budget
+- [x] `EventResolver`: fast path on external id, slow path on performer or name + venue +
+      start within six hours; venue never optional; only a primary or feed source moves a
+      start or an on-sale time.
+- [x] `PriceIngestionService`: reserve budget, fetch, resolve, store on change.
+- [x] Integration tests on the Postgres fixture: store-on-change, resolver drift, budget
       refusal, the all-in comparison guard.
+- [ ] One manual run against the real sources with a key.
 
 Exit: `dotnet test --filter Adapters` green on committed fixtures only;
 `dotnet test --filter Integration` green on Testcontainers; one manual run writes Nashville
@@ -62,16 +66,18 @@ Goal: the four jobs run on their own, within budget, and the on-sale record is w
 
 Gate: `cadence-check` before any scheduler merge.
 
-- [ ] `Reliability` and `Observability` carried over; `price_drop`, `target_reached` and
-      `primary_reappeared` rules added to the alert engine.
-- [ ] `IngestionScheduler` with an injected `TimeProvider`; `PricePollPlanner` from the
-      cadence rule; `RetentionService` promoting `FinalPrice` and pruning the stream, never
-      `on_sale_ticks`.
-- [ ] Jobs: `events:discover` (feed + SeatGeek), `onsale:watch`, `watchlist:prices`,
+- [x] `Reliability` and `Observability` carried over; `price_drop`, `target_reached` and
+      `primary_reappeared` rules added to the alert engine, each with a runbook section.
+- [x] `IngestionScheduler` with an injected `TimeProvider`; `PricePollPlanner` from the
+      cadence rule; `RetentionService` promoting `FinalPrice`, grading purchases and
+      pruning the stream, never `OnSaleTicks`.
+- [x] Jobs: `events:discover` (feed + SeatGeek), `onsale:watch`, `watchlist:prices`,
       `prices:finalise`.
-- [ ] Cadence tests: one on-sale window on a fake clock, ticks at every five-minute mark.
+- [x] Cadence tests: one on-sale window on a fake clock, ticks at every five-minute mark,
+      for every source, and the reappearance alert read out of the record.
 - [ ] Ops, Incidents, Runs, History windows from LineOps with source names changed; the
       Ops window shows quota used, reserved and next sweep.
+- [ ] The Worker runs one real on-sale window end to end.
 
 Exit: `cadence-check` prints a sane plan for the seeded watchlist; `dotnet test --filter
 Category=Cadence` green; the Worker runs one real on-sale window end to end and the
