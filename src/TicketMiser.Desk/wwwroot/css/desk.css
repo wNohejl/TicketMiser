@@ -712,6 +712,19 @@ body { zoom: var(--ui-scale); }
         color var(--dur-fast) var(--ease-standard);
 }
 
+/* The shortcut, printed at the far end of a drawer key the way a Mac menu prints
+   its equivalents: dim, tabular, and never the thing the eye lands on first. Hidden
+   in the strip itself, where a key has no room for a second word. */
+.bar__kbd {
+    margin-left: auto;
+    padding-left: var(--space-3);
+    font-family: inherit;
+    font-size: var(--text-footnote);
+    font-variant-numeric: tabular-nums;
+    color: var(--text-tertiary);
+    white-space: nowrap;
+}
+
 .bar__key-name {
     min-width: 0;
     overflow: hidden;
@@ -2784,6 +2797,14 @@ select.field option { background: var(--surface-2); color: var(--text-primary); 
     border-color: var(--state-negative);
     box-shadow: 0 0 0 3px var(--state-negative-wash), 0 0 0 1px var(--state-negative);
 }
+/* A settings row: a label column that lines up down the panel, the control, and the
+   sentence that says what the control's position means right now. The label column
+   is a fixed rung so five rows read as one table rather than five paragraphs. */
+.setting { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; min-height: 28px; }
+.setting__label { flex: 0 0 72px; font-size: var(--text-subheadline); color: var(--text-secondary); }
+.setting__hint { font-size: var(--text-footnote); color: var(--text-secondary); }
+.setting__hint.num { font-variant-numeric: tabular-nums; }
+
 .row--end { justify-content: flex-end; }
 .row--start { justify-content: flex-start; }
 .row--center { justify-content: center; }

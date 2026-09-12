@@ -56,7 +56,16 @@ export function apply(theme, accent, typeScale, uiScale) {
     if (scaleMoved) {
         window.dispatchEvent(new Event('resize'));
     }
+
+    // The resolved paint, kept beside the choices it came from. The inline script in
+    // App.razor's <head> stamps this onto <html> before the first frame, so an operator
+    // who chose a light or larger desk never sees the dark, unscaled one flash first.
+    // It is a snapshot, not policy: whatever this session last painted, verbatim, and
+    // the service corrects it within the first render if the machine moved meanwhile.
+    store(PAINT_KEY, JSON.stringify({ theme, accent, typeScale, uiScale }));
 }
+
+const PAINT_KEY = 'ticketmiser.paint';
 
 // Watch the machine's own preference so System mode keeps meaning "system" rather
 // than "whatever system said when the circuit opened". The listener is kept on the

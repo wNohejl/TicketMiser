@@ -37,39 +37,39 @@
 
 <PanelHeader>Appearance</PanelHeader>
 
-<div class="stack" style="gap:14px">
-    <div class="row">
-        <span class="dim" style="min-width:70px; font-size: var(--text-subheadline)">Theme</span>
+<div class="stack" style="gap:10px">
+    <div class="setting">
+        <span class="setting__label">Theme</span>
         <DeskSwitch Options="_themes" Label="Theme"
                     Value="Theme.Mode"
                     ValueChanged="@((DeskThemeMode mode) => Theme.SetModeAsync(mode))" />
         @* Naming the resolved theme is the point of the sentence. "System" alone does not tell
            an operator which desk they are about to get, and it is the one position where the
            answer is not written on the control. *@
-        <span class="dim" style="font-size: var(--text-footnote)">
+        <span class="setting__hint">
             @(Theme.Mode == DeskThemeMode.System
                 ? $"following your machine — {(Theme.IsDark ? "dark" : "light")} right now"
                 : Theme.IsDark ? "dark, whatever your machine says" : "light, whatever your machine says")
         </span>
     </div>
 
-    <div class="row">
-        <span class="dim" style="min-width:70px; font-size: var(--text-subheadline)">Accent</span>
+    <div class="setting">
+        <span class="setting__label">Accent</span>
         <DeskAccentPicker Value="Theme.Accent" IsDark="Theme.IsDark"
                           ValueChanged="@((DeskAccent accent) => Theme.SetAccentAsync(accent))" />
-        <span class="dim" style="font-size: var(--text-footnote)">@DeskAccents.Label(Theme.Accent)</span>
+        <span class="setting__hint">@DeskAccents.Label(Theme.Accent)</span>
     </div>
 
-    <div class="row">
-        <span class="dim" style="min-width:70px; font-size: var(--text-subheadline)">Text size</span>
+    <div class="setting">
+        <span class="setting__label">Text size</span>
         <DeskSwitch Options="_textSizes" Label="Text size"
                     Value="Theme.TextSize"
                     ValueChanged="@((DeskTextSize size) => Theme.SetTextSizeAsync(size))" />
-        <span class="dim num" style="font-size: var(--text-footnote)">body @DeskTextSizes.BodyPx(Theme.TextSize) px</span>
+        <span class="setting__hint num">body @DeskTextSizes.BodyPx(Theme.TextSize) px</span>
     </div>
 
-    <div class="row">
-        <span class="dim" style="min-width:70px; font-size: var(--text-subheadline)">Scale</span>
+    <div class="setting">
+        <span class="setting__label">Scale</span>
         <DeskSwitch Options="_scales" Label="Interface scale" Mono="true"
                     Value="Theme.UiScale"
                     ValueChanged="@((int percent) => Theme.SetUiScaleAsync(percent))" />
@@ -127,8 +127,8 @@
 
 @if (S.PrimaryWindowKey is not null)
 {
-    <div class="row" style="margin-top:10px">
-        <span class="dim" style="min-width:70px; font-size: var(--text-subheadline)">Share</span>
+    <div class="setting" style="margin-top:10px">
+        <span class="setting__label">Share</span>
         <input type="range" min="20" max="80" step="5"
                aria-label="Primary window share"
                value="@((int)(S.PrimaryShare * 100))"
@@ -162,8 +162,8 @@
                     ValueChanged="@(((int W, int H) size) => ApplyPreset(size.W, size.H))" />
     </div>
 
-    <div class="row" style="margin-top:10px">
-        <span class="dim" style="min-width:70px; font-size: var(--text-subheadline)">Custom</span>
+    <div class="setting" style="margin-top:10px">
+        <span class="setting__label">Custom</span>
         @* int? rather than int so that clearing the box is "no number yet" rather than a
            zero the clamp would turn into 640. *@
         <DeskField TValue="int?" Mono="true" type="number" min="640" max="7680" step="10"

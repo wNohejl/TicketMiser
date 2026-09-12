@@ -110,6 +110,11 @@
                             <Glyph Icon="@item.Icon" />
                             <span class="bar__key-name">@item.Title</span>
 
+                            @if (item.Definition?.ShortcutLabel(Manager.IsMac) is { } shortcut)
+                            {
+                                <kbd class="bar__kbd" aria-hidden="true">@shortcut</kbd>
+                            }
+
                             @if (open is not null)
                             {
                                 <span class="bar__pulse @PulseClass(open.Pulse)" aria-hidden="true"></span>
@@ -195,10 +200,16 @@
                 : $"Focus {item.Title}";
 
     /// <summary>An icon has to carry its name somewhere, and a closed one carries it here.</summary>
-    private static string Tip(Item item)
+    private string Tip(Item item)
     {
         if (item.Open is null)
-            return $"{item.Title} — {item.Definition?.Description}";
+        {
+            var shortcut = item.Definition?.ShortcutLabel(Manager.IsMac);
+
+            return shortcut is null
+                ? $"{item.Title} — {item.Definition?.Description}"
+                : $"{item.Title} ({shortcut}) — {item.Definition?.Description}";
+        }
 
         var state = item.Open.Minimised ? " — collapsed, press to restore" : null;
 

@@ -25,10 +25,50 @@ function zoomOf(element) {
     return width ? (element.getBoundingClientRect().width / width) || 1 : 1;
 }
 
-export function initialise(dotNetRef) {
+export function initialise(dotNetRef, shortcuts) {
     dotNet = dotNetRef;
     window.addEventListener('resize', reportViewport, { passive: true });
     reportViewport();
+
+    installShortcuts(shortcuts || []);
+}
+
+export function isMac() {
+    const platform = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '';
+    return /mac|iphone|ipad/i.test(platform);
+}
+
+// ------------------------------------------------------------------- shortcuts ----
+
+// The command modifier is ⌘ on a Mac and Ctrl everywhere else, and a window's shortcut is
+// one key under it. Only the key is matched, in lower case, so ⌘, and ⌘< are the same
+// gesture on a keyboard where they share a cap. The listener is kept on the module so a
+// reconnect replaces it rather than stacking a second one.
+let shortcutListener = null;
+
+function installShortcuts(shortcuts) {
+    if (shortcutListener) {
+        document.removeEventListener('keydown', shortcutListener);
+        shortcutListener = null;
+    }
+
+    if (!shortcuts.length) return;
+
+    const mac = isMac();
+    const byKey = new Map(shortcuts.map((s) => [s.key.toLowerCase(), s.windowKey]));
+
+    shortcutListener = (e) => {
+        const modifier = mac ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey;
+        if (!modifier || e.altKey || e.shiftKey || e.repeat) return;
+
+        const windowKey = byKey.get((e.key || '').toLowerCase());
+        if (!windowKey || !dotNet) return;
+
+        e.preventDefault();
+        dotNet.invokeMethodAsync('OnShortcut', windowKey);
+    };
+
+    document.addEventListener('keydown', shortcutListener);
 }
 
 export function reportViewport() {

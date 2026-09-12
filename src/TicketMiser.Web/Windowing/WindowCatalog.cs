@@ -143,7 +143,8 @@ public static class WindowCatalog
             Group = "System",
             ComponentType = typeof(DeskSettingsPanel),
             Description = "Appearance — theme, accent, text size and scale — then the window ceiling, the primary window and its share, and resolution.",
-            MinWidth = 360
+            MinWidth = 360,
+            Shortcut = ","
         },
 
         // Destinations.

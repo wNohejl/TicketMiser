@@ -247,4 +247,36 @@ public class WindowBarTests : DeskTestContext
 
         Assert.Equal(expected, rendered);
     }
+
+    /// <summary>
+    /// A window that claims a key prints it on its drawer key, the way a Mac menu prints
+    /// its equivalents — and prints the modifier the machine actually has, because a label
+    /// that says ⌘ over a Ctrl listener teaches the wrong gesture.
+    /// </summary>
+    [Fact]
+    public void A_window_with_a_shortcut_prints_it_for_the_platform()
+    {
+        var manager = NewDesk();
+
+        var bar = RenderComponent<WindowBar>();
+        var settings = KeyFor(bar, "Desk settings");
+
+        Assert.Equal("Ctrl+,", settings.QuerySelector(".bar__kbd")?.TextContent.Trim());
+        Assert.Contains("(Ctrl+,)", settings.GetAttribute("title"));
+
+        manager.SetPlatform(isMac: true);
+        bar.Render();
+
+        Assert.Equal("⌘,", KeyFor(bar, "Desk settings").QuerySelector(".bar__kbd")?.TextContent.Trim());
+    }
+
+    [Fact]
+    public void A_window_without_a_shortcut_prints_none()
+    {
+        NewDesk();
+
+        var bar = RenderComponent<WindowBar>();
+
+        Assert.Null(KeyFor(bar, "Watchlist").QuerySelector(".bar__kbd"));
+    }
 }

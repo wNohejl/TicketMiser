@@ -121,6 +121,18 @@ public record WindowDefinition
 
     /// <summary>One line, shown in the launcher. Says what the window does, plainly.</summary>
     public string Description { get; init; } = string.Empty;
+
+    /// <summary>
+    /// A key that opens this window from anywhere on the desk, with the platform's command
+    /// modifier held — "," for settings, the way every Mac app answers ⌘, and every
+    /// Windows app answers Ctrl+,. One character; the desk adds the modifier. Null for the
+    /// many windows that have no claim to a key.
+    /// </summary>
+    public string? Shortcut { get; init; }
+
+    /// <summary>The shortcut as the menu prints it — "⌘," on a Mac, "Ctrl+," elsewhere.</summary>
+    public string? ShortcutLabel(bool isMac)
+        => Shortcut is null ? null : isMac ? $"⌘{Shortcut}" : $"Ctrl+{Shortcut}";
 }
 
 /// <summary>One open window. Mutable — the manager owns it and raises change notifications.</summary>
