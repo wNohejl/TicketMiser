@@ -1,0 +1,10 @@
+# Development overlay. Publishes Postgres to the host so you can run `dotnet run` against
+# it, or connect with psql / a GUI client.
+#
+#   docker compose -f docker-compose.yml -f compose.dev.yml up -d postgres
+#
+# Still bound to 127.0.0.1. Port 5434 so it can sit beside LineOps's 5433 on the same machine.
+services:
+  postgres:
+    ports:
+      - "127.0.0.1:5434:5432"
