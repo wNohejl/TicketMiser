@@ -81,6 +81,15 @@ around 350 event ids per call, near real time. Returns `TICKETS_AVAILABLE`,
 cheap way to watch a sale sell through without spending Discovery quota: one call covers
 the whole Nashville watchlist.
 
+**The other companion: the Discovery Feed.** A daily bulk file per country, gzipped CSV,
+JSON or XML, open to the public on the same developer key. It carries event ids, names,
+venues, attractions, classifications, on-sale dates, presale windows and seller details.
+The price columns are always null since March 2025, and nothing in the documentation says
+the download counts against the 5,000-call quota. That changes the budget: discovery and
+on-sale scheduling come from the feed, and the daily quota is spent only on price
+observations and on-sale watches. Filter the file to Tennessee venues on the way in and
+store only Nashville; the feed is national.
+
 **Terms.** Cache only "for reasonable periods in order to provide the service"; do not
 "derive revenues from the use or provision of the Ticketmaster API"; Ticketmaster may
 rate-limit apps whose calls are "not primarily in response to direct user actions". A
@@ -133,6 +142,11 @@ sweep. Songkick's metro-area API would have been the right shape and is closed t
 - **StubHub:** by application to affiliates@stubhub.com, as the plan says. Phase 2.
 - **AXS, Etix, Vivid Seats, TickPick, Gametime:** no public discovery API. Etix has a
   partner API behind approval and partner terms; worth an email for the clubs.
+- **Gametime specifically:** an affiliate program with a 30-day cookie and nothing for
+  developers. Its one virtue for us is that it shows all-in prices by default, which makes
+  it the honesty check for the other sources' fee handling. Join the affiliate program for
+  the purchase link; buy its data through an aggregator only for spot checks; keep it out
+  of the scheduled poll.
 - **Aggregators that scrape:** TicketsData ($499/month, 10 marketplaces, 5 req/s, section
   level, no history) and Tickets.dev ($0.05 per capture, 9 marketplaces, all-in prices with
   fee broken out, uses "real browsers on residential IPs"). Both are the only way to see
@@ -179,17 +193,57 @@ carry `allInclusivePricing`; SeatGeek observations carry `AllIn = false` until p
 
 | Job | Source | Cadence | What it does |
 |---|---|---|---|
-| `events:discover` | Ticketmaster (`city`+`stateCode`, `classificationName=music`, sort by on-sale) and SeatGeek (`venue.city`, `taxonomies.name=concert`) | Daily | Finds new Nashville events, resolves them, records `sales.public.startDateTime` and presales. |
-| `onsale:watch` | Ticketmaster | Every 5 minutes from T minus 15 minutes to T plus 2 hours, then hourly for 24 hours | The release-moment observation. Status flip to `onsale`, first `priceRanges`, Inventory Status every call. This is the number the mission is about. |
+| `events:discover` | Ticketmaster Discovery Feed (daily file, filtered to Tennessee) and SeatGeek (`venue.city`, `taxonomies.name=concert`) | Daily | Finds new Nashville events, resolves them, records `sales.public.startDateTime` and presales. Costs no Ticketmaster quota. |
+| `onsale:watch` | Ticketmaster Discovery + Inventory Status, SeatGeek | Every 5 minutes from T minus 15 minutes to T plus 2 hours, then hourly for 24 hours | The on-sale record (§4.1). Status flip to `onsale`, first `priceRanges`, Inventory Status and SeatGeek `listing_count` every tick. This is what the mission is about. |
 | `watchlist:prices` | All sources | From the cadence rule: allowance minus reserve, over sweeps, over hours left | The progression. Store on change only. |
 | `prices:finalise` | All sources | At event start | One `FinalPrice` per event per source; prune the stream after. |
 
 **The cadence sum for Nashville.** Ticketmaster at 5,000 per day with a 20 percent reserve
-leaves 4,000 calls. A discovery sweep of Nashville music is roughly 10 pages. A 100-event
-watchlist at one call per event is 100 per sweep, so 39 sweeps a day, one every 37 minutes,
+leaves 4,000 calls, and with discovery on the feed all of them go to prices. A 100-event
+watchlist at one call per event is 100 per sweep, so 40 sweeps a day, one every 36 minutes,
 which is faster than Ticketmaster refreshes prices anyway. On-sale watches are the expensive
-part: 40 calls per event per release day. Budget them first and let the guard refuse the
-rest, which is the LineOps rule.
+part: 40 Discovery calls per event per release day, plus one Inventory Status call per tick
+for the whole list. Budget them first and let the guard refuse the rest, which is the
+LineOps rule.
+
+### 4.1 The on-sale record — the thing nobody else offers
+
+Resale price history is a crowded shelf: TicketData, Event Spy, SeatData, SeatHeat and
+Historica all chart resale prices after the fact and alert on drops. None of them records
+what happened on the primary market in the first hours of a sale, and that is the evidence
+the Senate and the New York Attorney General had to subpoena. The Senate report found 20 of
+29 Bad Bunny shows taking resale orders before the local on-sale had started; the New York
+report says half the house is commonly held back and reappears after the "sellout". A fan
+watching one show cannot see either. The HOLDBACKS Act introduced in July 2026 exists
+because this data is not public.
+
+The on-sale record is, per event, a timestamped ledger of the sale's first hours, kept
+permanently and shown publicly:
+
+- The face and all-in price the second the sale opened, and every change in the next two
+  hours. The price at T is the number nobody keeps.
+- The minute primary inventory went to `FEW_TICKETS_LEFT` and to `TICKETS_NOT_AVAILABLE`.
+- SeatGeek `listing_count` and `lowest_price` in those same minutes, on the same axis.
+- Every later primary re-release: `TICKETS_NOT_AVAILABLE` back to `TICKETS_AVAILABLE`.
+
+It is built entirely from the `onsale:watch` job above: no new source, no scraping, no new
+terms. What it becomes on the desk:
+
+| Surface | What it shows |
+|---|---|
+| Event window, first tab: "Was it really sold out?" | Two lines over the first two hours, primary availability and resale listings, with the on-sale price pinned. |
+| Alert `primary_reappeared` | The one alert no tracker sends: face-value tickets are back on the primary site. Joins `price_drop` and `target_reached` in the alert engine. |
+| Export | The ledger as a dated receipt a fan can attach to a Tennessee Attorney General or FTC complaint. All-in disclosure is Tennessee law; the ledger is proof of what was shown when. |
+| Monthly Nashville report | For every sale that month: minutes to primary sellout versus resale listings present at that minute, by venue. Built from summaries, not copied content. |
+
+**Data it needs beyond the plan:** an `OnSaleTick` row per event per tick (time, source,
+status, resale status, all-in flag, min, max, listing count) in its own partitioned table,
+because it is written at a five-minute cadence and read as a time series, and because it
+is never pruned. `PriceObservation` stays the store-on-change stream for everything after
+the first day.
+
+The price history chart the plan already calls for stays, but it is the second screen. The
+on-sale record is the first.
 
 **The resolver's fast path is the source's own id**, and the slow path is performer plus
 venue plus a start inside six hours. Nashville needs one more rule: the Ryman and the
@@ -219,6 +273,10 @@ was $Y at on-sale and is sold out". That sentence is the product.
 
 - [Ticketmaster Discovery API v2](https://developer.ticketmaster.com/products-and-docs/apis/discovery-api/v2/) — parameters, response fields, quota, paging cap.
 - [Ticketmaster Inventory Status API](https://developer.ticketmaster.com/products-and-docs/apis/inventory-status/) — availability statuses, hourly price refresh.
+- [Ticketmaster Discovery Feed](https://developer.ticketmaster.com/products-and-docs/apis/discovery-feed/) — daily bulk file, on-sale and presale fields, prices null.
+- [Gametime affiliate program](https://affi.io/m/gametime).
+- Existing resale trackers: [TicketData](https://www.ticketdata.com/), [Event Spy](https://www.event-spy.com/), [SeatData](https://seatdata.io/), [SeatHeat](https://seatheat.app/concerts), [Historica](https://www.digitalmusicnews.com/2025/10/21/historica-live-ticket-pricing-tracking/).
+- [NY Senate report on holdbacks](https://www.nysenate.gov/sites/default/files/article/attachment/nys_senate_igo_committee_report_-_live_event_ticketing_practices.pdf); [HOLDBACKS Act](https://www.ticketnews.com/2026/07/pous-holdbacks-act-targets-deceptive-hidden-ticket-inventory-manufactured-scarcity/); [Senate report on early resale activation](https://www.ticketnews.com/2026/03/senate-report-says-ticketmasters-own-records-undercut-its-blame-of-bad-actors-for-high-prices-onsale-chaos/).
 - [Ticketmaster Partner / Availability API](https://developer.ticketmaster.com/products-and-docs/apis/partner/availability/) — `allInclusivePricing`, partner-only access.
 - [Ticketmaster API terms of use](https://developer.ticketmaster.com/support/terms-of-use/) — caching, revenue, rate-limit clauses.
 - [SeatGeek Platform API](https://seatgeek.github.io/) — `/events` filters and `stats`.
