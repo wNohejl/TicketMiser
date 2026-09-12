@@ -1,0 +1,53 @@
+[
+  {
+    "eventId": "Z7r9jZ1AdF9Ex",
+    "eventName": "Example Headliner",
+    "eventStatus": "onsale",
+    "eventStartDateTime": "2026-10-25T00:30:00Z",
+    "eventStartLocalDate": "2026-10-24",
+    "eventStartLocalTime": "19:30:00",
+    "onsaleStartDateTime": "2026-09-18T15:00:00Z",
+    "onsaleEndDateTime": "2026-10-25T02:00:00Z",
+    "apiOnsaleStartDateTime": "2026-09-18T15:00:00Z",
+    "presales": [
+      { "presaleName": "Artist Presale", "presaleStartDateTime": "2026-09-15T15:00:00Z", "presaleEndDateTime": "2026-09-17T03:00:00Z" }
+    ],
+    "venueId": "KovZpZAFnIEA",
+    "venueName": "Bridgestone Arena",
+    "venueCity": "Nashville",
+    "venueStateCode": "TN",
+    "venueCountryCode": "US",
+    "venueTimezone": "America/Chicago",
+    "attractionId": "K8vZ9171ex7",
+    "attractionName": "Example Headliner",
+    "segment": "Music",
+    "minPrice": null,
+    "maxPrice": null
+  },
+  {
+    "eventId": "Z7r9jZ1AdATL",
+    "eventName": "Somewhere Else",
+    "eventStatus": "onsale",
+    "eventStartDateTime": "2026-10-20T00:30:00Z",
+    "onsaleStartDateTime": "2026-09-12T15:00:00Z",
+    "venueId": "KovZpZAATL",
+    "venueName": "State Farm Arena",
+    "venueCity": "Atlanta",
+    "venueStateCode": "GA",
+    "venueCountryCode": "US",
+    "venueTimezone": "America/New_York",
+    "segment": "Music"
+  },
+  {
+    "eventId": "Z7r9jZ1AdSPT",
+    "eventName": "Predators vs. Someone",
+    "eventStatus": "onsale",
+    "eventStartDateTime": "2026-10-22T00:00:00Z",
+    "venueId": "KovZpZAFnIEA",
+    "venueName": "Bridgestone Arena",
+    "venueCity": "Nashville",
+    "venueStateCode": "TN",
+    "venueCountryCode": "US",
+    "segment": "Sports"
+  }
+]

@@ -1,0 +1,5 @@
+[
+  { "eventId": "Z7r9jZ1AdF9Ex", "status": "FEW_TICKETS_LEFT", "resaleStatus": "TICKETS_AVAILABLE" },
+  { "eventId": "Z7r9jZ1AdTBA", "status": "TICKETS_NOT_AVAILABLE", "resaleStatus": "TICKETS_NOT_AVAILABLE" },
+  { "eventId": "Z7r9jZ1AdUNK", "status": "UNKNOWN" }
+]
