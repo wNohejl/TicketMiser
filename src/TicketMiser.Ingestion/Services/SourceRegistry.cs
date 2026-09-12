@@ -22,6 +22,14 @@ public class SourceRegistry(
 
     public IPriceSource? Find(string key) => PriceSources.FirstOrDefault(s => s.Key == key);
 
+    /// <summary>
+    /// Every source key an adapter answers for, including a marketplace key. The reconciler
+    /// enables source rows from this list, and on the first live run it disabled
+    /// ticketmaster-resale because only the adapter's own key was counted.
+    /// </summary>
     public IReadOnlyList<string> RegisteredKeys
-        => PriceSources.Select(s => s.Key).Concat(AvailabilitySources.Select(s => s.Key)).Distinct().ToList();
+        => PriceSources.SelectMany(s => new[] { s.Key, s.KeyFor(ListingChannel.Marketplace) })
+            .Concat(AvailabilitySources.Select(s => s.Key))
+            .Distinct()
+            .ToList();
 }

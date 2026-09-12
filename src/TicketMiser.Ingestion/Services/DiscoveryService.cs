@@ -50,8 +50,11 @@ public class DiscoveryService(
 
         try
         {
-            // A Ticketmaster sweep is a handful of pages; a feed download is one request.
-            if (!await budget.TryReserveAsync(sourceRow, estimatedRequests: 8, ct))
+            // A Ticketmaster sweep is a handful of pages; a feed download is one request, and
+            // the feed's ceiling is a handful a day, so estimating pages for it refused every run.
+            var estimated = source.Kind == SourceKind.Feed ? 1 : 8;
+
+            if (!await budget.TryReserveAsync(sourceRow, estimated, ct))
             {
                 run.Status = RunStatus.Partial;
                 run.Error = "Skipped: source is at its configured budget.";
