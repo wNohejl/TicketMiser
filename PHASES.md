@@ -112,3 +112,62 @@ Gate: `release-check` before the deploy; `monthly-report` after the first full m
 - [ ] `docs/reports/<yyyy-mm>-nashville.md` rendered from the queries, read, then published.
 
 Exit: the report exists and every number in it traces to a query.
+
+## Phase 6 — The record reaches people
+
+Goal: a fan with no account can read a Nashville event's on-sale record from a shared
+link, subscribe to the on-sale calendar, and be told when face value comes back.
+
+Gate: `release-check` before the public URL; `cadence-check` before `watchlist:prices`
+is switched from `Manual` to `Scheduled`. Roadmap: `docs/superpowers/specs/2026-09-12-product-roadmap.md` §10.
+
+- [ ] `Components/Pages/EventRecord.razor` at `/e/{slug}`: anonymous, static-rendered,
+      output-cached; the "Was it really sold out?" component from Phase 4 without the desk
+      chrome; every cell links to its source and shows its `AllIn` flag. Render test
+      `EventRecordPageTests` in the same commit.
+- [ ] `Components/Pages/OnSales.razor` at `/onsales` and `GET /onsales.ics` from the feed's
+      on-sale and presale times; `OnSaleCalendarTests` proves a subscribed calendar shows a
+      presale and a public on-sale for one event, in Nashville local time.
+- [ ] `INotifier` in `TicketMiser.Reliability` with one transactional email provider
+      behind `HttpClient`; `primary_reappeared` is the first rule delivered;
+      `AlertDeliveryTests` proves one alert row becomes one send and a second evaluation
+      does not resend.
+- [ ] `Subscription` entity (email, event, confirmed, unsubscribe token); a per-event
+      subscribe form on `/e/{slug}` with double opt-in and a one-click unsubscribe route.
+- [ ] Affiliate accounts: Ticketmaster and SeatGeek on Impact; `SourceLink` builds the
+      tagged URL and `SourceLinkTests` proves an untagged link never renders on a price cell.
+- [ ] Applications sent and their answers recorded in the research doc §7: SeatGeek partner
+      (sent 2026-09-12), Ticketmaster partner Availability API, StubHub affiliate API,
+      JamBase trial. An answer of "no" is a recorded answer.
+- [ ] First `docs/reports/<yyyy-mm>-nashville.md` published at `/reports/<yyyy-mm>` and
+      mailed to confirmed subscribers.
+
+Exit: `dotnet test --filter "FullyQualifiedName~EventRecord|OnSaleCalendar|AlertDelivery|SourceLink"`
+green; an incognito browser opens `/e/<slug>` for an event that went on sale this month and
+reads its ticks in order; `/onsales.ics` imports into a calendar; one real
+`primary_reappeared` email arrives for a real event.
+
+## Phase 7 — The product keeps people
+
+Goal: a fan can sign in without a password, keep their own watches with target prices,
+and log what they paid.
+
+Gate: `apple-mudblazor` on every window; `cadence-check` after the scheduler polls the
+union of owners' watches.
+
+- [ ] Magic-link sign-in: `AccountEndpoints` issues a single-use token by email, no
+      password anywhere; `OwnerId` on `Watch` and `Purchase` with a migration; Phase 6
+      subscriptions migrate to the owner whose address they carry. `OwnershipTests` proves
+      one owner never reads another's watches.
+- [ ] `IngestionScheduler` polls the union of enabled watches across owners; the Ops window
+      shows the union's quota cost; `cadence-check` prints the plan for it.
+- [ ] Watchlist board and Price history from Phase 4, live once one resale source returns
+      prices; until then the board shows availability and face value only and says so in
+      the empty state.
+- [ ] Purchases, Savings and the receipt export from Phase 4, per owner.
+- [ ] Written clarification from Ticketmaster on the scheduled poller and on retaining
+      tick summaries, filed as `docs/terms/ticketmaster-<yyyy-mm-dd>.md`, before any paid tier.
+
+Exit: a signed-in fan sets a target on a watched event and `target_reached` arrives by
+email from an all-in observation; `dotnet test --filter Ownership` green; the Ops window
+shows the union watchlist inside budget and `cadence-check` agrees.
