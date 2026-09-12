@@ -16,7 +16,25 @@ public record CanonicalPerformerRef(string Name, string? SourcePerformerId = nul
 /// <summary>One presale window as the source lists it.</summary>
 public record CanonicalPresale(string Name, DateTimeOffset? StartsAt, DateTimeOffset? EndsAt);
 
+/// <summary>
+/// Which market a listing is in, as the adapter read it from the payload. A source can carry
+/// both: Ticketmaster lists an AXS room's primary sale once, with presales and an on-sale
+/// time, and its own resale marketplace for the same show as a second event id whose
+/// outlets say <c>tmMarketPlace</c>. The two are different products and are ingested under
+/// different source keys.
+/// </summary>
+public enum ListingChannel
+{
+    Primary,
+    Marketplace
+}
+
 /// <summary>Canonical event as normalised at the adapter boundary.</summary>
+/// <param name="CrossReferences">
+/// Ids for the same event under other sources' keys, where the payload states them.
+/// SeatGeek carries the Ticketmaster event id on many events; storing it lets the resolver
+/// take the fast path across sources instead of the drift window.
+/// </param>
 public record CanonicalEvent(
     string SourceEventId,
     string Name,
@@ -27,9 +45,13 @@ public record CanonicalEvent(
     string? Status = null,
     DateTimeOffset? OnSaleAt = null,
     bool OnSaleTbd = false,
-    IReadOnlyList<CanonicalPresale>? Presales = null)
+    IReadOnlyList<CanonicalPresale>? Presales = null,
+    ListingChannel Channel = ListingChannel.Primary,
+    IReadOnlyDictionary<string, string>? CrossReferences = null)
 {
     public IReadOnlyList<CanonicalPresale> PresaleWindows => Presales ?? [];
+
+    public IReadOnlyDictionary<string, string> KnownAs => CrossReferences ?? new Dictionary<string, string>();
 }
 
 /// <summary>
@@ -74,7 +96,11 @@ public record DiscoveryResult(IReadOnlyList<CanonicalEvent> Events, FetchCost Co
 public record PriceFetchResult(
     IReadOnlyList<CanonicalEvent> Events,
     IReadOnlyList<CanonicalPriceObservation> Observations,
-    FetchCost Cost);
+    FetchCost Cost)
+{
+    /// <summary>The adapter that produced this, set by the caller so persistence can ask it which key a channel lives under.</summary>
+    public IPriceSource Source { get; init; } = null!;
+}
 
 public record AvailabilityResult(IReadOnlyList<CanonicalAvailability> Statuses, FetchCost Cost);
 
@@ -92,6 +118,14 @@ public interface IPriceSource
 
     /// <summary>Which market this source sells in. Decides what its numbers may be compared to.</summary>
     SourceKind Kind { get; }
+
+    /// <summary>
+    /// The source key an event's rows are recorded under, by channel. A source with one
+    /// channel returns <see cref="Key"/> for both; Ticketmaster returns its resale key for a
+    /// marketplace listing. Every id, run and observation for that listing then lives under
+    /// a source whose kind is resale, and the board never confuses the two.
+    /// </summary>
+    string KeyFor(ListingChannel channel) => Key;
 
     /// <summary>Finds events in a place and a window. A feed source answers this from its file.</summary>
     Task<DiscoveryResult> DiscoverAsync(DiscoveryQuery query, CancellationToken ct);

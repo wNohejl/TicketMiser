@@ -31,15 +31,31 @@ public class TicketmasterDiscoveryAdapter(
 {
     public const string SourceKey = "ticketmaster";
 
+    /// <summary>
+    /// Ticketmaster's own resale marketplace, which the Discovery API returns as separate
+    /// events for rooms it does not ticket. Recorded under its own source so its numbers are
+    /// resale numbers.
+    /// </summary>
+    public const string MarketplaceSourceKey = "ticketmaster-resale";
+
     /// <summary>The API's page ceiling: size times page must stay under this.</summary>
     public const int DeepPagingLimit = 1000;
 
     public const int PageSize = 200;
 
+    /// <summary>
+    /// The on-sale time Ticketmaster returns for a marketplace listing that never had a public
+    /// sale of its own. A real date in 1900 is not a date; it is the absence of one.
+    /// </summary>
+    public static readonly DateTimeOffset PlaceholderOnSale = new(1900, 1, 1, 6, 0, 0, TimeSpan.Zero);
+
     private readonly IngestionOptions _options = options.Value;
 
     public string Key => SourceKey;
     public SourceKind Kind => SourceKind.Primary;
+
+    public string KeyFor(ListingChannel channel)
+        => channel == ListingChannel.Marketplace ? MarketplaceSourceKey : SourceKey;
 
     public async Task<DiscoveryResult> DiscoverAsync(DiscoveryQuery query, CancellationToken ct)
     {
@@ -238,6 +254,9 @@ public class TicketmasterDiscoveryAdapter(
             if (sales.TryGetProperty("public", out var pub))
             {
                 onSaleAt = Timestamp(pub, "startDateTime");
+                if (onSaleAt is { } stamp && stamp.Year < 1970)
+                    onSaleAt = null;
+
                 onSaleTbd = pub.TryGetProperty("startTBD", out var tbd) && tbd.ValueKind == JsonValueKind.True;
             }
 
@@ -271,7 +290,8 @@ public class TicketmasterDiscoveryAdapter(
             Status: status,
             OnSaleAt: onSaleAt,
             OnSaleTbd: onSaleTbd,
-            Presales: presales);
+            Presales: presales,
+            Channel: ReadChannel(e));
 
         CanonicalPriceObservation? observation = null;
 
@@ -303,20 +323,42 @@ public class TicketmasterDiscoveryAdapter(
     }
 
     /// <summary>
-    /// The all-in flag, whichever shape it arrives in. Absent means false: an adapter that
-    /// cannot say must say false, never true.
+    /// The all-in flag, whichever shape it arrives in. The real payload carries it as
+    /// <c>ticketing.allInclusivePricing.enabled</c>; the documentation shows it at the top
+    /// level. Absent means false: an adapter that cannot say must say false, never true.
     /// </summary>
     public static bool ReadAllInclusive(JsonElement e)
     {
-        if (!e.TryGetProperty("allInclusivePricing", out var flag))
-            return false;
+        if (e.TryGetProperty("ticketing", out var ticketing)
+            && ticketing.ValueKind == JsonValueKind.Object
+            && ticketing.TryGetProperty("allInclusivePricing", out var nested))
+            return Enabled(nested);
 
-        return flag.ValueKind switch
+        return e.TryGetProperty("allInclusivePricing", out var flag) && Enabled(flag);
+
+        static bool Enabled(JsonElement flag) => flag.ValueKind switch
         {
             JsonValueKind.True => true,
             JsonValueKind.Object => flag.TryGetProperty("enabled", out var enabled) && enabled.ValueKind == JsonValueKind.True,
             _ => false
         };
+    }
+
+    /// <summary>
+    /// Primary unless the outlets say this listing is Ticketmaster's marketplace for a room
+    /// somebody else tickets. A real payload for the Ryman carries a <c>venueBoxOffice</c>
+    /// outlet pointing at axs.com beside a <c>tmMarketPlace</c> outlet; the primary listing
+    /// for the same show has no outlets at all.
+    /// </summary>
+    public static ListingChannel ReadChannel(JsonElement e)
+    {
+        if (!e.TryGetProperty("outlets", out var outlets) || outlets.ValueKind != JsonValueKind.Array)
+            return ListingChannel.Primary;
+
+        var marketplace = outlets.EnumerateArray()
+            .Any(o => string.Equals(Str(o, "type"), "tmMarketPlace", StringComparison.OrdinalIgnoreCase));
+
+        return marketplace ? ListingChannel.Marketplace : ListingChannel.Primary;
     }
 
     private static string MapCategory(string categoryKey) => categoryKey switch

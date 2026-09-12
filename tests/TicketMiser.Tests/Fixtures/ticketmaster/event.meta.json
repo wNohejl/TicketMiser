@@ -1,7 +1,0 @@
-{
-  "source": "ticketmaster",
-  "name": "event",
-  "url": "https://app.ticketmaster.com/discovery/v2/events/{id}.json",
-  "origin": "documentation sample, shaped from the Discovery API v2 reference on 2026-09-11",
-  "note": "Not a live response. Replace with source-fixture as soon as a key is available; the parse tests are written to the documented field names and will hold or fail honestly against the real thing."
-}

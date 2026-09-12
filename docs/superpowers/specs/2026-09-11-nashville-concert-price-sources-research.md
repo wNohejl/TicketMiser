@@ -328,7 +328,55 @@ consequences:
   dedicated key on the same portal; if that is refused, the on-sale record still holds
   price and status from Discovery, and `PrimaryStatus` stays null and says so.
 
-## 6. Open questions to settle by fixture, not by reading
+## 6. What the real responses said
+
+Fixtures recorded 2026-09-11 with a fresh Ticketmaster key and a fresh SeatGeek client id,
+under `tests/TicketMiser.Tests/Fixtures/`. Four things the documentation did not say, each
+now a parse test and, where it changed the design, a code change.
+
+**Ticketmaster does not quote the Live Nation rooms.** Of twenty Nashville music events by
+date, eleven carried a `priceRanges` and all eleven were TicketWeb club shows (the Bluebird,
+3rd & Lindsley, Exit/In, both Basements). Brooks & Dunn at Bridgestone, on sale for seven
+months, carried none on search or on detail, with `ticketing.allInclusivePricing.enabled`
+true. The arena and theatre events have presales and on-sale times and no price. The price
+for the big rooms is not in the free API.
+
+**SeatGeek returns an empty `stats` block to a new client id.** `listing_count.gt=50`
+matched 283 events server-side, so SeatGeek knows the counts, and every event came back
+with `stats: {}` under client id alone, id plus secret, and HTTP basic auth. SeatGeek's
+prices are gated behind something the developer signup does not grant. What it does give:
+events, venues with capacity, performers, and on many events the Ticketmaster event id in a
+`ticketmaster` field, which the resolver now uses as an exact cross-reference.
+
+**The all-in flag lives under `ticketing`.** The documentation shows `allInclusivePricing`
+at the top level; the payload carries `ticketing.allInclusivePricing.enabled`. Six of twenty
+events say true, all of them Live Nation. The adapter reads both shapes.
+
+**Ticketmaster lists AXS rooms twice.** Juanes at the Ryman appears as `G5viZ_A7ur5ht`, the
+primary with three presales and a February on-sale, and as `Z7r9jZ1A7-F__`, whose outlets
+name axs.com as the box office and `tmMarketPlace` as itself, with a public on-sale of
+`1900-01-01`. The second is Ticketmaster's resale marketplace. It is now ingested under its
+own source, `ticketmaster-resale`, of kind resale, and the 1900 date is read as null.
+
+**What this means for the on-sale record.** For the arenas, the record holds the sale
+calendar, the status code, and (once the Inventory Status key exists) the availability
+flips, with the price columns empty until a source that quotes those rooms is added. For
+the clubs the record holds the face-value range from the first tick. The Friday-at-ten
+convention showed up in the data: Trans-Siberian Orchestra and the CMA Awards both open
+2026-09-18 15:00Z, which is Friday 10:00 Central, with a "Debranded Platinum Presale" the
+day before.
+
+**Where arena prices can come from now.** In order of cost: the SeatGeek partner program
+(an application, not a fee; the affiliate signup is the same form), Ticketmaster's partner
+Availability API (a channel-partner agreement), JamBase's paid feed (face value where the
+source publishes it), and the scraping aggregators, which remain out of the scheduled poll.
+
+## 7. Open questions to settle by fixture, not by reading
+
+Answered by the fixtures above: SeatGeek prices are not available to a fresh client id at
+all, so whether they include fees is moot for now; Nashville's Ticketmaster DMA id is 343,
+read from Bridgestone Arena's venue record. Still open: the on-sale sequence of a Platinum
+sale (first chance 2026-09-18 15:00Z), and JamBase's AXS coverage.
 
 1. Do SeatGeek `stats` prices include fees? Save one Nashville event's response and one
    checkout screen on the same minute.

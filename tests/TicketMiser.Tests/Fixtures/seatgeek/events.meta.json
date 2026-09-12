@@ -1,7 +1,0 @@
-{
-  "source": "seatgeek",
-  "name": "events",
-  "url": "https://api.seatgeek.com/2/events?venue.city=Nashville&venue.state=TN&taxonomies.name=concert&per_page=100",
-  "origin": "documentation sample, shaped from seatgeek.github.io on 2026-09-11",
-  "note": "Not a live response. Whether stats prices include fees is unknown; the adapter says AllIn = false until a saved fixture and a checkout screen on the same minute settle it (source research, open question 1)."
-}

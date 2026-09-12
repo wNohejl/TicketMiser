@@ -38,10 +38,12 @@ Goal: real Nashville responses are parsed into canonical observations and stored
 
 Gate: `source-fixture` for every adapter change.
 
-- [ ] Fixtures answering the four open questions in the source research §6
-      (SeatGeek fees, Ticketmaster on-sale sequence, JamBase AXS coverage, Nashville DMA id).
-      The committed fixtures are documentation samples until a key exists; each says so in
-      its `.meta.json`.
+- [x] Real fixtures from both free keys, recorded 2026-09-11; the findings are research §6.
+      Two of the four open questions are answered (SeatGeek gives no prices to a fresh key;
+      the DMA id is 343). The Inventory Status and feed fixtures are still documentation
+      samples and say so in their `.meta.json`.
+- [ ] A source that quotes the Live Nation rooms: SeatGeek partner program application first,
+      Ticketmaster partner Availability API second.
 - [x] Entities per research §4 plus `OnSaleTick`, `AllIn`, `FaceMin`/`FaceMax`, `Source.Kind`.
 - [x] `TicketMiser.Data` with partitioned `PriceObservations` and `OnSaleTicks`, the
       monthly partition function, `DatabaseInitializer` seeding categories, sources with

@@ -75,15 +75,20 @@ public class OnSaleWatchService(
 
         foreach (var source in registry.PricedSources)
         {
+            var keys = PriceIngestionService.KeysOf(source);
+
             var refs = due
-                .Where(e => e.ExternalIds.ContainsKey(source.Key))
-                .Select(e => new ExternalEventRef(e.Id, e.ExternalIds[source.Key]))
+                .SelectMany(e => keys.Where(e.ExternalIds.ContainsKey).Select(k => new ExternalEventRef(e.Id, e.ExternalIds[k])))
+                .Distinct()
                 .ToList();
 
             if (refs.Count == 0)
                 continue;
 
             var sourceRow = await db.Sources.FirstAsync(s => s.Key == source.Key, ct);
+            var rowsByKey = new Dictionary<string, Source> { [source.Key] = sourceRow };
+            foreach (var key in keys.Where(k => k != source.Key))
+                rowsByKey[key] = await db.Sources.FirstAsync(s => s.Key == key, ct);
             var run = new IngestionRun { SourceId = sourceRow.Id, JobKey = JobKey, StartedAt = now, Status = RunStatus.Running };
             db.IngestionRuns.Add(run);
             await db.SaveChangesAsync(ct);
@@ -104,16 +109,25 @@ public class OnSaleWatchService(
                 run.CreditsSpent = result.Cost.Credits;
 
                 var byExternal = result.Observations.ToDictionary(o => o.SourceEventId);
+                var channelByExternal = result.Events.ToDictionary(e => e.SourceEventId, e => e.Channel);
 
                 foreach (var reference in refs)
                 {
                     var evt = due.First(e => e.Id == reference.EventId);
                     byExternal.TryGetValue(reference.SourceEventId, out var o);
 
+                    // The row this listing lives under: the adapter's own key unless the payload
+                    // said marketplace, or unless the event only knows this id under the resale key.
+                    var channel = channelByExternal.GetValueOrDefault(reference.SourceEventId,
+                        evt.ExternalIds.TryGetValue(source.Key, out var primaryId) && primaryId == reference.SourceEventId
+                            ? ListingChannel.Primary
+                            : ListingChannel.Marketplace);
+                    var row = rowsByKey[source.KeyFor(channel)];
+
                     var tick = new OnSaleTick
                     {
                         EventId = evt.Id,
-                        SourceId = sourceRow.Id,
+                        SourceId = row.Id,
                         ObservedAt = now,
                         MinutesFromOnSale = (int)Math.Round((now - evt.OnSaleAt!.Value).TotalMinutes),
                         EventStatusCode = o?.EventStatusCode
@@ -127,7 +141,7 @@ public class OnSaleWatchService(
                     };
 
                     db.OnSaleTicks.Add(tick);
-                    if (source.Kind == SourceKind.Primary)
+                    if (row.Kind == SourceKind.Primary)
                         ticksByEvent[evt.Id] = tick;
 
                     written++;

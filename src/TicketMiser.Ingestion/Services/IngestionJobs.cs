@@ -136,7 +136,7 @@ public class IngestionJobs(
             if (ct.IsCancellationRequested)
                 break;
 
-            var refs = await ingestion.WatchlistRefsAsync(source.Key, ct);
+            var refs = await ingestion.WatchlistRefsAsync(source, ct);
             var outcome = await ingestion.IngestAsync(source, WatchlistPrices, refs, ct);
             rows += outcome.RowsIngested;
             if (outcome.Status == RunStatus.Failed)

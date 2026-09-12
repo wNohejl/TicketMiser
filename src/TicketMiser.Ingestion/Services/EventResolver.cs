@@ -140,6 +140,14 @@ public class EventResolver(TicketMiserDbContext db)
 
         var knownToThisProvider = evt is not null;
 
+        // A cross-reference the payload states is as good as our own id: SeatGeek naming the
+        // Ticketmaster event is an exact match, not a guess inside the drift window.
+        if (evt is null && canonical.KnownAs.Count > 0)
+        {
+            evt = candidates.FirstOrDefault(e => canonical.KnownAs.Any(known =>
+                e.ExternalIds.TryGetValue(known.Key, out var id) && id == known.Value));
+        }
+
         if (evt is null)
         {
             // Slow path: the same fixture as a different provider named it. Same venue, a start
@@ -182,6 +190,17 @@ public class EventResolver(TicketMiserDbContext db)
         }
 
         var changed = false;
+
+        // Cross-references fill gaps only. A source's own id for a row always outranks what
+        // another source says that id is.
+        foreach (var (otherKey, otherId) in canonical.KnownAs)
+        {
+            if (evt!.ExternalIds.ContainsKey(otherKey))
+                continue;
+
+            evt.ExternalIds = new Dictionary<string, string>(evt.ExternalIds) { [otherKey] = otherId };
+            changed = true;
+        }
 
         // Only a schedule authority moves a start time or an on-sale time, and only about a
         // fixture it has already named.

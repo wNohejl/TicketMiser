@@ -1,0 +1,12 @@
+{
+    "source":  "ticketmaster",
+    "name":  "event-ryman-marketplace-juanes",
+    "url":  "https://app.ticketmaster.com/discovery/v2/events/Z7r9jZ1A7-F__.json",
+    "fetchedAt":  "2026-09-12T01:53:32.3432868Z",
+    "status":  200,
+    "bytes":  6780,
+    "redactions":  [
+                       "apikey"
+                   ],
+    "note":  "Add what else was removed, and why, before committing."
+}

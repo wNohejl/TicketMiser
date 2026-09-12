@@ -183,6 +183,12 @@ public class SeatGeekAdapter(
                 category = Str(first, "name");
         }
 
+        // SeatGeek names the Ticketmaster event on many events. That id is the fast path for
+        // the resolver, and it is how a resale row finds its primary without the drift window.
+        Dictionary<string, string>? crossReferences = null;
+        if (Str(e, "ticketmaster") is { Length: > 0 } ticketmasterId)
+            crossReferences = new Dictionary<string, string> { ["ticketmaster"] = ticketmasterId };
+
         var canonical = new CanonicalEvent(
             SourceEventId: id,
             Name: Str(e, "title") ?? Str(e, "short_title") ?? id,
@@ -190,7 +196,8 @@ public class SeatGeekAdapter(
             StartsAt: startsAt.Value,
             Performer: performer,
             CategoryKey: category,
-            Status: Str(e, "status"));
+            Status: Str(e, "status"),
+            CrossReferences: crossReferences);
 
         CanonicalPriceObservation? observation = null;
 

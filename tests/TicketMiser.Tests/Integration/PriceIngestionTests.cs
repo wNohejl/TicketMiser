@@ -50,7 +50,7 @@ public class PriceIngestionTests(PostgresFixture fixture)
         stub.Prices = (refs, now) => refs.Select(r =>
             new CanonicalPriceObservation(r.SourceEventId, now, "USD", lowest, 138m, 1250m, 412, false)).ToList();
 
-        var refs = await service.WatchlistRefsAsync(row.Key, default);
+        var refs = await service.WatchlistRefsAsync(stub, default);
         Assert.Single(refs);
 
         var first = await service.IngestAsync(stub, "watchlist:prices", refs, default);
@@ -92,7 +92,7 @@ public class PriceIngestionTests(PostgresFixture fixture)
         });
         await db.SaveChangesAsync();
 
-        var refs = await service.WatchlistRefsAsync(row.Key, default);
+        var refs = await service.WatchlistRefsAsync(stub, default);
         var outcome = await service.IngestAsync(stub, "watchlist:prices", refs, default);
 
         Assert.Equal(RunStatus.Partial, outcome.Status);
@@ -112,7 +112,7 @@ public class PriceIngestionTests(PostgresFixture fixture)
         stub.Events.Clear();
         stub.Prices = (_, _) => [];
 
-        var refs = await service.WatchlistRefsAsync(row.Key, default);
+        var refs = await service.WatchlistRefsAsync(stub, default);
         var outcome = await service.IngestAsync(stub, "watchlist:prices", refs, default);
 
         Assert.Equal(RunStatus.Partial, outcome.Status);

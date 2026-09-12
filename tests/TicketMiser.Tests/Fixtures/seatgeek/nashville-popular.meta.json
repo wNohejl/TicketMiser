@@ -1,0 +1,12 @@
+{
+    "source":  "seatgeek",
+    "name":  "nashville-popular",
+    "url":  "https://api.seatgeek.com/2/events?venue.city=Nashville\u0026venue.state=TN\u0026taxonomies.name=concert\u0026listing_count.gt=50\u0026sort=score.desc\u0026per_page=5",
+    "fetchedAt":  "2026-09-12T01:52:24.4719115Z",
+    "status":  200,
+    "bytes":  20179,
+    "redactions":  [
+                       "client_id"
+                   ],
+    "note":  "Add what else was removed, and why, before committing."
+}

@@ -77,7 +77,10 @@ public class DiscoveryService(
             foreach (var canonical in result.Events)
             {
                 ct.ThrowIfCancellationRequested();
-                await resolver.ResolveEventAsync(source.Key, canonical, ct);
+
+                // A marketplace listing is recorded under the source's resale key, so the id,
+                // the runs and the prices for it never read as the primary market's.
+                await resolver.ResolveEventAsync(source.KeyFor(canonical.Channel), canonical, ct);
                 rows++;
             }
 

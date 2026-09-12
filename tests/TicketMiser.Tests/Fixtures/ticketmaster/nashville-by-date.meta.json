@@ -1,0 +1,12 @@
+{
+    "source":  "ticketmaster",
+    "name":  "nashville-by-date",
+    "url":  "https://app.ticketmaster.com/discovery/v2/events.json?city=Nashville\u0026stateCode=TN\u0026countryCode=US\u0026classificationName=music\u0026startDateTime=2026-09-12T01:52:16Z\u0026sort=date,asc\u0026size=20",
+    "fetchedAt":  "2026-09-12T01:52:16.3993399Z",
+    "status":  200,
+    "bytes":  176922,
+    "redactions":  [
+                       "apikey"
+                   ],
+    "note":  "Add what else was removed, and why, before committing."
+}

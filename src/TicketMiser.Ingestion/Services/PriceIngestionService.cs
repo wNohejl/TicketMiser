@@ -23,10 +23,15 @@ public class PriceIngestionService(
     TimeProvider clock,
     ILogger<PriceIngestionService> logger)
 {
-    /// <summary>Watched, future events this source has an id for, ready to fetch.</summary>
-    public async Task<IReadOnlyList<ExternalEventRef>> WatchlistRefsAsync(string sourceKey, CancellationToken ct)
+    /// <summary>The source keys an adapter answers for: its own, and its marketplace key when it has one.</summary>
+    public static IReadOnlyList<string> KeysOf(IPriceSource source)
+        => new[] { source.Key, source.KeyFor(ListingChannel.Marketplace) }.Distinct().ToList();
+
+    /// <summary>Watched, future events this adapter has an id for under any of its keys, ready to fetch.</summary>
+    public async Task<IReadOnlyList<ExternalEventRef>> WatchlistRefsAsync(IPriceSource source, CancellationToken ct)
     {
         var now = clock.GetUtcNow();
+        var keys = KeysOf(source);
 
         var events = await db.Watches
             .Where(w => w.Enabled && w.Event!.StartsAt > now)
@@ -34,8 +39,8 @@ public class PriceIngestionService(
             .ToListAsync(ct);
 
         return events
-            .Where(e => e.ExternalIds.ContainsKey(sourceKey))
-            .Select(e => new ExternalEventRef(e.EventId, e.ExternalIds[sourceKey]))
+            .SelectMany(e => keys.Where(e.ExternalIds.ContainsKey).Select(k => new ExternalEventRef(e.EventId, e.ExternalIds[k])))
+            .Distinct()
             .ToList();
     }
 
@@ -84,7 +89,7 @@ public class PriceIngestionService(
             if (source is IFailureInjectable injectable)
                 injectable.FailureMode = sourceRow.FailureMode;
 
-            var result = await source.FetchPricesAsync(refs, ct);
+            var result = (await source.FetchPricesAsync(refs, ct)) with { Source = source };
             run.RequestsMade = result.Cost.Requests;
             run.CreditsSpent = result.Cost.Credits;
 
@@ -122,10 +127,23 @@ public class PriceIngestionService(
 
     private async Task<int> PersistAsync(Source sourceRow, PriceFetchResult result, long runId, CancellationToken ct)
     {
-        // Resolve every event in the payload once; a price fetch also refreshes status.
-        var eventMap = new Dictionary<string, Event>();
+        // Resolve every event in the payload once; a price fetch also refreshes status. A
+        // marketplace listing resolves and is priced under the resale source row.
+        var eventMap = new Dictionary<string, (Event Event, Source Row)>();
+        var rowsByKey = new Dictionary<string, Source> { [sourceRow.Key] = sourceRow };
+
         foreach (var canonical in result.Events)
-            eventMap[canonical.SourceEventId] = await resolver.ResolveEventAsync(sourceRow.Key, canonical, ct);
+        {
+            var key = result.Source.KeyFor(canonical.Channel);
+            if (!rowsByKey.TryGetValue(key, out var row))
+            {
+                row = await db.Sources.FirstOrDefaultAsync(s => s.Key == key, ct)
+                      ?? throw new InvalidOperationException($"Source '{key}' is not registered.");
+                rowsByKey[key] = row;
+            }
+
+            eventMap[canonical.SourceEventId] = (await resolver.ResolveEventAsync(key, canonical, ct), row);
+        }
 
         if (result.Observations.Count == 0)
             return 0;
@@ -134,13 +152,15 @@ public class PriceIngestionService(
 
         foreach (var o in result.Observations)
         {
-            if (!eventMap.TryGetValue(o.SourceEventId, out var evt))
+            if (!eventMap.TryGetValue(o.SourceEventId, out var entry))
                 continue;
+
+            var (evt, row) = entry;
 
             candidates.Add(new PriceObservation
             {
                 EventId = evt.Id,
-                SourceId = sourceRow.Id,
+                SourceId = row.Id,
                 ObservedAt = o.ObservedAt,
                 Currency = o.Currency,
                 Lowest = o.Lowest,
@@ -158,33 +178,37 @@ public class PriceIngestionService(
             return 0;
 
         var eventIds = candidates.Select(c => c.EventId).Distinct().ToList();
+        var sourceIds = rowsByKey.Values.Select(r => r.Id).ToList();
 
         // Events whose final price is on record are done with the stream.
         var finalised = await db.FinalPrices
-            .Where(f => f.SourceId == sourceRow.Id && eventIds.Contains(f.EventId))
-            .Select(f => f.EventId)
+            .Where(f => sourceIds.Contains(f.SourceId) && eventIds.Contains(f.EventId))
+            .Select(f => new { f.EventId, f.SourceId })
             .ToListAsync(ct);
 
-        candidates.RemoveAll(c => finalised.Contains(c.EventId));
+        candidates.RemoveAll(c => finalised.Any(f => f.EventId == c.EventId && f.SourceId == c.SourceId));
 
         var latest = await db.PriceObservations
-            .Where(o => o.SourceId == sourceRow.Id && eventIds.Contains(o.EventId))
-            .GroupBy(o => o.EventId)
+            .Where(o => sourceIds.Contains(o.SourceId) && eventIds.Contains(o.EventId))
+            .GroupBy(o => new { o.EventId, o.SourceId })
             .Select(g => g.OrderByDescending(o => o.ObservedAt).First())
             .ToListAsync(ct);
 
-        var lastSeen = latest.ToDictionary(o => o.EventId, o => (o.Lowest, o.Average, o.Highest, o.ListingCount, o.AllIn));
+        var lastSeen = latest.ToDictionary(
+            o => (o.EventId, o.SourceId),
+            o => (o.Lowest, o.Average, o.Highest, o.ListingCount, o.AllIn));
         var fresh = new List<PriceObservation>();
 
         foreach (var candidate in candidates)
         {
+            var identity = (candidate.EventId, candidate.SourceId);
             var key = (candidate.Lowest, candidate.Average, candidate.Highest, candidate.ListingCount, candidate.AllIn);
 
-            if (lastSeen.TryGetValue(candidate.EventId, out var previous) && previous == key)
+            if (lastSeen.TryGetValue(identity, out var previous) && previous == key)
                 continue;
 
             fresh.Add(candidate);
-            lastSeen[candidate.EventId] = key;
+            lastSeen[identity] = key;
         }
 
         if (fresh.Count == 0)
