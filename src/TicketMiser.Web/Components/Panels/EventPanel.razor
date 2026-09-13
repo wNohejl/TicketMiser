@@ -1,5 +1,4 @@
 @using System.Globalization
-@using System.Text.Json
 @using TicketMiser.Core.Analytics
 @using TicketMiser.Core.Entities
 @using TicketMiser.Web.Components.Records
@@ -203,21 +202,7 @@
         </table>
     };
 
-    private sealed record Presale(string? Name, DateTimeOffset? StartsAt, DateTimeOffset? EndsAt);
-
-    private IReadOnlyList<Presale> Presales()
-    {
-        try
-        {
-            return JsonSerializer.Deserialize<List<Presale>>(
-                Event.Presales,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
-        }
-        catch (JsonException)
-        {
-            return [];
-        }
-    }
+    private IReadOnlyList<EventPresale> Presales() => EventPresale.Parse(Event.Presales);
 
     /// <summary>The instant in the venue's own zone, which is the zone the on-sale was announced in.</summary>
     private string Local(DateTimeOffset instant) => OnSaleRecordView.Local(instant, Event.Venue?.Timezone);

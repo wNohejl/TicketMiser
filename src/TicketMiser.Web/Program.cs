@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Http.HttpResults;
 using MudBlazor;
 using MudBlazor.Services;
+using TicketMiser.Core.Analytics;
 using TicketMiser.Data;
 using TicketMiser.Desk;
 using TicketMiser.Ingestion;
@@ -50,8 +51,15 @@ builder.Services.AddScoped<IOnSaleRecordService, OnSaleRecordService>();
 // link that lands a few hundred readers in a minute costs one query, and a tick written in
 // between reaches them on the next render. Only GET /e/{slug} opts in; nothing else is cached.
 const string EventRecordCache = "event-record";
+// The calendar changes once a day, when discovery runs; a subscription that polls every few
+// hours therefore reads a cached document almost every time.
+const string OnSaleCalendarCache = "onsale-calendar";
 builder.Services.AddOutputCache(options =>
-    options.AddPolicy(EventRecordCache, policy => policy.Expire(TimeSpan.FromMinutes(5))));
+{
+    options.AddPolicy(EventRecordCache, policy => policy.Expire(TimeSpan.FromMinutes(5)));
+    options.AddPolicy(OnSaleCalendarCache, policy => policy.Expire(TimeSpan.FromMinutes(15)));
+});
+builder.Services.AddSingleton<IOnSaleCalendarService, OnSaleCalendarService>();
 
 // What the operations windows read. Each is an interface over the reliability layer and the
 // database so a panel holds no EF query of its own and a render test can hand it a snapshot.
@@ -129,6 +137,24 @@ app.MapGet("/e/{id:int}", async (int id, IOnSaleRecordService records, Cancellat
 app.MapGet("/e/{slug}", (string slug) => new RazorComponentResult<EventRecord>(new { Slug = slug }))
     .AllowAnonymous()
     .CacheOutput(EventRecordCache);
+
+// The on-sale calendar: the page, and the same entries as an iCalendar feed a client
+// subscribes to once. Both anonymous and cached; the feed costs no quota to build because
+// the discovery run already wrote every time it lists.
+app.MapGet("/onsales", () => new RazorComponentResult<OnSales>())
+    .AllowAnonymous()
+    .CacheOutput(OnSaleCalendarCache);
+
+app.MapGet("/onsales.ics", async (HttpContext http, IOnSaleCalendarService calendar, TimeProvider clock, CancellationToken ct) =>
+    {
+        var now = clock.GetUtcNow();
+        var entries = await calendar.LoadAsync(now, ct);
+        var ics = OnSaleIcs.Write(entries, "Nashville on-sales", $"{http.Request.Scheme}://{http.Request.Host}", now);
+        http.Response.Headers.ContentDisposition = "inline; filename=\"nashville-onsales.ics\"";
+        return Results.Text(ics, OnSaleIcs.ContentType);
+    })
+    .AllowAnonymous()
+    .CacheOutput(OnSaleCalendarCache);
 
 // Global Interactive Server render mode: MudBlazor does not support static server
 // rendering, so interactivity is declared once at the root rather than per component.

@@ -129,7 +129,7 @@ is switched from `Manual` to `Scheduled`. Roadmap: `docs/superpowers/specs/2026-
       output-cached; the "Was it really sold out?" component from Phase 4 without the desk
       chrome; every cell links to its source and shows its `AllIn` flag. Render test
       `EventRecordPageTests` in the same commit.
-- [ ] `Components/Pages/OnSales.razor` at `/onsales` and `GET /onsales.ics` from the feed's
+- [x] `Components/Pages/OnSales.razor` at `/onsales` and `GET /onsales.ics` from the feed's
       on-sale and presale times; `OnSaleCalendarTests` proves a subscribed calendar shows a
       presale and a public on-sale for one event, in Nashville local time.
 - [ ] `INotifier` in `TicketMiser.Reliability` with one transactional email provider

@@ -1,0 +1,162 @@
+@using System.Globalization
+@using TicketMiser.Core.Analytics
+@using TicketMiser.Core.Entities
+@using TicketMiser.Web.Services
+@inject IOnSaleCalendarService Calendar
+@inject DeskBrand Brand
+@inject TimeProvider Clock
+
+@*
+    The Nashville on-sale calendar: /onsales, and /onsales.ics for a calendar client.
+
+    Every presale opening and public on-sale the feed has recorded, grouped by day in
+    Nashville time, each linked to the event's on-sale record. It costs no quota — the feed
+    already wrote the times — which makes it the cheapest thing the product offers and the
+    reason a fan comes back before any window has been recorded (roadmap §3, offer B).
+
+    Rendered the way EventRecord is: a whole document with no circuit, mapped from Program.cs
+    and output-cached, so a subscription poll every few hours costs one query at most.
+*@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
+    <base href="/" />
+    <title>Nashville on-sales — @Brand.Wordmark@Brand.Emphasis</title>
+    <meta name="description" content="Every upcoming Nashville concert presale and public on-sale, in Nashville time, with a calendar feed to subscribe to once." />
+    <link rel="alternate" type="text/calendar" title="Nashville on-sales" href="/onsales.ics" />
+    <link rel="stylesheet" href="_content/MudBlazor/MudBlazor.min.css" />
+    <link rel="stylesheet" href="@Assets["_content/TicketMiser.Desk/css/desk.css"]" />
+    <link rel="stylesheet" href="@Assets["_content/TicketMiser.Desk/css/mud-bridge.css"]" />
+    <style>
+        .record-page { max-width: 960px; margin: 0 auto; padding: var(--space-4) var(--space-3) var(--space-6); }
+        .record-page__brand { display: flex; align-items: baseline; gap: var(--space-2); margin-bottom: var(--space-4); }
+        .record-page__brand a { color: var(--text-secondary); text-decoration: none; font-size: var(--text-footnote); font-weight: var(--weight-semibold); letter-spacing: .08em; }
+        .record-page__brand a b { color: var(--text-primary); font-weight: var(--weight-semibold); }
+        .record-page__brand span { color: var(--text-tertiary); font-size: var(--text-footnote); }
+        .record-page h1 { font-size: var(--text-largetitle); font-weight: var(--weight-semibold); margin: 0 0 var(--space-1); line-height: 1.2; }
+        .record-page__where { color: var(--text-secondary); font-size: var(--text-body); margin: 0 0 var(--space-4); max-width: 72ch; line-height: 1.5; }
+        .record-page section { margin-top: var(--space-5); }
+        .record-page section p { color: var(--text-secondary); font-size: var(--text-body); line-height: 1.5; max-width: 72ch; margin: 0 0 var(--space-2); }
+        .record-page a { color: var(--accent); text-decoration: none; }
+        .record-page a:hover { text-decoration: underline; }
+        .record-page footer { margin-top: var(--space-6); padding-top: var(--space-3); border-top: 1px solid var(--separator); color: var(--text-tertiary); font-size: var(--text-footnote); }
+        .subscribe { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin: 0 0 var(--space-4); }
+        .subscribe code { font-family: var(--font-mono); font-size: var(--text-footnote); color: var(--text-secondary); background: var(--fill-tertiary); padding: 2px 6px; border-radius: var(--radius-sm); }
+        .day { margin-top: var(--space-4); }
+        .day h2 { font-size: var(--text-title3); font-weight: var(--weight-semibold); margin: 0 0 var(--space-2); color: var(--text-primary); }
+        .day h2 small { color: var(--text-tertiary); font-weight: var(--weight-regular); font-size: var(--text-footnote); margin-left: var(--space-2); }
+        .onsale { display: grid; grid-template-columns: 6ch 9ch 1fr; gap: var(--space-2); align-items: baseline; padding: var(--space-2) 0; border-top: 1px solid var(--separator); }
+        .onsale__time { font-family: var(--font-mono); font-size: var(--text-subheadline); color: var(--text-primary); }
+        .onsale__event { color: var(--text-primary); font-size: var(--text-body); }
+        .onsale__room { color: var(--text-secondary); font-size: var(--text-footnote); display: block; }
+        .onsale__presale { color: var(--text-tertiary); font-size: var(--text-footnote); }
+        @@media (max-width: 600px) { .onsale { grid-template-columns: 6ch 1fr; } .onsale .tag { grid-column: 2; } }
+    </style>
+</head>
+<body>
+    <main class="record-page">
+        <header class="record-page__brand">
+            <a href="/"><b>@Brand.Wordmark</b>@Brand.Emphasis</a>
+            <span>@Brand.Tagline</span>
+        </header>
+
+        <h1>Nashville on-sales</h1>
+        <p class="record-page__where">
+            Every presale and public on-sale the ticketing sources have announced for a Nashville
+            concert in the next @IOnSaleCalendarService.Horizon.Days days, in Nashville time. Each one
+            links to the event's on-sale record, which starts fifteen minutes before the sale opens.
+        </p>
+
+        <p class="subscribe">
+            <a class="btn btn--tinted" href="webcal://@Host/onsales.ics" title="Subscribe in your calendar app">Subscribe in a calendar</a>
+            <span class="quiet">or add this address to Google Calendar, Apple Calendar or Outlook:</span>
+            <code>@Scheme://@Host/onsales.ics</code>
+        </p>
+
+        @if (_entries.Count == 0)
+        {
+            <EmptyState Kind="EmptyStateKind.Default">
+                No presale or on-sale has been announced for the next @IOnSaleCalendarService.Horizon.Days days.
+                The calendar fills when the daily discovery run reads the feed.
+            </EmptyState>
+        }
+        else
+        {
+            foreach (var day in _entries.GroupBy(e => OnSaleCalendar.InZone(e.StartsAt, e.Zone).Date))
+            {
+                <section class="day">
+                    <h2>
+                        @day.Key.ToString("dddd d MMMM yyyy", CultureInfo.InvariantCulture)
+                        <small>@day.Count() @(day.Count() == 1 ? "sale" : "sales")</small>
+                    </h2>
+                    @foreach (var entry in day)
+                    {
+                        var local = OnSaleCalendar.InZone(entry.StartsAt, entry.Zone);
+                        <div class="onsale">
+                            <span class="onsale__time">@local.ToString("HH:mm", CultureInfo.InvariantCulture)</span>
+                            <Tag State="@(entry.Kind == OnSaleEntryKind.Public ? DeskState.Positive : DeskState.Info)">
+                                @(entry.Kind == OnSaleEntryKind.Public ? "On sale" : "Presale")
+                            </Tag>
+                            <span>
+                                @if (entry.Event.Slug is { Length: > 0 } slug)
+                                {
+                                    <a class="onsale__event" href="/e/@slug">@entry.Event.Name</a>
+                                }
+                                else
+                                {
+                                    <span class="onsale__event">@entry.Event.Name</span>
+                                }
+                                @if (entry.Kind == OnSaleEntryKind.Presale && !string.IsNullOrWhiteSpace(entry.PresaleName))
+                                {
+                                    <span class="onsale__presale"> · @entry.PresaleName</span>
+                                }
+                                <span class="onsale__room">
+                                    @if (entry.Event.Venue is { } venue)
+                                    {
+                                        <text>@venue.Name · </text>
+                                    }
+                                    show @OnSaleCalendar.InZone(entry.Event.StartsAt, entry.Zone).ToString("ddd d MMM HH:mm", CultureInfo.InvariantCulture)
+                                </span>
+                            </span>
+                        </div>
+                    }
+                </section>
+            }
+        }
+
+        <section>
+            <PanelHeader>Where these times come from</PanelHeader>
+            <p>
+                The times are the ones the ticketing source published on its own listing, read from
+                Ticketmaster's daily Discovery Feed and confirmed against the Discovery API in the
+                last day before a sale. Nothing is scraped from a web page. A sale whose time the
+                source has not announced is not shown; it appears when the source announces it.
+                Rooms whose ticketing has no public feed — the Ryman, the Opry House, the Basements —
+                are not on this calendar yet.
+            </p>
+        </section>
+
+        <footer>
+            @_entries.Count @(_entries.Count == 1 ? "entry" : "entries") · read @Clock.GetUtcNow().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) UTC · refreshed with the daily discovery run
+        </footer>
+    </main>
+</body>
+</html>
+
+@code {
+    /// <summary>Null under a render test; the endpoint supplies it so the subscribe address names the real host.</summary>
+    [CascadingParameter] public HttpContext? HttpContext { get; set; }
+
+    private IReadOnlyList<OnSaleEntry> _entries = [];
+
+    private string Host => HttpContext?.Request.Host.Value ?? "localhost:5270";
+
+    private string Scheme => HttpContext?.Request.Scheme ?? "http";
+
+    protected override async Task OnInitializedAsync()
+        => _entries = await Calendar.LoadAsync(Clock.GetUtcNow());
+}
