@@ -1,0 +1,330 @@
+@using TicketMiser.Core.Entities
+@using TicketMiser.Reliability
+@using TicketMiser.Web.Services
+@inherits DeskPanel
+@inject IIncidentQueries Queries
+@inject DeskToasts Toasts
+
+@*
+    The incident record, carried over from LineOps whole. What broke, the notes taken while it
+    was being worked, and the write-up that closes it — an incident cannot be resolved without
+    a root cause and a corrective action, which is what makes the list a record rather than a
+    list of things that broke.
+*@
+
+@if (_selected is null)
+{
+    <MetricRow Style="margin-bottom:16px">
+        <Metric Label="Open"
+                Value="@_open.ToString()"
+                State="@(_open > 0 ? DeskState.Negative : DeskState.Positive)" />
+        <Metric Label="Resolved" Value="@_resolved.ToString()" State="DeskState.Positive" />
+        <Metric Label="Median resolve" Value="@_mttr" />
+    </MetricRow>
+
+    @if (_incidents.Count == 0)
+    {
+        <EmptyState Kind="EmptyStateKind.New">
+            <ChildContent>
+                No incidents recorded. An alert on the Ops window becomes an incident when it
+                is promoted, and a critical rule that fires twice promotes itself.
+            </ChildContent>
+            <Action>
+                <DeskButton Size="DeskKeySize.Small" Emphasis="DeskEmphasis.Tinted"
+                            Icon="@Icons.Material.Filled.MonitorHeart"
+                            OnClick="OpenOps">
+                    Open Ops
+                </DeskButton>
+            </Action>
+        </EmptyState>
+    }
+    else
+    {
+        <DeskGrid T="Incident" Items="_incidents" Class="deskgrid--clickable"
+                  OnRowClick="@(e => SelectAsync(e.Item.Id))"
+                  EmptyText="No incidents match this filter.">
+            <PropertyColumn T="Incident" TProperty="int" Property="i => i.Id" Title="#" CellClass="mud-align-right" HeaderClass="mud-align-right">
+                <CellTemplate><span class="mono dim">@context.Item.Id</span></CellTemplate>
+            </PropertyColumn>
+
+            <PropertyColumn T="Incident" TProperty="AlertSeverity" Property="i => i.Severity" Title="Severity">
+                <CellTemplate>
+                    <Tag State="@SeverityState(context.Item.Severity)">
+                        @context.Item.Severity
+                    </Tag>
+                </CellTemplate>
+            </PropertyColumn>
+
+            <PropertyColumn T="Incident" TProperty="string" Property="i => i.Title" Title="What happened">
+                <CellTemplate>
+                    <DeskLink Destination="RCA"
+                              Icon="@Icons.Material.Filled.Description"
+                              OnClick="() => SelectAsync(context.Item.Id)">
+                        @context.Item.Title
+                    </DeskLink>
+                </CellTemplate>
+            </PropertyColumn>
+
+            <PropertyColumn T="Incident" TProperty="IncidentStatus" Property="i => i.Status" Title="State">
+                <CellTemplate><Tag State="@StatusState(context.Item.Status)">@context.Item.Status</Tag></CellTemplate>
+            </PropertyColumn>
+
+            <PropertyColumn T="Incident" TProperty="DateTimeOffset" Property="i => i.OpenedAt" Title="Opened"
+                            CellClass="mud-align-right" HeaderClass="mud-align-right" InitialDirection="SortDirection.Descending">
+                <CellTemplate><span class="dim">@context.Item.OpenedAt.ToLocalTime().ToString("MMM d HH:mm")</span></CellTemplate>
+            </PropertyColumn>
+
+            @* Sorted, because "which incidents still owe an RCA" is the discipline this
+               window exists to enforce. *@
+            <PropertyColumn T="Incident" TProperty="bool"
+                            Property="@(i => !string.IsNullOrWhiteSpace(i.RootCause))" Title="RCA">
+                <CellTemplate>
+                    @if (string.IsNullOrWhiteSpace(context.Item.RootCause))
+                    {
+                        <Tag State="DeskState.Warning">Missing</Tag>
+                    }
+                    else
+                    {
+                        <Tag State="DeskState.Positive">Written</Tag>
+                    }
+                </CellTemplate>
+            </PropertyColumn>
+        </DeskGrid>
+    }
+}
+else
+{
+    <div class="row" style="margin-bottom:10px">
+        <DeskButton Icon="@Icons.Material.Filled.ArrowBack" OnClick="() => _selected = null">
+            All incidents
+        </DeskButton>
+        <Tag State="@SeverityState(_selected.Severity)">
+            @_selected.Severity
+        </Tag>
+        <Tag State="@StatusState(_selected.Status)">@_selected.Status</Tag>
+    </div>
+
+    <PanelHeader>#@_selected.Id — @_selected.Title</PanelHeader>
+
+    @* The procedure before the workspace: an incident is opened to be worked, and the first thing
+       the person working it needs is the triage steps for the rule that raised it. *@
+    @foreach (var rule in _rules)
+    {
+        <RunbookSteps RuleKey="@rule" Open="@(_selected.Status != IncidentStatus.Resolved)" />
+    }
+
+    <PanelHeader>Timeline</PanelHeader>
+    <div class="stack">
+        @foreach (var note in _timeline)
+        {
+            <div>
+                <div class="mono dim" style="font-size: var(--text-footnote)">
+                    @note.At.ToLocalTime().ToString("MMM d HH:mm:ss")
+                </div>
+                <div style="font-size: var(--text-subheadline)">@note.Note</div>
+            </div>
+        }
+    </div>
+
+    <div class="row" style="margin-top:10px">
+        @* Immediate: the Add key beside it is disabled until there is text, so the key has
+           to learn about the first keystroke rather than about the blur. *@
+        <DeskField TValue="string" Immediate="true" style="flex:1; min-width:180px"
+                   placeholder="Add a timeline note" @bind-Value="_newNote" />
+        <DeskButton OnClick="AddNoteAsync"
+                    Disabled="@string.IsNullOrWhiteSpace(_newNote)"
+                    Title="@(string.IsNullOrWhiteSpace(_newNote) ? "Type the note first." : null)">
+            Add
+        </DeskButton>
+    </div>
+
+    <PanelHeader Gap="PanelHeaderGap.Section">Root-cause analysis</PanelHeader>
+    <Note State="@(_selected.Status == IncidentStatus.Resolved ? DeskState.Neutral : DeskState.Warning)"
+          Style="margin:12px 0">
+        Both fields are required to resolve. An incident without a cause and a fix teaches
+        nothing later.
+    </Note>
+
+    <div class="stack" style="margin-top:10px">
+        <DeskTextArea rows="4"
+                      placeholder="What actually broke, and why did it break now?"
+                      @bind-Value="_rootCause" />
+
+        <DeskTextArea rows="4"
+                      placeholder="What change prevents a recurrence? Reference the commit."
+                      @bind-Value="_corrective" />
+
+        @if (_error is not null)
+        {
+            <Note State="DeskState.Warning" Style="margin:12px 0">@_error</Note>
+        }
+
+        <div class="row">
+            @* Two different reasons this key is grey, and the operator cannot tell them apart
+               by looking: the RCA is short of a field, or the incident is already resolved and
+               there is nothing left to do. The Note above states the rule; the title states
+               which of the two is true right now. *@
+            <DeskButton Emphasis="DeskEmphasis.Filled" Icon="@Icons.Material.Filled.TaskAlt"
+                        OnClick="ResolveAsync" Disabled="@(!CanResolve)"
+                        Title="@ResolveHint">
+                Resolve incident
+            </DeskButton>
+
+            @if (_selected.Status == IncidentStatus.Open)
+            {
+                <DeskButton OnClick="MitigateAsync">Mark mitigated</DeskButton>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    /// <summary>Set when opened from an alert's incident reference elsewhere on the desk.</summary>
+    [Parameter] public int? IncidentId { get; set; }
+
+    private IReadOnlyList<Incident> _incidents = [];
+    private Incident? _selected;
+    private IReadOnlyList<TimelineNote> _timeline = [];
+
+    /// <summary>Distinct rules behind this incident. Usually one, but a source failing two ways at
+    /// once is promoted from whichever alert was clicked and can accumulate more.</summary>
+    private IReadOnlyList<string> _rules = [];
+    private string _rootCause = string.Empty;
+    private string _corrective = string.Empty;
+    private string _newNote = string.Empty;
+    private string? _error;
+    private int _open;
+    private int _resolved;
+    private string _mttr = "—";
+
+    private bool CanResolve
+        => !string.IsNullOrWhiteSpace(_rootCause)
+           && !string.IsNullOrWhiteSpace(_corrective)
+           && _selected?.Status != IncidentStatus.Resolved;
+
+    /// <summary>Why the resolve key is grey, or null when it is not.</summary>
+    private string? ResolveHint => CanResolve
+        ? null
+        : _selected?.Status == IncidentStatus.Resolved
+            ? "This incident is already resolved."
+            : "Both the cause and the corrective action are needed.";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+
+        // Following an alert's incident number lands on that incident's RCA, not the list.
+        if (IncidentId is { } id)
+            await SelectAsync(id);
+    }
+
+    private async Task LoadAsync()
+    {
+        _incidents = await Queries.GetAllAsync();
+        _open = _incidents.Count(i => i.Status != IncidentStatus.Resolved);
+        _resolved = _incidents.Count(i => i.Status == IncidentStatus.Resolved);
+
+        var durations = _incidents
+            .Where(i => i.TimeToResolve is not null)
+            .Select(i => i.TimeToResolve!.Value)
+            .OrderBy(t => t).ToList();
+
+        _mttr = durations.Count == 0 ? "—" : Duration(durations[durations.Count / 2]);
+
+        Report(_open > 0 ? PulseState.Critical : PulseState.Healthy,
+            _open > 0 ? $"{_open} open" : "none open");
+    }
+
+    private async Task SelectAsync(int id)
+    {
+        _selected = await Queries.GetAsync(id);
+        _error = null;
+
+        if (_selected is not null)
+        {
+            _timeline = IncidentService.Deserialise(_selected.Timeline);
+            _rootCause = _selected.RootCause ?? string.Empty;
+            _corrective = _selected.CorrectiveActions ?? string.Empty;
+
+            _rules = _selected.Alerts
+                .Select(a => a.RuleKey)
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(k => k, StringComparer.Ordinal)
+                .ToList();
+        }
+    }
+
+    private async Task AddNoteAsync()
+    {
+        if (_selected is null)
+            return;
+
+        await Queries.AddNoteAsync(_selected.Id, _newNote);
+
+        _newNote = string.Empty;
+        await SelectAsync(_selected.Id);
+    }
+
+    private async Task ResolveAsync()
+    {
+        if (_selected is null)
+            return;
+
+        try
+        {
+            await Queries.ResolveAsync(_selected.Id, _rootCause, _corrective);
+
+            _error = null;
+            var id = _selected.Id;
+            await LoadAsync();
+            await SelectAsync(id);
+
+            // Resolving closes the loop somewhere the operator is not looking: the desk's open
+            // count, the pulse, and the Ops window's incident metric all move. The status tag
+            // on this page already confirms the resolve itself, so the notice reports the
+            // wider consequence rather than repeating it.
+            //
+            // The failure path deliberately does not toast. A rejected resolve needs the
+            // operator to edit the two fields above it, and a notice that has auto-dismissed
+            // cannot be read next to the field it is about — that stays in _error, inline.
+            Toasts.Success($"Incident #{id} resolved — {(_open == 0 ? "none" : _open.ToString())} still open.");
+        }
+        catch (ArgumentException ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private async Task MitigateAsync()
+    {
+        if (_selected is null)
+            return;
+
+        await Queries.SetStatusAsync(_selected.Id, IncidentStatus.Mitigated);
+        await SelectAsync(_selected.Id);
+    }
+
+    private void OpenOps()
+    {
+        if (WindowCatalog.Find(WindowCatalog.Ops) is { } definition)
+            Manager.Open(definition);
+    }
+
+    private static DeskState StatusState(IncidentStatus status) => status switch
+    {
+        IncidentStatus.Open => DeskState.Negative,
+        IncidentStatus.Mitigated => DeskState.Warning,
+        _ => DeskState.Positive
+    };
+
+    /// <summary>Critical reads as Negative; anything below it is Warning.</summary>
+    private static DeskState SeverityState(AlertSeverity severity)
+        => severity == AlertSeverity.Critical ? DeskState.Negative : DeskState.Warning;
+
+    private static string Duration(TimeSpan t) => t.TotalMinutes switch
+    {
+        < 60 => $"{t.TotalMinutes:F0}m",
+        < 1440 => $"{t.TotalHours:F1}h",
+        _ => $"{t.TotalDays:F1}d"
+    };
+}

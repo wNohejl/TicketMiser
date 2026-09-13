@@ -104,7 +104,7 @@ public static class WindowCatalog
             Title = "Ops",
             Icon = Icons.Material.Filled.MonitorHeart,
             Group = "Operations",
-            ComponentType = typeof(Placeholder),
+            ComponentType = typeof(OpsPanel),
             Description = "Source health, the allowance each feed has left, and the open alerts.",
             DefaultWeight = 1.4
         },
@@ -114,7 +114,7 @@ public static class WindowCatalog
             Title = "Incidents",
             Icon = Icons.Material.Filled.Warning,
             Group = "Operations",
-            ComponentType = typeof(Placeholder),
+            ComponentType = typeof(IncidentsPanel),
             Description = "What broke, and the write-up that closes it."
         },
         new()
@@ -123,7 +123,7 @@ public static class WindowCatalog
             Title = "Runs",
             Icon = Icons.Material.Filled.PlayArrow,
             Group = "Operations",
-            ComponentType = typeof(Placeholder),
+            ComponentType = typeof(RunsPanel),
             Description = "Every fetch, what it cost, and what it wrote."
         },
         new()
@@ -132,7 +132,7 @@ public static class WindowCatalog
             Title = "History",
             Icon = Icons.Material.Filled.History,
             Group = "Operations",
-            ComponentType = typeof(Placeholder),
+            ComponentType = typeof(HistoryPanel),
             Description = "Walk past events for their final prices, where a source still offers them."
         },
         new()
@@ -156,7 +156,7 @@ public static class WindowCatalog
             Title = "Event",
             Icon = Icons.Material.Filled.Event,
             Group = "Data",
-            ComponentType = typeof(Placeholder),
+            ComponentType = typeof(EventPanel),
             Singleton = false,
             Description = "One event: every source's price now, its history, and the purchases logged against it."
         },

@@ -81,7 +81,7 @@ Gate: `cadence-check` before any scheduler merge.
       `prices:finalise`.
 - [x] Cadence tests: one on-sale window on a fake clock, ticks at every five-minute mark,
       for every source, and the reappearance alert read out of the record.
-- [ ] Ops, Incidents, Runs, History windows from LineOps with source names changed; the
+- [x] Ops, Incidents, Runs, History windows from LineOps with source names changed; the
       Ops window shows quota used, reserved and next sweep.
 - [ ] The Worker runs one real on-sale window end to end.
 

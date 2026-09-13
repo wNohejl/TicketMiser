@@ -8,6 +8,7 @@ using TicketMiser.Ingestion;
 using TicketMiser.Observability;
 using TicketMiser.Reliability;
 using TicketMiser.Web.Components;
+using TicketMiser.Web.Services;
 using TicketMiser.Web.Windowing;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -38,6 +39,18 @@ builder.Services.AddMudServices(options =>
 // application is called, and reads its windows from the catalogue registered beneath it.
 builder.Services.AddDesk(new DeskBrand("TICKET", "MISER", "ticket prices, compiled and remembered"));
 builder.Services.AddSingleton<IWindowCatalog, AppWindowCatalog>();
+
+// The queries the windows read. Each takes the context factory AddTicketMiserData registers,
+// so a circuit never holds a context open between renders.
+builder.Services.AddScoped<IOnSaleRecordService, OnSaleRecordService>();
+
+// What the operations windows read. Each is an interface over the reliability layer and the
+// database so a panel holds no EF query of its own and a render test can hand it a snapshot.
+// Singletons: none holds state, each opens a scope or a context per call.
+builder.Services.AddSingleton<IOpsQueries, OpsQueries>();
+builder.Services.AddSingleton<IIncidentQueries, IncidentQueries>();
+builder.Services.AddSingleton<IRunQueries, RunQueries>();
+builder.Services.AddSingleton<IHistoryQueries, HistoryQueries>();
 
 // Persist Data Protection keys outside the container when a path is configured, so a
 // replaced container does not invalidate every live circuit.

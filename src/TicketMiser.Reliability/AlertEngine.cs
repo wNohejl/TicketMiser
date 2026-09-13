@@ -23,15 +23,6 @@ public static class AlertRules
     public const string PrimaryReappeared = "primary_reappeared";
 }
 
-/// <summary>The Inventory Status API's words for primary inventory, as stored on a tick.</summary>
-public static class InventoryStatus
-{
-    public const string Available = "TICKETS_AVAILABLE";
-    public const string FewLeft = "FEW_TICKETS_LEFT";
-    public const string NotAvailable = "TICKETS_NOT_AVAILABLE";
-    public const string Unknown = "UNKNOWN";
-}
-
 /// <summary>
 /// Evaluates KPI rules and reconciles the result against currently open alerts.
 ///
