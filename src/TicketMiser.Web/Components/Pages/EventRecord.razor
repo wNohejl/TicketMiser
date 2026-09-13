@@ -1,0 +1,214 @@
+@using System.Globalization
+@using TicketMiser.Core.Analytics
+@using TicketMiser.Core.Entities
+@using TicketMiser.Web.Components.Records
+@using TicketMiser.Web.Services
+@inject IOnSaleRecordService Records
+@inject DeskBrand Brand
+
+@*
+    The public on-sale record: /e/{slug}.
+
+    This is the product. A fan with no account opens a Nashville event's record from a link
+    someone shared, and sees what the primary market said in the first two hours of the sale
+    beside what the resale market was listing in the same minutes — the same component the
+    operator's Event window draws, without the desk around it.
+
+    No @page directive, and on purpose. App.razor renders the router under a global
+    InteractiveServer mode, so any @page under it would open a circuit; this page has no
+    reason to. Program.cs maps GET /e/{slug} to a RazorComponentResult of this component,
+    which is rendered once, statically, as a whole document, and the output cache keeps that
+    document for five minutes. A whole document because there is no App.razor around it:
+    the head here is the desk's stylesheets and nothing else. No blazor.web.js, no MudBlazor
+    script — every link on the page is an anchor and the charts are SVG, so the page is
+    complete before the first script would have run.
+
+    What the page says beside the record is bound by docs/legal-guidelines.md: rule 3 puts
+    a citation on every cell and SeatGeek's name where its numbers are; rule 4 says why
+    there are only numbers here; rule 9 says the page never claims a violation occurred —
+    it shows the timeline and says where a reader can take it.
+*@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
+    <base href="/" />
+    <title>@Title</title>
+    @if (_record is not null)
+    {
+        <meta name="description" content="@Description" />
+    }
+    else
+    {
+        <meta name="robots" content="noindex" />
+    }
+    <link rel="stylesheet" href="_content/MudBlazor/MudBlazor.min.css" />
+    <link rel="stylesheet" href="@Assets["_content/TicketMiser.Desk/css/desk.css"]" />
+    <link rel="stylesheet" href="@Assets["_content/TicketMiser.Desk/css/mud-bridge.css"]" />
+    <style>
+        /* The page, not the desk: one column of the desk's tokens with no chrome around it.
+           Every size is a ramp token, so the type scale the desk ships applies here too. */
+        .record-page { max-width: 960px; margin: 0 auto; padding: var(--space-4) var(--space-3) var(--space-6); }
+        .record-page__brand { display: flex; align-items: baseline; gap: var(--space-2); margin-bottom: var(--space-4); }
+        .record-page__brand a { color: var(--text-secondary); text-decoration: none; font-size: var(--text-footnote); font-weight: var(--weight-semibold); letter-spacing: .08em; }
+        .record-page__brand a b { color: var(--text-primary); font-weight: var(--weight-semibold); }
+        .record-page__brand span { color: var(--text-tertiary); font-size: var(--text-footnote); }
+        .record-page h1 { font-size: var(--text-largetitle); font-weight: var(--weight-semibold); margin: 0 0 var(--space-1); line-height: 1.2; }
+        .record-page__where { color: var(--text-secondary); font-size: var(--text-body); margin: 0 0 var(--space-4); }
+        .record-page__where span + span::before { content: " · "; color: var(--text-tertiary); }
+        .record-page section { margin-top: var(--space-6); }
+        .record-page section p { color: var(--text-secondary); font-size: var(--text-body); line-height: 1.5; max-width: 72ch; margin: 0 0 var(--space-2); }
+        .record-page section a, .record-page .cite { color: var(--accent); text-decoration: none; }
+        .record-page section a:hover, .record-page .cite:hover { text-decoration: underline; }
+        .record-page .cite { border-bottom: 1px solid var(--separator); }
+        .record-page footer { margin-top: var(--space-6); padding-top: var(--space-3); border-top: 1px solid var(--separator); color: var(--text-tertiary); font-size: var(--text-footnote); }
+        .record-page .grid th, .record-page .grid td { white-space: nowrap; }
+    </style>
+</head>
+<body>
+    <main class="record-page">
+        <header class="record-page__brand">
+            <a href="/"><b>@Brand.Wordmark</b>@Brand.Emphasis</a>
+            <span>@Brand.Tagline</span>
+        </header>
+
+        @if (_record is null)
+        {
+            <h1>No record at this address</h1>
+            <p class="record-page__where">
+                Nothing lives at <span class="num">/e/@(Slug ?? EventId?.ToString(CultureInfo.InvariantCulture))</span>.
+                A record's address is its performer, its room and its date; check the link you were given.
+            </p>
+            <EmptyState Kind="EmptyStateKind.Error">
+                No event on record has that address. The link may be mistyped, or the event may not have been watched.
+            </EmptyState>
+        }
+        else
+        {
+            <h1>@Event.Name</h1>
+            <p class="record-page__where">
+                @if (Event.Performer is { } performer && performer.Name != Event.Name)
+                {
+                    <span>@performer.Name</span>
+                }
+                @if (Event.Venue is { } venue)
+                {
+                    <span>@venue.Name, @venue.City, @venue.State</span>
+                }
+                <span>@OnSaleRecordView.Local(Event.StartsAt, Event.Venue?.Timezone)</span>
+                @if (Event.OnSaleAt is { } onSale && !Event.OnSaleTbd)
+                {
+                    <span>on sale @OnSaleRecordView.Local(onSale, Event.Venue?.Timezone)</span>
+                }
+            </p>
+
+            <div class="stack" style="--desk-gap:16px">
+                <OnSaleRecordView Record="_record" InDesk="false" />
+            </div>
+
+            <section>
+                <PanelHeader>How this was collected</PanelHeader>
+                <p>
+                    Every number on this page came from an official API — @ApiOwners — read at the
+                    minute shown against the announced on-sale time. Nothing was scraped from a web page. Each tick links to the source that
+                    published it, so any figure can be checked against the site it came from. Only the
+                    summary a source gave — a status, a lowest and highest price, a listing count, and
+                    whether fees were included — was kept; the response it arrived in was discarded once
+                    it was read, and no listing, seat or seller was recorded.
+                </p>
+                <p>
+                    A price marked <em>all-in</em> included fees when the source showed it; <em>face
+                    value</em> did not. The two are never compared to each other here, and neither
+                    market is ranked against the other.
+                </p>
+            </section>
+
+            <section>
+                <PanelHeader>Where to take this</PanelHeader>
+                <p>
+                    This page is a dated record of what each source showed, minute by minute. It draws
+                    no conclusion about anyone's conduct. If what it shows is something you want to
+                    raise, the Tennessee Attorney General's Division of Consumer Affairs and the Federal
+                    Trade Commission both take complaints about ticket sales:
+                    <a href="https://www.tn.gov/attorneygeneral/working-for-tennessee/consumer/file-a-consumer-complaint.html"
+                       rel="noopener noreferrer" target="_blank">file a complaint with the Tennessee Attorney General</a>
+                    or
+                    <a href="https://reportfraud.ftc.gov/" rel="noopener noreferrer" target="_blank">report to the FTC</a>.
+                    Either form asks for what you saw and when; this page is that, with its sources.
+                </p>
+            </section>
+
+            <footer>
+                @if (_record.Ticks.Count > 0)
+                {
+                    <text>Last tick @LastTick(_record) · @_record.Ticks.Count ticks from @string.Join(" and ", _record.Sources.Select(s => s.Name))</text>
+                }
+                else
+                {
+                    <text>No ticks recorded yet.</text>
+                }
+                · Address <span class="num">/e/@(Event.Slug ?? Event.Id.ToString(CultureInfo.InvariantCulture))</span>
+            </footer>
+        }
+    </main>
+</body>
+</html>
+
+@code {
+    /// <summary>The address, from GET /e/{slug}.</summary>
+    [Parameter] public string? Slug { get; set; }
+
+    /// <summary>
+    /// The id, from GET /e/{id:int} when the event has no slug yet. A link built from the
+    /// desk before the row was addressed still resolves; once it is, the endpoint redirects
+    /// to the slug instead of rendering here.
+    /// </summary>
+    [Parameter] public int? EventId { get; set; }
+
+    /// <summary>Null under a render test; the endpoint supplies it so a miss can be a 404.</summary>
+    [CascadingParameter] public HttpContext? HttpContext { get; set; }
+
+    private OnSaleRecord? _record;
+
+    private Event Event => _record!.Event;
+
+    private string Title => _record is null
+        ? $"No record — {Brand.Wordmark}{Brand.Emphasis}"
+        : $"{Event.Name} — was it really sold out? — {Brand.Wordmark}{Brand.Emphasis}";
+
+    private string Description => _record is null
+        ? string.Empty
+        : $"The on-sale record for {Event.Name}{(Event.Venue is { } v ? $" at {v.Name}" : "")}: "
+          + "what the primary market showed in the first two hours of the sale, minute by minute, beside the resale listings in the same minutes.";
+
+    /// <summary>Whose APIs the page's numbers came from: only the sources on this record, so a name never appears where its numbers do not.</summary>
+    private string ApiOwners
+    {
+        get
+        {
+            var owners = _record!.Sources.Select(s => $"{s.Name}'s").Distinct().ToList();
+            return owners.Count == 0 ? "the sources that report on this event" : string.Join(" and ", owners);
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _record = Slug is { Length: > 0 } slug
+            ? await Records.GetBySlugAsync(slug)
+            : EventId is { } id
+                ? await Records.GetAsync(id)
+                : null;
+
+        if (_record is null && HttpContext is { } http)
+            http.Response.StatusCode = StatusCodes.Status404NotFound;
+    }
+
+    private static string LastTick(OnSaleRecord record)
+    {
+        var last = record.Ticks.MaxBy(t => t.ObservedAt)!;
+        return $"{OnSaleRecordView.Local(last.ObservedAt, record.Event.Venue?.Timezone)} ({OnSaleRecordView.MinuteLabel(last.MinutesFromOnSale)})";
+    }
+}

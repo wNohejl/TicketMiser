@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Http.HttpResults;
 using MudBlazor;
 using MudBlazor.Services;
 using TicketMiser.Data;
@@ -8,6 +9,7 @@ using TicketMiser.Ingestion;
 using TicketMiser.Observability;
 using TicketMiser.Reliability;
 using TicketMiser.Web.Components;
+using TicketMiser.Web.Components.Pages;
 using TicketMiser.Web.Services;
 using TicketMiser.Web.Windowing;
 
@@ -44,6 +46,13 @@ builder.Services.AddSingleton<IWindowCatalog, AppWindowCatalog>();
 // so a circuit never holds a context open between renders.
 builder.Services.AddScoped<IOnSaleRecordService, OnSaleRecordService>();
 
+// The public record page is rendered once and served from memory for five minutes: a shared
+// link that lands a few hundred readers in a minute costs one query, and a tick written in
+// between reaches them on the next render. Only GET /e/{slug} opts in; nothing else is cached.
+const string EventRecordCache = "event-record";
+builder.Services.AddOutputCache(options =>
+    options.AddPolicy(EventRecordCache, policy => policy.Expire(TimeSpan.FromMinutes(5))));
+
 // What the operations windows read. Each is an interface over the reliability layer and the
 // database so a panel holds no EF query of its own and a render test can hand it a snapshot.
 // Singletons: none holds state, each opens a scope or a context per call.
@@ -51,6 +60,10 @@ builder.Services.AddSingleton<IOpsQueries, OpsQueries>();
 builder.Services.AddSingleton<IIncidentQueries, IncidentQueries>();
 builder.Services.AddSingleton<IRunQueries, RunQueries>();
 builder.Services.AddSingleton<IHistoryQueries, HistoryQueries>();
+
+// The board's read: every enabled watch with each market's best number and its rail, composed
+// per market and never across them. A context per call, like the rest.
+builder.Services.AddSingleton<IWatchlistQueries, WatchlistQueries>();
 
 // Persist Data Protection keys outside the container when a path is configured, so a
 // replaced container does not invalidate every live circuit.
@@ -91,6 +104,7 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseAntiforgery();
+app.UseOutputCache();
 
 // Liveness answers for the process only; readiness is what compose gates on.
 app.MapHealthChecks("/health", new HealthCheckOptions { Predicate = _ => false }).AllowAnonymous();
@@ -100,6 +114,21 @@ app.MapHealthChecks("/ready", new HealthCheckOptions
 }).AllowAnonymous();
 
 app.MapStaticAssets();
+
+// The public on-sale record, outside the desk. Static and anonymous: EventRecord is rendered
+// as a whole document with no circuit behind it (the note at the top of that component says
+// why it carries no @page), so a fan with a link needs no account and loads no script.
+// GET /e/{id} is the address the desk can build before a row has a slug; it redirects to
+// the slug once one exists and renders the record by id until then.
+app.MapGet("/e/{id:int}", async (int id, IOnSaleRecordService records, CancellationToken ct) =>
+        await records.SlugForAsync(id, ct) is { } slug
+            ? Results.Redirect($"/e/{slug}", permanent: true)
+            : new RazorComponentResult<EventRecord>(new { EventId = id }))
+    .AllowAnonymous();
+
+app.MapGet("/e/{slug}", (string slug) => new RazorComponentResult<EventRecord>(new { Slug = slug }))
+    .AllowAnonymous()
+    .CacheOutput(EventRecordCache);
 
 // Global Interactive Server render mode: MudBlazor does not support static server
 // rendering, so interactivity is declared once at the root rather than per component.

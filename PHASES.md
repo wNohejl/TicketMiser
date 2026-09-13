@@ -95,9 +95,9 @@ Goal: a fan can use it.
 
 Gate: `apple-mudblazor` on every window; render tests in the same commit.
 
-- [ ] Watchlist board: best all-in per market per event, never across markets, spread rail
+- [x] Watchlist board: best all-in per market per event, never across markets, spread rail
       with one tick per source, primary and resale badged.
-- [ ] Event window, first tab "Was it really sold out?": primary availability and resale
+- [x] Event window, first tab "Was it really sold out?": primary availability and resale
       listings over the first two hours, on-sale price pinned.
 - [ ] Price history chart; Performers; Event / Performer / Venue destinations; Purchases
       and Savings; the three follow-ups.
@@ -125,7 +125,7 @@ link, subscribe to the on-sale calendar, and be told when face value comes back.
 Gate: `release-check` before the public URL; `cadence-check` before `watchlist:prices`
 is switched from `Manual` to `Scheduled`. Roadmap: `docs/superpowers/specs/2026-09-12-product-roadmap.md` §10.
 
-- [ ] `Components/Pages/EventRecord.razor` at `/e/{slug}`: anonymous, static-rendered,
+- [x] `Components/Pages/EventRecord.razor` at `/e/{slug}`: anonymous, static-rendered,
       output-cached; the "Was it really sold out?" component from Phase 4 without the desk
       chrome; every cell links to its source and shows its `AllIn` flag. Render test
       `EventRecordPageTests` in the same commit.

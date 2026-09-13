@@ -63,6 +63,13 @@ public class Event
 
     public string Name { get; set; } = string.Empty;
 
+    /// <summary>
+    /// The public address of the on-sale record, <c>/e/{slug}</c>. Minted by <see cref="EventSlug"/>
+    /// when the row is created and backfilled at startup for rows that predate it; null only
+    /// between the two. Never rewritten once set: the link is the product.
+    /// </summary>
+    public string? Slug { get; set; }
+
     public int? CategoryId { get; set; }
     public Category? Category { get; set; }
 

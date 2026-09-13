@@ -1,0 +1,478 @@
+@namespace TicketMiser.Web.Components.Records
+@using System.Globalization
+@using TicketMiser.Core.Analytics
+@using TicketMiser.Core.Entities
+@using TicketMiser.Web.Services
+@inject IJSRuntime JS
+
+@*
+    "Was it really sold out?" — the on-sale record, drawn once for two readers.
+
+    The desk's Event window shows it on its first tab and the public page at /e/{slug} shows
+    it to a fan with no account. Both render this component, so the number a journalist
+    quotes from the link is the number the operator saw in the window, to the character.
+
+    Two charts rather than one with two axes: primary availability is a three-step reading
+    and resale listings are a count, and MudChart draws one Y axis. Stacking them on one
+    minute axis keeps the two markets in the same minutes without ever putting a primary
+    number and a resale number on the same scale, which is the rule the board never breaks.
+
+    Every price cell is a link to the source that published it, and the source's name stands
+    beside every number it gave: SeatGeek's terms ask for the attribution, and a reader
+    checking a figure should be one click from where it came from. InDesk decides only how
+    that link is drawn — a DeskLink that opens a tab from a circuit, or a plain anchor a
+    static page can serve with no JavaScript at all — never whether it is there.
+*@
+
+@if (Record.Ticks.Count == 0)
+{
+    <EmptyState Kind="EmptyStateKind.New">
+        The on-sale window has not been recorded yet.
+        @if (Event.OnSaleTbd || Event.OnSaleAt is null)
+        {
+            <text> No on-sale time has been announced; the record starts when the source names one.</text>
+        }
+        else
+        {
+            <text> The sale opens @Local(Event.OnSaleAt.Value, Event.Venue?.Timezone) and the record starts fifteen minutes before.</text>
+        }
+    </EmptyState>
+    return;
+}
+
+<MetricRow>
+    @if (Facts.OnSalePrice is { } price)
+    {
+        <Metric Label="On-sale price" Numeric="true" Value="@Amount(price.Lowest, price.Currency)"
+                Note="@($"{AllInWord(price.AllIn)} at {SourceName(price.SourceId)}, {MinuteLabel(price.Minute)}")" />
+    }
+    else
+    {
+        <Metric Label="On-sale price" Value="—" Note="no primary price recorded after T" />
+    }
+
+    @if (Facts.SoldOutMinute is { } soldOut)
+    {
+        <Metric Label="Sold out" Value="@MinuteLabel(soldOut)" State="DeskState.Negative" Note="primary reported no tickets" />
+    }
+    else if (_primarySeries.Count == 0)
+    {
+        <Metric Label="Sold out" Value="—" Note="no primary source reported" />
+    }
+    else
+    {
+        <Metric Label="Sold out" Value="Not yet" State="DeskState.Positive" Note="tickets at the last primary tick" />
+    }
+
+    @if (Facts.ReappearedMinute is { } back)
+    {
+        <Metric Label="Reappeared" Value="@MinuteLabel(back)" State="DeskState.Warning" Note="face value came back on the primary site" />
+    }
+    else
+    {
+        <Metric Label="Reappeared" Value="—" Note="@(Facts.SoldOutMinute is null ? "nothing to come back from" : "no re-release seen")" />
+    }
+
+    @if (Facts.ResaleListingsAtSellout is { } listings)
+    {
+        <Metric Label="Resale listings at sellout" Numeric="true" Value="@listings.ToString("N0", Money)"
+                Note="@($"on {ResaleNames()} at {MinuteLabel(Facts.SoldOutMinute!.Value)}")" />
+    }
+    else
+    {
+        <Metric Label="Resale listings at sellout" Value="—"
+                Note="@(Facts.SoldOutMinute is null ? "no sellout to measure against" : "no resale count by then")" />
+    }
+</MetricRow>
+
+@if (_primarySeries.Count > 0)
+{
+    <DeskChart Series="_primarySeries" Labels="_labels" Height="180px"
+               Family="DeskChartFamily.Movement"
+               Headline="@PrimaryHeadline()"
+               Takeaway="Primary availability, T−15 to T+120 min: 2 tickets available, 1 few left, 0 none. Held between ticks."
+               Description="Primary inventory status per source over the first two hours of the sale, as a step from available through few left to none." />
+}
+else
+{
+    <EmptyState>No primary source reported on this sale, so availability cannot be drawn.</EmptyState>
+}
+
+@if (_resaleSeries.Count > 0)
+{
+    <DeskChart Series="_resaleSeries" Labels="_labels" Height="180px"
+               Family="DeskChartFamily.Volume"
+               Headline="@ResaleHeadline()"
+               Takeaway="Resale listings per source, count, on the same minutes. Held between ticks."
+               Description="Number of resale listings per source over the first two hours of the sale." />
+}
+else
+{
+    <EmptyState>No resale source reported a listing count in the window.</EmptyState>
+}
+
+<PanelHeader Gap="PanelHeaderGap.Section">Every tick</PanelHeader>
+
+@if (InDesk)
+{
+    <DeskGrid T="TickRow" Items="_rows" Sortable="false" EmptyText="No ticks in the window.">
+        <TemplateColumn T="TickRow" Title="Observed">
+            <CellTemplate>@Observed(context.Item)</CellTemplate>
+        </TemplateColumn>
+        <TemplateColumn T="TickRow" Title="Minute">
+            <CellTemplate><span class="num">@MinuteLabel(context.Item.Tick.MinutesFromOnSale)</span></CellTemplate>
+        </TemplateColumn>
+        <TemplateColumn T="TickRow" Title="Source">
+            <CellTemplate>@SourceCell(context.Item)</CellTemplate>
+        </TemplateColumn>
+        <TemplateColumn T="TickRow" Title="Status">
+            <CellTemplate>@StatusCell(context.Item)</CellTemplate>
+        </TemplateColumn>
+        <TemplateColumn T="TickRow" Title="Lowest">
+            <CellTemplate>@PriceCell(context.Item, context.Item.Tick.Lowest)</CellTemplate>
+        </TemplateColumn>
+        <TemplateColumn T="TickRow" Title="Highest">
+            <CellTemplate>@PriceCell(context.Item, context.Item.Tick.Highest)</CellTemplate>
+        </TemplateColumn>
+        <TemplateColumn T="TickRow" Title="Listings">
+            <CellTemplate>@ListingsCell(context.Item)</CellTemplate>
+        </TemplateColumn>
+        <TemplateColumn T="TickRow" Title="Fees">
+            <CellTemplate>@FeesCell(context.Item)</CellTemplate>
+        </TemplateColumn>
+    </DeskGrid>
+}
+else
+{
+    @* The same columns as a plain table: nothing to sort on a page that is a receipt, and a
+       table the browser can render before a single script runs is the point of the page. *@
+    <div class="gridwrap">
+        <table class="grid grid--tight ticks">
+            <thead>
+                <tr>
+                    <th scope="col">Observed</th>
+                    <th scope="col">Minute</th>
+                    <th scope="col">Source</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Lowest</th>
+                    <th scope="col">Highest</th>
+                    <th scope="col">Listings</th>
+                    <th scope="col">Fees</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in _rows)
+                {
+                    <tr>
+                        <td>@Observed(row)</td>
+                        <td><span class="num">@MinuteLabel(row.Tick.MinutesFromOnSale)</span></td>
+                        <td>@SourceCell(row)</td>
+                        <td>@StatusCell(row)</td>
+                        <td>@PriceCell(row, row.Tick.Lowest)</td>
+                        <td>@PriceCell(row, row.Tick.Highest)</td>
+                        <td>@ListingsCell(row)</td>
+                        <td>@FeesCell(row)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@if (HasSeatGeek)
+{
+    <p class="empty attribution" style="padding:0">
+        @if (InDesk)
+        {
+            <text>Resale listings and prices from SeatGeek.</text>
+        }
+        else
+        {
+            <text>Resale listings and prices from <a href="https://seatgeek.com" rel="noopener noreferrer" target="_blank">SeatGeek</a>.</text>
+        }
+    </p>
+}
+
+@code {
+    /// <summary>The record to draw. Reshaped only when the instance changes.</summary>
+    [Parameter, EditorRequired] public OnSaleRecord Record { get; set; } = null!;
+
+    /// <summary>
+    /// Inside the desk the tick table is a <c>DeskGrid</c> and a price cell a <c>DeskLink</c>
+    /// that opens a tab through the circuit. On the public page the table is plain HTML and
+    /// the cell a plain anchor, so the page needs no circuit and no script to be complete.
+    /// </summary>
+    [Parameter] public bool InDesk { get; set; } = true;
+
+    private static readonly CultureInfo Money = CultureInfo.GetCultureInfo("en-US");
+
+    private OnSaleRecord? _shaped;
+
+    // Everything the record draws, shaped once per record rather than per render: MudChart
+    // redraws when its series instance changes, and a row list rebuilt in the markup would
+    // resort itself under the reader every time the window's pulse ticked.
+    private string[] _labels = [];
+    private IReadOnlyList<ChartSeries<double>> _primarySeries = [];
+    private IReadOnlyList<ChartSeries<double>> _resaleSeries = [];
+    private IReadOnlyList<TickRow> _rows = [];
+
+    private OnSaleFacts Facts => Record.Facts;
+
+    private Event Event => Record.Event;
+
+    /// <summary>Whether SeatGeek's numbers are on the page, and so whether its name must be.</summary>
+    public bool HasSeatGeek => Record.Sources.Any(s => s.Key == "seatgeek");
+
+    protected override void OnParametersSet()
+    {
+        if (ReferenceEquals(_shaped, Record))
+            return;
+
+        _shaped = Record;
+        Shape();
+    }
+
+    // ---- cells ---------------------------------------------------------------------------
+
+    private RenderFragment Observed(TickRow row) => __builder =>
+    {
+        <span class="num" title="@row.Tick.ObservedAt.ToString("u", CultureInfo.InvariantCulture)">
+            @row.Tick.ObservedAt.ToUniversalTime().ToString("HH:mm", CultureInfo.InvariantCulture)
+        </span>
+    };
+
+    private RenderFragment SourceCell(TickRow row) => __builder =>
+    {
+        @row.SourceName
+        @if (row.Kind is { } kind)
+        {
+            <Tag State="@(kind == SourceKind.Primary ? DeskState.Info : DeskState.Neutral)" Class="ml-2">@kind</Tag>
+        }
+    };
+
+    private RenderFragment StatusCell(TickRow row) => __builder =>
+    {
+        <Tag State="@StatusState(row.StatusCode)" Title="@row.StatusCode">@StatusWord(row.StatusCode)</Tag>
+    };
+
+    private RenderFragment PriceCell(TickRow row, decimal? amount) => __builder =>
+    {
+        if (amount is null)
+            return;
+
+        @Linked(row, Number(Amount(amount.Value, row.Tick.Currency)))
+    };
+
+    private RenderFragment ListingsCell(TickRow row) => __builder =>
+    {
+        if (row.Tick.ListingCount is not { } n)
+            return;
+
+        @Linked(row, Number(n.ToString("N0", Money)))
+    };
+
+    private static RenderFragment Number(string text) => __builder =>
+    {
+        <span class="num">@text</span>
+    };
+
+    private RenderFragment FeesCell(TickRow row) => __builder =>
+    {
+        if (row.Tick.Lowest is null && row.Tick.Highest is null)
+            return;
+
+        <Tag State="@(row.Tick.AllIn == true ? DeskState.Info : DeskState.Neutral)"
+             Title="@(row.Tick.AllIn is null ? "The source did not say whether fees are included" : null)">
+            @AllInWord(row.Tick.AllIn)
+        </Tag>
+    };
+
+    /// <summary>
+    /// A number wearing its citation. The tooltip is the same in both dressings, so a test
+    /// and a reader find "Open this event at SeatGeek" on every cell SeatGeek supplied.
+    /// </summary>
+    private RenderFragment Linked(TickRow row, RenderFragment inner) => __builder =>
+    {
+        var tooltip = $"Open this event at {row.SourceName}";
+
+        if (InDesk)
+        {
+            <DeskLink Destination="@row.SourceName" Tooltip="@tooltip" OnClick="() => OpenAsync(row.Url)">@inner</DeskLink>
+        }
+        else
+        {
+            <a class="cite" href="@row.Url" title="@tooltip" rel="noopener noreferrer nofollow" target="_blank">@inner</a>
+        }
+    };
+
+    // ---- shaping -------------------------------------------------------------------------
+
+    private sealed record TickRow(OnSaleTick Tick, string SourceName, SourceKind? Kind, string? StatusCode, string Url);
+
+    private void Shape()
+    {
+        _labels = [];
+        _primarySeries = [];
+        _resaleSeries = [];
+
+        var sources = Record.Sources.ToDictionary(s => s.Id);
+
+        _rows = Record.Ticks
+            .Select(t =>
+            {
+                var source = sources.GetValueOrDefault(t.SourceId);
+                var code = source?.Kind == SourceKind.Resale
+                    ? t.ResaleStatus ?? t.EventStatusCode
+                    : t.PrimaryStatus ?? t.EventStatusCode;
+
+                return new TickRow(
+                    t,
+                    source?.Name ?? $"source {t.SourceId}",
+                    source?.Kind,
+                    code,
+                    source is null ? string.Empty : SourceLink.For(source, Record.Event));
+            })
+            .ToList();
+
+        // One minute axis for both charts, so a reader's eye can drop from a resale count to
+        // the primary status in the same minute. Only minutes something was observed at: a
+        // tick is written at every mark, so the axis is the schedule the watch actually kept.
+        var minutes = Record.Ticks
+            .Select(t => t.MinutesFromOnSale)
+            .Where(m => m is >= OnSaleRecord.WindowStart and <= OnSaleRecord.WindowEnd)
+            .Distinct()
+            .OrderBy(m => m)
+            .ToArray();
+
+        if (minutes.Length == 0)
+            return;
+
+        _labels = minutes
+            .Select((m, i) => i == 0 || i == minutes.Length - 1 || m % 15 == 0 ? MinuteLabel(m, terse: true) : string.Empty)
+            .ToArray();
+
+        _primarySeries = SeriesFor(SourceKind.Primary, minutes, t => OnSaleRecord.AvailabilityLevel(t.PrimaryStatus));
+        _resaleSeries = SeriesFor(SourceKind.Resale, minutes, t => t.ListingCount);
+    }
+
+    /// <summary>
+    /// One series per source of a market, sampled on the shared minute axis as a step: each
+    /// minute carries the last value the source had reported by then. A minute before the
+    /// source's first reading repeats that first reading, and an UNKNOWN status holds the
+    /// previous one, because the line chart has no way to draw a gap and a fabricated zero
+    /// would read as a sellout.
+    /// </summary>
+    private IReadOnlyList<ChartSeries<double>> SeriesFor(SourceKind kind, int[] minutes, Func<OnSaleTick, double?> value)
+    {
+        var series = new List<ChartSeries<double>>();
+
+        foreach (var source in Record.Sources.Where(s => s.Kind == kind))
+        {
+            var readings = Record.Ticks
+                .Where(t => t.SourceId == source.Id)
+                .Select(t => (t.MinutesFromOnSale, Value: value(t)))
+                .Where(r => r.Value is not null)
+                .ToList();
+
+            if (readings.Count == 0)
+                continue;
+
+            var data = new double[minutes.Length];
+            var held = readings[0].Value!.Value;
+            var next = 0;
+
+            for (var i = 0; i < minutes.Length; i++)
+            {
+                while (next < readings.Count && readings[next].MinutesFromOnSale <= minutes[i])
+                    held = readings[next++].Value!.Value;
+
+                data[i] = held;
+            }
+
+            series.Add(new ChartSeries<double> { Name = source.Name, Data = data });
+        }
+
+        return series;
+    }
+
+    // ---- words ---------------------------------------------------------------------------
+
+    private string PrimaryHeadline() => Facts.SoldOutMinute is { } m
+        ? Facts.ReappearedMinute is { } back
+            ? $"Sold out {MinuteLabel(m)}, face value back {MinuteLabel(back)}"
+            : $"Sold out {MinuteLabel(m)}"
+        : "Primary tickets stayed available";
+
+    private string ResaleHeadline() => Facts.ResaleListingsAtSellout is { } n
+        ? $"{n.ToString("N0", Money)} resale listings at the sellout minute"
+        : "Resale listings through the window";
+
+    private string SourceName(int sourceId) => Record.Sources.FirstOrDefault(s => s.Id == sourceId)?.Name ?? $"source {sourceId}";
+
+    private string ResaleNames() => string.Join(" and ", Record.Sources.Where(s => s.Kind == SourceKind.Resale).Select(s => s.Name));
+
+    /// <summary>A minute against the announced on-sale: "T", "T−15 min", "T+10 min"; terse drops the unit for an axis.</summary>
+    public static string MinuteLabel(int minute, bool terse = false) => minute switch
+    {
+        0 => "T",
+        < 0 => terse ? $"T−{-minute}" : $"T−{-minute} min",
+        _ => terse ? $"T+{minute}" : $"T+{minute} min"
+    };
+
+    private static string Amount(decimal amount, string currency)
+        => currency == "USD" ? amount.ToString("C2", Money) : $"{amount.ToString("N2", Money)} {currency}";
+
+    private static string AllInWord(bool? allIn) => allIn switch
+    {
+        true => "all-in",
+        false => "face value",
+        null => "fees unstated"
+    };
+
+    private static string StatusWord(string? code) => code switch
+    {
+        InventoryStatus.Available => "Available",
+        InventoryStatus.FewLeft => "Few left",
+        InventoryStatus.NotAvailable => "Not available",
+        InventoryStatus.Unknown => "Unknown",
+        null or "" => "—",
+        _ => code
+    };
+
+    private static DeskState StatusState(string? code) => code switch
+    {
+        InventoryStatus.Available => DeskState.Positive,
+        InventoryStatus.FewLeft => DeskState.Warning,
+        InventoryStatus.NotAvailable => DeskState.Negative,
+        _ => DeskState.Neutral
+    };
+
+    /// <summary>
+    /// The instant in the venue's own zone, which is the zone the on-sale was announced in.
+    /// A zone the machine cannot resolve falls back to UTC rather than to nothing.
+    /// </summary>
+    public static string Local(DateTimeOffset instant, string? zone)
+    {
+        try
+        {
+            if (zone is { Length: > 0 })
+            {
+                var tz = TimeZoneInfo.FindSystemTimeZoneById(zone);
+                var local = TimeZoneInfo.ConvertTime(instant, tz);
+                return $"{local.ToString("ddd d MMM yyyy HH:mm", CultureInfo.InvariantCulture)} {zone}";
+            }
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            // Fall through to UTC.
+        }
+
+        return $"{instant.ToUniversalTime().ToString("ddd d MMM yyyy HH:mm", CultureInfo.InvariantCulture)} UTC";
+    }
+
+    private async Task OpenAsync(string url)
+    {
+        if (url.Length > 0)
+            await JS.InvokeVoidAsync("open", url, "_blank", "noopener,noreferrer");
+    }
+}

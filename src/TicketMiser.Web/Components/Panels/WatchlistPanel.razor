@@ -1,0 +1,604 @@
+@using System.Globalization
+@using TicketMiser.Core.Analytics
+@using TicketMiser.Core.Entities
+@using TicketMiser.Web.Services
+@inherits DeskPanel
+@inject IWatchlistQueries Queries
+@inject IJSRuntime JS
+
+@*
+    The board — every watched event, and where the best number is right now.
+
+    Two markets sell the same seat as two different products: the box office at face value,
+    sometimes all-in, and the marketplaces at an ask that includes whatever they include. So
+    each row carries two best numbers, one per market, each with the source holding it and a
+    rail showing how far that market's other sources sit behind. The two are never ranked
+    against each other and never share a rail (ADR 0013, the legal guidelines rule 5). A cell
+    with no number says why, because a dash is ambiguous between a feed that never ran, a
+    source that gave two kinds of number, and a room no primary source can read.
+
+    Every price is a link to the source that published it, and the source's mark stands beside
+    the number: SeatGeek's terms ask for the attribution, and a reader checking a figure should
+    be one click from where it came from. Open a row and its actions appear on it — the Event
+    window, every source's number, and logging what was paid — each a window while there is
+    room and a floating panel once there is not.
+*@
+
+<div class="row" style="margin-bottom:12px">
+    <DeskField TValue="string" Value="_search" ValueChanged="OnSearchChanged" Immediate="true"
+               placeholder="Event, performer or venue" aria-label="Search the watchlist" style="max-width:240px" />
+
+    @* Which market to read. Narrowing to one hides the other's column rather than filtering
+       rows: an event with only a resale number is still on the watchlist. *@
+    <DeskSwitch Options="Markets" Label="Market" Value="_market" ValueChanged="@((Market m) => SetMarket(m))" />
+
+    <DeskSwitch Options="Windows" Label="On-sale window" Value="_thisWeek" ValueChanged="@((bool w) => SetWindow(w))" />
+
+    <span class="ftr__spacer"></span>
+
+    @* No Filled key: this panel reads. The one thing it spends — a window — is spent from a row. *@
+    <DeskButton Icon="@Icons.Material.Filled.Refresh" OnClick="LoadAsync" Busy="@_loading">Refresh</DeskButton>
+</div>
+
+<MetricRow Style="margin-bottom:14px">
+    <Metric Label="Watches" Value='@_rows.Count.ToString("N0", Money)' Numeric="true"
+            Note="@(_rows.Count == 0 ? "nothing is polled" : $"{_reported} with a price")" />
+
+    <Metric Label="On sale today" Value='@_onSaleToday.ToString("N0", Money)' Numeric="true"
+            State="@(_onSaleToday > 0 ? DeskState.Info : DeskState.Neutral)"
+            Note="@(_onSaleToday > 0 ? "the record is being kept" : "no window opens today")" />
+
+    <Metric Label="Sold out on primary" Value='@_soldOut.ToString("N0", Money)' Numeric="true"
+            State="@(_soldOut > 0 ? DeskState.Negative : DeskState.Neutral)"
+            Note="primary reported no tickets" />
+
+    <Metric Label="Reappeared" Value='@_reappeared.ToString("N0", Money)' Numeric="true"
+            State="@(_reappeared > 0 ? DeskState.Warning : DeskState.Neutral)"
+            Note="face value back after a sellout" />
+</MetricRow>
+
+@if (_failed)
+{
+    <EmptyState Kind="EmptyStateKind.Error">
+        <ChildContent>The watchlist could not be read.</ChildContent>
+        <Action>
+            <DeskButton Emphasis="DeskEmphasis.Plain" OnClick="LoadAsync">Try again</DeskButton>
+        </Action>
+    </EmptyState>
+}
+else if (_loading && _rows.Count == 0)
+{
+    <EmptyState>Reading the watchlist.</EmptyState>
+}
+else if (_rows.Count == 0)
+{
+    @* An honest empty state says how a watch comes to exist. Nothing is fetched unasked: a
+       Watch row is the instruction to poll, and the first live run seeds one per Nashville
+       event the feed names. *@
+    <EmptyState Kind="EmptyStateKind.New">
+        Nothing is watched yet. A watch is the instruction to poll — nothing is fetched without
+        one — and the live run seeds a watch for every Nashville concert the Discovery Feed
+        names. Run <strong>Prices now</strong> from Ops once a source key is configured, and
+        the events it finds appear here.
+    </EmptyState>
+}
+else if (_visible.Count == 0)
+{
+    <EmptyState Kind="EmptyStateKind.Filtered">
+        <ChildContent>
+            No watched event matches. The watchlist holds @_rows.Count @Plural(_rows.Count, "event").
+        </ChildContent>
+        <Action>
+            <DeskButton Size="DeskKeySize.Small" Icon="@Icons.Material.Filled.FilterAltOff" OnClick="ClearFilters">
+                Show every watch
+            </DeskButton>
+        </Action>
+    </EmptyState>
+}
+else
+{
+    <DeskGrid T="WatchlistRow" Items="_visible" Class="deskgrid--clickable"
+              RowClassFunc="@((r, _) => _open == r.Event.Id ? "board__row--open" : string.Empty)"
+              OnRowClick="@(e => Toggle(e.Item))"
+              EmptyText="No watched events.">
+
+        @* The event cell carries the row's actions. The operator has just decided this event is
+           interesting and the next move should be one press away rather than a navigation. *@
+        <TemplateColumn T="WatchlistRow" Title="Event" SortBy="@(r => r.Event.Name)">
+            <CellTemplate>
+                <DeskLink Destination="event" OnClick="() => OpenEvent(context.Item.Event)">
+                    @context.Item.Event.Name
+                </DeskLink>
+                @if (context.Item.Event.Performer is { } performer && performer.Name != context.Item.Event.Name)
+                {
+                    <div class="dim">@performer.Name</div>
+                }
+                @if (!context.Item.Reported)
+                {
+                    <div class="board__gap">No source has reported on this event yet.</div>
+                }
+                @if (_open == context.Item.Event.Id)
+                {
+                    <RowActions @key="context.Item.Event.Id" Actions="ActionsFor(context.Item)" />
+                }
+            </CellTemplate>
+        </TemplateColumn>
+
+        <TemplateColumn T="WatchlistRow" Title="Venue" SortBy="@(r => r.Event.Venue!.Name)">
+            <CellTemplate>
+                @if (context.Item.Event.Venue is { } venue)
+                {
+                    <span>@venue.Name</span>
+                    <div class="dim">@venue.City</div>
+                }
+                else
+                {
+                    <span class="dim">—</span>
+                }
+            </CellTemplate>
+        </TemplateColumn>
+
+        <TemplateColumn T="WatchlistRow" Title="When" SortBy="@(r => r.Event.StartsAt)" InitialDirection="SortDirection.Ascending">
+            <CellTemplate>
+                <span class="num" title="@Local(context.Item.Event, context.Item.Event.StartsAt, full: true)">
+                    @Local(context.Item.Event, context.Item.Event.StartsAt)
+                </span>
+            </CellTemplate>
+        </TemplateColumn>
+
+        <TemplateColumn T="WatchlistRow" Title="On sale" SortBy="@(r => r.Event.OnSaleAt ?? DateTimeOffset.MaxValue)">
+            <CellTemplate>@OnSaleCell(context.Item)</CellTemplate>
+        </TemplateColumn>
+
+        @if (_market != Market.Resale)
+        {
+            <TemplateColumn T="WatchlistRow" Title="Primary best" Sortable="false">
+                <CellTemplate>@PriceCell(context.Item, context.Item.Primary)</CellTemplate>
+            </TemplateColumn>
+        }
+
+        @if (_market != Market.Primary)
+        {
+            <TemplateColumn T="WatchlistRow" Title="Resale best" Sortable="false">
+                <CellTemplate>@PriceCell(context.Item, context.Item.Resale)</CellTemplate>
+            </TemplateColumn>
+        }
+
+        @* One rail per market, badged, stacked — never one rail for both. The width of a rail is
+           the value of shopping that market; the two widths are not comparable and are not
+           drawn on one line. *@
+        <TemplateColumn T="WatchlistRow" Title="Spread" Sortable="false">
+            <CellTemplate>
+                <div class="stack" style="--desk-gap:4px">
+                    @if (_market != Market.Resale)
+                    {
+                        @Rail(context.Item, context.Item.Primary)
+                    }
+                    @if (_market != Market.Primary)
+                    {
+                        @Rail(context.Item, context.Item.Resale)
+                    }
+                </div>
+            </CellTemplate>
+        </TemplateColumn>
+
+        <TemplateColumn T="WatchlistRow" Title="Target" SortBy="@(r => r.TargetPrice ?? decimal.MaxValue)">
+            <CellTemplate>
+                @if (context.Item.TargetPrice is { } target)
+                {
+                    <span class="num">@Amount(target, "USD")</span>
+                    @if (TargetMet(context.Item))
+                    {
+                        <Tag State="DeskState.Positive" Class="ml-2" Title="An all-in price at or under the target">Met</Tag>
+                    }
+                }
+                else
+                {
+                    <span class="dim" title="Watching without a target price">—</span>
+                }
+            </CellTemplate>
+        </TemplateColumn>
+    </DeskGrid>
+
+    @if (_visible.Any(r => HasSource(r, "seatgeek")))
+    {
+        <p class="empty" style="padding:9px 0 0">Resale listings and prices from SeatGeek.</p>
+    }
+}
+
+@* Follow-ups live above the desk and outlive the row that opened them, so several events can
+   be compared at once. *@
+<FollowUpLayer Launcher="_followUps" OnChanged="StateHasChanged" />
+
+@code {
+    /// <summary>Which market the board is being read for.</summary>
+    private enum Market { All, Primary, Resale }
+
+    private static readonly CultureInfo Money = CultureInfo.GetCultureInfo("en-US");
+
+    private static readonly IReadOnlyList<DeskSwitchOption<Market>> Markets =
+    [
+        new(Market.All, "All", "Both markets, side by side"),
+        new(Market.Primary, "Primary", "The box office only"),
+        new(Market.Resale, "Resale", "The marketplaces only")
+    ];
+
+    private static readonly IReadOnlyList<DeskSwitchOption<bool>> Windows =
+    [
+        new(false, "Any date", "Every watched event"),
+        new(true, "This week", "Events whose public sale opens in the next seven days")
+    ];
+
+    private readonly FollowUpLauncher _followUps = new();
+
+    private List<WatchlistRow> _rows = [];
+    private List<WatchlistRow> _visible = [];
+    private string _search = string.Empty;
+    private Market _market = Market.All;
+    private bool _thisWeek;
+    private int? _open;
+    private bool _loading = true;
+    private bool _failed;
+
+    private int _reported;
+    private int _onSaleToday;
+    private int _soldOut;
+    private int _reappeared;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _failed = false;
+
+        try
+        {
+            await WithActivityAsync(
+                async () =>
+                {
+                    _rows = (await Queries.LoadAsync()).ToList();
+
+                    _reported = _rows.Count(r => r.Primary.Best is not null || r.Resale.Best is not null);
+                    _onSaleToday = _rows.Count(OnSaleToday);
+                    _soldOut = _rows.Count(r => r.PrimaryStatus == InventoryStatus.NotAvailable);
+                    _reappeared = _rows.Count(r => r.PrimaryReappeared);
+
+                    ApplyFilter();
+                },
+                settle: () => _rows.Count == 0 ? PulseState.Idle : _reappeared > 0 ? PulseState.Warn : PulseState.Healthy,
+                status: () => _rows.Count == 0 ? "nothing watched" : $"{_reported}/{_rows.Count} priced");
+        }
+        catch
+        {
+            _failed = true;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private Task OnSearchChanged(string? value)
+    {
+        _search = value ?? string.Empty;
+        ApplyFilter();
+        return Task.CompletedTask;
+    }
+
+    private void SetMarket(Market market) => _market = market;
+
+    private void SetWindow(bool thisWeek)
+    {
+        _thisWeek = thisWeek;
+        ApplyFilter();
+    }
+
+    private void ClearFilters()
+    {
+        _search = string.Empty;
+        _thisWeek = false;
+        ApplyFilter();
+    }
+
+    /// <summary>
+    /// The board under the filters. Held as a field and rebuilt only when a filter or the data
+    /// changes, never projected in the markup: the grid diffs its items by reference, and a
+    /// fresh list on every render would discard whatever column the operator had sorted by.
+    /// </summary>
+    private void ApplyFilter()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var weekEnd = now.AddDays(7);
+
+        _visible = _rows
+            .Where(r => _search.Length == 0 || Matches(r, _search))
+            .Where(r => !_thisWeek || (r.Event.OnSaleAt is { } at && at >= now && at <= weekEnd))
+            .ToList();
+
+        // A row left open under another filter would linger as a detached strip.
+        if (_open is { } open && _visible.All(r => r.Event.Id != open))
+            _open = null;
+    }
+
+    private static bool Matches(WatchlistRow row, string search)
+        => Contains(row.Event.Name, search)
+           || Contains(row.Event.Performer?.Name, search)
+           || Contains(row.Event.Venue?.Name, search);
+
+    private static bool Contains(string? text, string search)
+        => text is not null && text.Contains(search, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Opening a row is what reveals its actions. One at a time, so the board does not grow under the reader.</summary>
+    private void Toggle(WatchlistRow row)
+        => _open = _open == row.Event.Id ? null : row.Event.Id;
+
+    // ---- cells ---------------------------------------------------------------------------
+
+    private RenderFragment OnSaleCell(WatchlistRow row) => __builder =>
+    {
+        var evt = row.Event;
+
+        switch (row.OnSaleState)
+        {
+            case OnSaleState.Unannounced:
+                <Tag Title="No public on-sale time has been named">TBA</Tag>
+                break;
+            case OnSaleState.Upcoming:
+                <span class="num" title="@Local(evt, evt.OnSaleAt!.Value, full: true)">@Local(evt, evt.OnSaleAt!.Value)</span>
+                break;
+            case OnSaleState.OnSaleNow:
+                <Tag State="DeskState.Positive" Title="@($"Opened {Local(evt, evt.OnSaleAt!.Value, full: true)}; the record is being kept")">On sale now</Tag>
+                break;
+            default:
+                <Tag Title="@($"Opened {Local(evt, evt.OnSaleAt!.Value, full: true)}")">Opened</Tag>
+                break;
+        }
+    };
+
+    /// <summary>
+    /// One market's best number, the source holding it, its fee basis, and — for the primary
+    /// market — what the box office last said about availability. A market with no number says
+    /// why in place of it.
+    /// </summary>
+    private RenderFragment PriceCell(WatchlistRow row, MarketBest market) => __builder =>
+    {
+        if (market.Best is not { } best)
+        {
+            <span class="dim">—</span>
+            @if (market.Kind == SourceKind.Primary && row.PrimaryStatus is { } status)
+            {
+                <Tag State="@StatusState(status)" Class="ml-2" Title="@status">@StatusWord(status)</Tag>
+            }
+            <div class="board__gap" title="@market.Reason">@market.Reason</div>
+            return;
+        }
+
+        <div class="price" data-market="@market.Kind.ToString().ToLowerInvariant()">
+            <div class="price__top">
+                <DeskLink Destination="@best.Source.Name" Tooltip="@($"Open this event at {best.Source.Name}")"
+                          OnClick="() => OpenSourceAsync(best.Source, row.Event)">
+                    <span class="price__odds num">@Amount(best.Lowest!.Value, best.Currency)</span>
+                </DeskLink>
+                <span class="price__book" title="@best.Source.Name">@SourceMonogram.For(best.Source)</span>
+            </div>
+            <div class="price__top">
+                <Tag State="@(best.AllIn == true ? DeskState.Info : DeskState.Neutral)"
+                     Title="@(best.AllIn == true ? "Fees included" : "Fees not included")">
+                    @AllInWord(best.AllIn)
+                </Tag>
+                @if (market.Kind == SourceKind.Primary && row.PrimaryStatus is { } availability)
+                {
+                    <Tag State="@StatusState(availability)" Title="@($"{availability}, {Age(row.PrimaryStatusAt)}")">@StatusWord(availability)</Tag>
+                }
+                else if (market.Kind == SourceKind.Resale && best.ListingCount is { } listings)
+                {
+                    <span class="dim num" title="@($"Listings at {best.Source.Name}, {Age(best.ObservedAt)}")">@listings.ToString("N0", Money) listed</span>
+                }
+                @if (best.FromOnSaleRecord)
+                {
+                    <span class="dim" title="Read from the on-sale record rather than the price sweep">tick</span>
+                }
+            </div>
+        </div>
+    };
+
+    /// <summary>
+    /// One market's rail: a tick per source, placed by price between the best and the worst.
+    /// Sources that agree collapse to one mark; a market worth shopping visibly spreads out.
+    /// Badged with its market, because the rail beside it is the other market's and the two
+    /// are never on one line.
+    /// </summary>
+    private RenderFragment Rail(WatchlistRow row, MarketBest market) => __builder =>
+    {
+        if (!market.Reported)
+            return;
+
+        var word = market.Kind == SourceKind.Primary ? "Primary" : "Resale";
+
+        <div class="row row--nowrap" style="--desk-gap:6px" data-rail="@market.Kind.ToString().ToLowerInvariant()">
+            <Tag State="@(market.Kind == SourceKind.Primary ? DeskState.Info : DeskState.Neutral)">@word</Tag>
+            <div class="rail" role="img" aria-label="@RailLabel(market)" title="@RailLabel(market)">
+                @foreach (var tick in market.Rail)
+                {
+                    <span class="rail__tick @(tick.IsBest ? "rail__tick--best" : null)"
+                          data-source="@tick.Quote.Source.Key"
+                          style="left:@(tick.Position.ToString("0.#", CultureInfo.InvariantCulture))%"
+                          title="@TickLabel(tick)"></span>
+                }
+            </div>
+            @if (market.Spread is { } spread)
+            {
+                <span class="dim num" title="Worst minus best across the sources ranked">@Amount(spread, "USD")</span>
+            }
+        </div>
+    };
+
+    // ---- actions -------------------------------------------------------------------------
+
+    /// <summary>
+    /// What a row can do, in the order an operator reaches for them. The Event window is the
+    /// destination the watchlist exists to reach; the other two are the follow-ups.
+    /// </summary>
+    private List<RowAction> ActionsFor(WatchlistRow row)
+    {
+        var id = row.Event.Id;
+        var name = row.Event.Name;
+
+        return
+        [
+            new()
+            {
+                Key = "event",
+                Label = "Open event",
+                Icon = Icons.Material.Filled.Event,
+                OpenWindow = () => { OpenEvent(row.Event); return Task.CompletedTask; }
+            },
+            new()
+            {
+                Key = "sources",
+                Label = "All sources",
+                Icon = Icons.Material.Filled.ViewList,
+                OpenWindow = () => Launch(WindowCatalog.AllSources, id, name, "680px")
+            },
+            new()
+            {
+                Key = "purchase",
+                Label = "Log purchase",
+                Icon = Icons.Material.Filled.Bolt,
+                // Tinted, not Filled: the strip repeats on every row the operator opens, and a
+                // solid accent per row would put a dozen primaries on one board.
+                Emphasis = DeskEmphasis.Tinted,
+                OpenWindow = () => Launch(WindowCatalog.LogPurchase, id, name, "480px")
+            }
+        ];
+    }
+
+    /// <summary>The Event destination, opened about this event. Not a singleton: two events side by side is the point.</summary>
+    private void OpenEvent(Event evt)
+    {
+        if (WindowCatalog.Find(WindowCatalog.Event) is { } definition)
+            Manager.Open(definition, new() { ["EventId"] = evt.Id }, evt.Name);
+    }
+
+    private Task Launch(string key, int eventId, string name, string width)
+    {
+        _followUps.Launch(Manager, key, "EventId", eventId, name, width);
+        return Task.CompletedTask;
+    }
+
+    private async Task OpenSourceAsync(Source source, Event evt)
+    {
+        var url = SourceLink.For(source, evt);
+
+        if (url.Length > 0)
+            await JS.InvokeVoidAsync("open", url, "_blank", "noopener,noreferrer");
+    }
+
+    // ---- words ---------------------------------------------------------------------------
+
+    private static bool HasSource(WatchlistRow row, string key)
+        => row.Primary.Rail.Concat(row.Resale.Rail).Any(t => t.Quote.Source.Key == key);
+
+    /// <summary>
+    /// The target is an all-in price per ticket, so it is met only by an all-in number — a
+    /// face-value best under the target says nothing about what the buyer would pay.
+    /// </summary>
+    private static bool TargetMet(WatchlistRow row)
+        => row.TargetPrice is { } target
+           && new[] { row.Primary.Best, row.Resale.Best }
+               .Any(b => b is { AllIn: true, Lowest: { } low } && low <= target);
+
+    /// <summary>Whether the public sale opens today, on the venue's own calendar.</summary>
+    private static bool OnSaleToday(WatchlistRow row)
+    {
+        if (row.Event.OnSaleTbd || row.Event.OnSaleAt is not { } at)
+            return false;
+
+        var zone = Zone(row.Event);
+        return TimeZoneInfo.ConvertTime(at, zone).Date == TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, zone).Date;
+    }
+
+    private string RailLabel(MarketBest market)
+        => string.Join(" · ", market.Rail.Select(TickLabel));
+
+    private string TickLabel(RailTick tick)
+    {
+        var q = tick.Quote;
+        var price = q.Lowest is { } low ? $"{Amount(low, q.Currency)} {AllInWord(q.AllIn)}" : "no price";
+        return $"{tick.Monogram} {q.Source.Name}: {price}, {Age(q.ObservedAt)}";
+    }
+
+    private static string Amount(decimal amount, string currency)
+        => currency == "USD" ? amount.ToString("C2", Money) : $"{amount.ToString("N2", Money)} {currency}";
+
+    private static string AllInWord(bool? allIn) => allIn switch
+    {
+        true => "all-in",
+        false => "face value",
+        null => "fees unstated"
+    };
+
+    private static string StatusWord(string code) => code switch
+    {
+        InventoryStatus.Available => "Available",
+        InventoryStatus.FewLeft => "Few left",
+        InventoryStatus.NotAvailable => "Not available",
+        InventoryStatus.Unknown => "Unknown",
+        _ => code
+    };
+
+    private static DeskState StatusState(string code) => code switch
+    {
+        InventoryStatus.Available => DeskState.Positive,
+        InventoryStatus.FewLeft => DeskState.Warning,
+        InventoryStatus.NotAvailable => DeskState.Negative,
+        _ => DeskState.Neutral
+    };
+
+    /// <summary>How long ago, at the scale it is worth: 12m, 3.2h, 2.1d.</summary>
+    private static string Age(DateTimeOffset? at)
+    {
+        if (at is null)
+            return "never";
+
+        var minutes = (DateTimeOffset.UtcNow - at.Value).TotalMinutes;
+
+        return minutes switch
+        {
+            < 1 => "just now",
+            < 60 => $"{minutes:F0}m ago",
+            < 1440 => $"{minutes / 60:F1}h ago",
+            _ => $"{minutes / 1440:F1}d ago"
+        };
+    }
+
+    private static string Plural(int count, string noun) => count == 1 ? noun : noun + "s";
+
+    /// <summary>The venue's zone, which is the zone the on-sale was announced in; UTC when it cannot be resolved.</summary>
+    private static TimeZoneInfo Zone(Event evt)
+    {
+        try
+        {
+            if (evt.Venue?.Timezone is { Length: > 0 } zone)
+                return TimeZoneInfo.FindSystemTimeZoneById(zone);
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            // Fall through: a zone the machine cannot resolve is not a reason to show nothing.
+        }
+
+        return TimeZoneInfo.Utc;
+    }
+
+    /// <summary>The instant in the venue's own zone. Terse on the row; full, with the zone named, in the tooltip.</summary>
+    private static string Local(Event evt, DateTimeOffset instant, bool full = false)
+    {
+        var zone = Zone(evt);
+        var local = TimeZoneInfo.ConvertTime(instant, zone);
+
+        return full
+            ? $"{local.ToString("ddd d MMM yyyy HH:mm", CultureInfo.InvariantCulture)} {zone.Id}"
+            : local.ToString("ddd d MMM HH:mm", CultureInfo.InvariantCulture);
+    }
+}

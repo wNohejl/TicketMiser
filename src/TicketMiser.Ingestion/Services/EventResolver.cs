@@ -178,6 +178,8 @@ public class EventResolver(TicketMiserDbContext db)
                     Presales = SerialisePresales(canonical.PresaleWindows),
                     CreatedBySource = sourceKey
                 };
+                evt.Slug = await MintSlugAsync(
+                    EventSlug.Base(performer?.Name, canonical.Name, venue.Name, canonical.StartsAt, venue.Timezone), ct);
                 db.Events.Add(evt);
             }
 
@@ -261,6 +263,21 @@ public class EventResolver(TicketMiserDbContext db)
             await db.SaveChangesAsync(ct);
 
         return evt;
+    }
+
+    /// <summary>
+    /// The address the record will live at: the base, or the base with the first free numeric
+    /// suffix. Only rows already carrying the base are read, so a busy night at one room costs
+    /// one small query rather than a scan.
+    /// </summary>
+    private async Task<string> MintSlugAsync(string @base, CancellationToken ct)
+    {
+        var taken = await db.Events
+            .Where(e => e.Slug != null && e.Slug.StartsWith(@base))
+            .Select(e => e.Slug!)
+            .ToListAsync(ct);
+
+        return EventSlug.Unique(@base, taken.ToHashSet(StringComparer.Ordinal));
     }
 
     /// <summary>Primary and feed sources are believed about the schedule; resale sources are not.</summary>

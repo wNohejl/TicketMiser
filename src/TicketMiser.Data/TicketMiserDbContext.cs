@@ -73,7 +73,9 @@ public class TicketMiserDbContext(DbContextOptions<TicketMiserDbContext> options
             e.HasIndex(x => x.StartsAt);
             e.HasIndex(x => x.OnSaleAt);
             e.HasIndex(x => new { x.VenueId, x.StartsAt });
+            e.HasIndex(x => x.Slug).IsUnique();
             e.Property(x => x.Name).HasMaxLength(512).IsRequired();
+            e.Property(x => x.Slug).HasMaxLength(EventSlug.MaxLength);
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(16);
             e.Property(x => x.Presales).HasColumnType("jsonb");
             e.Property(x => x.CreatedBySource).HasMaxLength(64);

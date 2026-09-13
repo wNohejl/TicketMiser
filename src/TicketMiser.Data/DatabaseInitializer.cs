@@ -20,6 +20,39 @@ public class DatabaseInitializer(TicketMiserDbContext db, ILogger<DatabaseInitia
         await SeedCategoriesAsync(ct);
         await SeedSourcesAsync(ct);
         await SeedNashvilleVenuesAsync(ct);
+        await BackfillEventSlugsAsync(ct);
+    }
+
+    /// <summary>
+    /// Gives every event that predates the public record page its address. Idempotent: a row
+    /// with a slug is never touched, so the link a fan already shared keeps resolving.
+    /// </summary>
+    public async Task BackfillEventSlugsAsync(CancellationToken ct = default)
+    {
+        var unaddressed = await db.Events
+            .Include(e => e.Venue)
+            .Include(e => e.Performer)
+            .Where(e => e.Slug == null)
+            .OrderBy(e => e.Id)
+            .ToListAsync(ct);
+
+        if (unaddressed.Count == 0)
+            return;
+
+        var taken = (await db.Events
+                .Where(e => e.Slug != null)
+                .Select(e => e.Slug!)
+                .ToListAsync(ct))
+            .ToHashSet(StringComparer.Ordinal);
+
+        foreach (var evt in unaddressed)
+        {
+            evt.Slug = EventSlug.Unique(EventSlug.Base(evt), taken);
+            taken.Add(evt.Slug);
+        }
+
+        await db.SaveChangesAsync(ct);
+        logger.LogInformation("Addressed {Count} events that had no slug", unaddressed.Count);
     }
 
     /// <summary>

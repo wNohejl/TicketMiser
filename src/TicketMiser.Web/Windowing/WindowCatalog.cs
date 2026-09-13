@@ -54,7 +54,7 @@ public static class WindowCatalog
             Title = "Watchlist",
             Icon = Icons.Material.Filled.Leaderboard,
             Group = "Data",
-            ComponentType = typeof(Placeholder),
+            ComponentType = typeof(WatchlistPanel),
             Description = "Every watched event, the best price on it now, the source holding it, and how far the rest are behind.",
             DefaultWeight = 1.9,
             MinWidth = 680

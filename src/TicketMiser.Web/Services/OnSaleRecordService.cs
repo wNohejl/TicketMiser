@@ -6,13 +6,20 @@ using TicketMiser.Data;
 namespace TicketMiser.Web.Services;
 
 /// <summary>
-/// Reads one event's on-sale record for the desk. An interface so a render test can hand the
-/// panel a record without a database behind it.
+/// Reads one event's on-sale record, for the desk's Event window and for the public page at
+/// <c>/e/{slug}</c>. An interface so a render test can hand either a record without a database
+/// behind it.
 /// </summary>
 public interface IOnSaleRecordService
 {
     /// <summary>The record, or null when no event has that id.</summary>
     Task<OnSaleRecord?> GetAsync(int eventId, CancellationToken ct = default);
+
+    /// <summary>The record, or null when no event has that slug.</summary>
+    Task<OnSaleRecord?> GetBySlugAsync(string slug, CancellationToken ct = default);
+
+    /// <summary>The event's public address, or null when no event has that id or it has not been addressed yet.</summary>
+    Task<string?> SlugForAsync(int eventId, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -22,7 +29,25 @@ public interface IOnSaleRecordService
 /// </summary>
 public sealed class OnSaleRecordService(IDbContextFactory<TicketMiserDbContext> factory) : IOnSaleRecordService
 {
-    public async Task<OnSaleRecord?> GetAsync(int eventId, CancellationToken ct = default)
+    public Task<OnSaleRecord?> GetAsync(int eventId, CancellationToken ct = default)
+        => ReadAsync(e => e.Id == eventId, ct);
+
+    public Task<OnSaleRecord?> GetBySlugAsync(string slug, CancellationToken ct = default)
+        => ReadAsync(e => e.Slug == slug, ct);
+
+    public async Task<string?> SlugForAsync(int eventId, CancellationToken ct = default)
+    {
+        await using var db = await factory.CreateDbContextAsync(ct);
+
+        return await db.Events
+            .AsNoTracking()
+            .Where(e => e.Id == eventId)
+            .Select(e => e.Slug)
+            .FirstOrDefaultAsync(ct);
+    }
+
+    private async Task<OnSaleRecord?> ReadAsync(
+        System.Linq.Expressions.Expression<Func<Event, bool>> which, CancellationToken ct)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
 
@@ -30,10 +55,12 @@ public sealed class OnSaleRecordService(IDbContextFactory<TicketMiserDbContext> 
             .AsNoTracking()
             .Include(e => e.Venue)
             .Include(e => e.Performer)
-            .FirstOrDefaultAsync(e => e.Id == eventId, ct);
+            .FirstOrDefaultAsync(which, ct);
 
         if (evt is null)
             return null;
+
+        var eventId = evt.Id;
 
         var ticks = await db.OnSaleTicks
             .AsNoTracking()

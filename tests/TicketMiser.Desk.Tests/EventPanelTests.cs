@@ -35,6 +35,12 @@ public class EventPanelTests : DeskTestContext
     {
         public Task<OnSaleRecord?> GetAsync(int eventId, CancellationToken ct = default)
             => Task.FromResult(eventId == record?.Event.Id ? record : null);
+
+        public Task<OnSaleRecord?> GetBySlugAsync(string slug, CancellationToken ct = default)
+            => Task.FromResult(slug == record?.Event.Slug ? record : null);
+
+        public Task<string?> SlugForAsync(int eventId, CancellationToken ct = default)
+            => Task.FromResult(eventId == record?.Event.Id ? record.Event.Slug : null);
     }
 
     private IRenderedComponent<EventPanel> Open(OnSaleRecord? record, int eventId = 7)
