@@ -29,10 +29,20 @@ in `.claude/skills`.
 ## Running it
 
 ```powershell
-.\scripts\setup.ps1                                                    # .env and the dev certificate
+.\scripts\setup.ps1                                                    # .env, the dev certificate, user-secrets for both hosts
 docker compose -f docker-compose.yml -f compose.dev.yml up -d postgres # Postgres on 127.0.0.1:5434
 dotnet run --project src/TicketMiser.Web --launch-profile http
 ```
+
+Where the database password lives, and why a run outside the launch profile fails with
+"No password has been provided": `appsettings.json` is committed, so it carries the
+connection string without a password. The password is generated into `.env` by setup, which
+compose reads, and copied into `dotnet user-secrets` for the Web and Worker projects by
+`scripts/provision-secrets.ps1`. User-secrets load only when the environment is Development,
+which the `http` and `worker` launch profiles set. So run with `--launch-profile`, not from the
+built exe; a published build runs in Production and expects `ConnectionStrings__TicketMiser`
+in its environment, the way compose supplies it. Docker Desktop must be running first, or the
+compose step reports that the engine pipe does not exist.
 
 Then open <http://localhost:5270>. The host migrates the database and seeds the sources and
 venues on start. With no keys configured no source is registered, which the pull menu

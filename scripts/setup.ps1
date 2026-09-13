@@ -81,6 +81,9 @@ else {
     Write-Host "    dotnet dev-certs https --trust" -ForegroundColor Cyan
 }
 
+# Host-side runs read the password from user-secrets, never from a committed file.
+& (Join-Path $PSScriptRoot 'provision-secrets.ps1')
+
 Write-Host ""
 Write-Host "Next:" -ForegroundColor Cyan
 Write-Host "    docker compose -f docker-compose.yml -f compose.dev.yml up -d postgres" -ForegroundColor White
