@@ -154,6 +154,13 @@ public class Watch
     public int EventId { get; set; }
     public Event? Event { get; set; }
 
+    /// <summary>
+    /// The account that keeps this watch, or null for the operator's own. One watch per owner
+    /// per event; the scheduler polls the union, so two owners on one event cost one fetch.
+    /// </summary>
+    public int? OwnerId { get; set; }
+    public Account? Owner { get; set; }
+
     /// <summary>All-in price per ticket the operator wants to hear about. Null for "just watch".</summary>
     public decimal? TargetPrice { get; set; }
 

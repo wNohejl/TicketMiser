@@ -159,11 +159,11 @@ and log what they paid.
 Gate: `apple-mudblazor` on every window; `cadence-check` after the scheduler polls the
 union of owners' watches.
 
-- [ ] Magic-link sign-in: `AccountEndpoints` issues a single-use token by email, no
+- [x] Magic-link sign-in: `AccountEndpoints` issues a single-use token by email, no
       password anywhere; `OwnerId` on `Watch` and `Purchase` with a migration; Phase 6
       subscriptions migrate to the owner whose address they carry. `OwnershipTests` proves
       one owner never reads another's watches.
-- [ ] `IngestionScheduler` polls the union of enabled watches across owners; the Ops window
+- [x] `IngestionScheduler` polls the union of enabled watches across owners; the Ops window
       shows the union's quota cost; `cadence-check` prints the plan for it.
 - [ ] Watchlist board and Price history from Phase 4, live once one resale source returns
       prices; until then the board shows availability and face value only and says so in

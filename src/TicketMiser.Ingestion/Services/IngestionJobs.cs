@@ -32,7 +32,8 @@ public class IngestionJobs(
         var db = scope.ServiceProvider.GetRequiredService<TicketMiserDbContext>();
 
         var now = DateTimeOffset.UtcNow;
-        var watchlist = await db.Watches.CountAsync(w => w.Enabled && w.Event!.StartsAt > now, ct);
+        // Distinct watched events across owners: one call each, however many people watch one.
+        var watchlist = await db.WatchedEvents().CountAsync(e => e.StartsAt > now, ct);
         var priced = registry.PricedSources.Count;
         var discovery = registry.DiscoverySources.Count;
 

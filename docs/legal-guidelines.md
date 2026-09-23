@@ -37,9 +37,9 @@ and §3) records where each rule comes from; this file is the checklist. Written
 7. **Affiliate links are disclosed.** Where a link earns a commission, the page says so
    in plain words near the link, as the FTC endorsement guides require.
 8. **The record is public and permanent, the personal data is not.** `OnSaleTick` rows
-   are never pruned and are in every snapshot. Subscriber addresses and, later, accounts
-   are stored only for the purpose given, with one-click unsubscribe, and are never in a
-   snapshot that leaves the machine.
+   are never pruned and are in every snapshot. Subscriber addresses, accounts, and the
+   watches and purchases an account owns are stored only for the purpose given, with
+   one-click unsubscribe, and are never in a snapshot that leaves the machine.
 9. **Complaints are the consumer's.** The export is a dated receipt of what was shown
    when. The product never files a complaint, never claims a violation occurred, and
    never names a seller as having broken a law. It shows the timeline and links the

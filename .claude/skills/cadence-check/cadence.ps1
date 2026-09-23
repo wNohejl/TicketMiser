@@ -7,6 +7,8 @@
 #>
 [CmdletBinding()]
 param(
+    # Distinct watched events across every owner (the union the scheduler polls), not watch
+    # rows: two accounts watching one event are one call a sweep. SKILL.md has the query.
     [int] $Watchlist = 40,
     [int] $OnSaleEvents = 0,
     [int] $HoursLeft = 24,

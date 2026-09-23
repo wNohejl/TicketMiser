@@ -18,8 +18,24 @@ sane, is the reader's. Both happen before a scheduler change merges.
 
    Parameters default to the published limits (Ticketmaster 5,000/day and 5/s; SeatGeek
    no published limit, our own ceiling of 600/hour) and a 20 percent reserve. Override
-   them with the real watchlist size from the database when it exists:
-   `SELECT count(*) FROM watches WHERE enabled`.
+   them with the real watchlist size from the database when it exists.
+
+   **`-Watchlist` is the union: distinct watched events, not watch rows.** Since Phase 7
+   each account keeps its own watches, and the scheduler polls the union across owners —
+   two fans on one event cost one call a sweep and one on-sale window. Count it the way
+   `WatchUnion.SizeAsync` does (the Ops window prints the same number, followed by the
+   watch rows and owners behind it):
+
+   ```sql
+   SELECT count(DISTINCT w."EventId") AS watchlist, count(*) AS watches,
+          count(DISTINCT coalesce(w."OwnerId", 0)) AS owners
+   FROM "Watches" w JOIN "Events" e ON e."Id" = w."EventId"
+   WHERE w."Enabled" AND e."StartsAt" > now();
+   ```
+
+   `-OnSaleEvents` is likewise the distinct watched events whose on-sale falls later today
+   (UTC). The script takes both as numbers and reads no database, so the owner count never
+   changes the plan; it is there to read beside it.
 
    The plan shows, per source: calls available after reserve, on-sale watch cost for the
    day (40 Discovery calls per event plus one Inventory Status call per tick for the

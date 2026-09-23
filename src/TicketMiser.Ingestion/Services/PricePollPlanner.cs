@@ -33,12 +33,15 @@ public class PricePollPlanner(
         var now = clock.GetUtcNow();
         var settings = _options.PricePolling;
 
-        var watchlist = await db.Watches.CountAsync(w => w.Enabled && w.Event!.StartsAt > now, ct);
+        // The union across owners: a sweep costs one call per distinct watched event, however
+        // many people watch it.
+        var union = await db.SizeAsync(now, ct);
+        var watchlist = union.Events;
         var perSweep = Math.Max(1, watchlist);
 
         var dayEnd = new DateTimeOffset(now.UtcDateTime.Date, TimeSpan.Zero).AddDays(1);
-        var onSaleToday = await db.Watches
-            .CountAsync(w => w.Enabled && w.Event!.OnSaleAt != null && w.Event.OnSaleAt >= now && w.Event.OnSaleAt < dayEnd, ct);
+        var onSaleToday = await db.WatchedEvents()
+            .CountAsync(e => e.OnSaleAt != null && e.OnSaleAt >= now && e.OnSaleAt < dayEnd, ct);
         var onSaleCost = onSaleToday * OnSaleWindow.CallsPerEvent(_options.OnSaleWatch);
 
         var sources = await db.Sources.Where(s => sourceKeys.Contains(s.Key)).AsNoTracking().ToListAsync(ct);
@@ -74,7 +77,9 @@ public class PricePollPlanner(
             Watchlist: watchlist,
             OnSaleEventsToday: onSaleToday,
             OnSaleCallsReserved: onSaleCost,
-            ReserveCalls: reservedCalls);
+            ReserveCalls: reservedCalls,
+            Watches: union.Watches,
+            Owners: union.Owners);
     }
 
     private async Task<(TimeSpan Interval, int SweepsRemaining, int Reserve)?> PlanForAsync(
@@ -127,6 +132,9 @@ public class PricePollPlanner(
 }
 
 /// <summary>The chosen cadence, and enough context to explain it on screen.</summary>
+/// <param name="Watchlist">Distinct watched events that have not started: the union across owners, and what a sweep costs.</param>
+/// <param name="Watches">Enabled watch rows behind <paramref name="Watchlist"/>; more than it when owners share an event.</param>
+/// <param name="Owners">Distinct owners of those rows, the operator counting as one.</param>
 public record PollPlan(
     TimeSpan Interval,
     int CallsPerSweep,
@@ -135,4 +143,6 @@ public record PollPlan(
     int Watchlist,
     int OnSaleEventsToday,
     int OnSaleCallsReserved,
-    int ReserveCalls);
+    int ReserveCalls,
+    int Watches = 0,
+    int Owners = 0);

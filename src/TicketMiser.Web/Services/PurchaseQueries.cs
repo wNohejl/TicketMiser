@@ -26,8 +26,10 @@ public sealed class PurchaseValidationException(IReadOnlyDictionary<string, stri
 /// test can hand each panel its rows.
 ///
 /// <para>
-/// Purchases are personal: the operator's own record of what they paid. Phase 7 puts them behind
-/// sign-in, per owner; until then the desk is the only reader.
+/// Purchases are personal. Every read and write here is on behalf of the
+/// <see cref="IOwnerContext"/>: a signed-in account reads, logs and deletes its own; the
+/// operator (the desk, with nobody signed in) reads every purchase and logs unowned ones
+/// (see <see cref="Ownership"/>).
 /// </para>
 /// </summary>
 public interface IPurchaseQueries
@@ -58,7 +60,7 @@ public interface IPurchaseQueries
 /// The ledger's queries. A context per call, like the rest: a Blazor circuit lives for hours and
 /// a context that lived with it would hold every row the operator ever looked at.
 /// </summary>
-public sealed class PurchaseQueries(IDbContextFactory<TicketMiserDbContext> factory, TimeProvider clock) : IPurchaseQueries
+public sealed class PurchaseQueries(IDbContextFactory<TicketMiserDbContext> factory, TimeProvider clock, IOwnerContext owners) : IPurchaseQueries
 {
     public Task<IReadOnlyList<PurchaseLine>> LoadAsync(CancellationToken ct = default)
         => ReadAsync(null, ct);
@@ -154,6 +156,7 @@ public sealed class PurchaseQueries(IDbContextFactory<TicketMiserDbContext> fact
             throw new InvalidOperationException($"No priced source has id {sourceId}.");
 
         var purchase = PurchaseLedger.ToPurchase(draft, now);
+        purchase.OwnerId = (await owners.GetAsync(ct)).OwnerId;
         db.Purchases.Add(purchase);
         await db.SaveChangesAsync(ct);
 
@@ -162,16 +165,19 @@ public sealed class PurchaseQueries(IDbContextFactory<TicketMiserDbContext> fact
 
     public async Task DeleteAsync(long purchaseId, CancellationToken ct = default)
     {
+        var owner = await owners.GetAsync(ct);
         await using var db = await factory.CreateDbContextAsync(ct);
-        await db.Purchases.Where(p => p.Id == purchaseId).ExecuteDeleteAsync(ct);
+        await db.Purchases.VisibleTo(owner).Where(p => p.Id == purchaseId).ExecuteDeleteAsync(ct);
     }
 
     private async Task<IReadOnlyList<PurchaseLine>> ReadAsync(int? eventId, CancellationToken ct)
     {
+        var owner = await owners.GetAsync(ct);
         await using var db = await factory.CreateDbContextAsync(ct);
 
         var query = db.Purchases
             .AsNoTracking()
+            .VisibleTo(owner)
             .Include(p => p.Event!).ThenInclude(e => e.Venue)
             .Include(p => p.Event!).ThenInclude(e => e.Performer)
             .AsQueryable();

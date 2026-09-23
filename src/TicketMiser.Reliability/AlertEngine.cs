@@ -105,10 +105,17 @@ public class AlertEngine(
             .Where(w => w.Enabled && w.Event!.StartsAt > now)
             .ToListAsync(ct);
 
-        foreach (var watch in watches)
+        // One pass per watched event, not per watch: the rules are about the event, and each
+        // (rule, source, event) has at most one open alert whoever watches it. With several
+        // owners on one event, a drop is raised if any of them asked for drops, and the target
+        // rule fires on the highest target — someone's target has been reached. Per-owner
+        // targets and who hears about them are the delivery's to decide, not the alert's.
+        foreach (var group in watches.GroupBy(w => w.EventId))
         {
-            var eventId = watch.EventId;
-            var name = watch.Event!.Name;
+            var eventId = group.Key;
+            var name = group.First().Event!.Name;
+            var notifyOnDrop = group.Any(w => w.NotifyOnDrop);
+            var targetPrice = group.Max(w => w.TargetPrice);
 
             // Newest two observations per source, in one query per watch.
             var recent = await db.PriceObservations
@@ -120,7 +127,7 @@ public class AlertEngine(
                 .Select(g => (Latest: g.First(), Previous: g.Skip(1).FirstOrDefault()))
                 .ToList();
 
-            if (watch.NotifyOnDrop)
+            if (notifyOnDrop)
             {
                 foreach (var (latest, previous) in latestBySource)
                 {
@@ -139,7 +146,7 @@ public class AlertEngine(
                 }
             }
 
-            if (watch.TargetPrice is { } target)
+            if (targetPrice is { } target)
             {
                 // A target is an all-in number. A face-value price under it is not a hit.
                 var hit = latestBySource
@@ -237,7 +244,7 @@ public class AlertEngine(
                 continue;
             }
 
-            db.Alerts.Add(new Alert
+            var opened = new Alert
             {
                 RuleKey = candidate.RuleKey,
                 SourceId = candidate.SourceId,
@@ -245,7 +252,12 @@ public class AlertEngine(
                 Severity = candidate.Severity,
                 Message = candidate.Message,
                 TriggeredAt = now
-            });
+            };
+            db.Alerts.Add(opened);
+
+            // Open from here on, so an identical candidate later in this pass updates it
+            // instead of opening a second alert (and sending a second email).
+            open.Add(opened);
 
             logger.LogWarning("Alert opened [{Rule}] {Message}", candidate.RuleKey, candidate.Message);
         }

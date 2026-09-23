@@ -1,4 +1,5 @@
 using Bunit;
+using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.Extensions.DependencyInjection;
 using TicketMiser.Core.Analytics;
 using TicketMiser.Core.Entities;
@@ -33,6 +34,21 @@ public class EventRecordPageTests : DeskTestContext
         Performer = new Performer { Name = "Example Performer" },
         ExternalIds = new Dictionary<string, string> { ["ticketmaster"] = "tm-123", ["seatgeek"] = "6543210" }
     };
+
+    /// <summary>Account 5 watches the events named here; nobody else watches anything.</summary>
+    private sealed class FakeAccounts(params int[] watching) : IAccountQueries
+    {
+        public Task<AccountSummary?> SummaryAsync(int accountId, CancellationToken ct = default) => Task.FromResult<AccountSummary?>(null);
+
+        public Task<bool> IsWatchingAsync(int accountId, int eventId, CancellationToken ct = default)
+            => Task.FromResult(accountId == 5 && watching.Contains(eventId));
+    }
+
+    public EventRecordPageTests()
+    {
+        Services.AddSingleton<IAccountQueries>(new FakeAccounts());
+        Services.AddSingleton<AntiforgeryStateProvider, AccountPageTests.FakeAntiforgery>();
+    }
 
     private sealed class FakeRecords(OnSaleRecord? record) : IOnSaleRecordService
     {
@@ -256,6 +272,48 @@ public class EventRecordPageTests : DeskTestContext
 
         await DisposeComponentsAsync();
         Assert.Empty(Render<EventRecord>(p => p.Add(x => x.Slug, Address).Add(x => x.Subscribed, "<script>")).FindAll(".record-page__notice"));
+    }
+
+    [Fact]
+    public void Signed_out_the_subscribe_form_offers_sign_in_and_no_watch_button()
+    {
+        var cut = OpenWithFlag(null);
+
+        Assert.Empty(cut.FindAll(".record-page__watch"));
+        Assert.Contains(cut.FindAll(".record-page__subscribe a"), a => a.GetAttribute("href") == "/account");
+    }
+
+    [Fact]
+    public void Signed_in_the_page_offers_watch_this_event_as_a_protected_post_in_place_of_the_form()
+    {
+        Services.AddSingleton<IOnSaleRecordService>(new FakeRecords(Recorded()));
+
+        var cut = Render<EventRecord>(p => p.Add(x => x.Slug, Address).Add(x => x.AccountId, 5));
+
+        Assert.Empty(cut.FindAll($"form[action='/e/{Address}/subscribe']"));
+
+        var form = cut.Find(".record-page__watch form");
+        Assert.Equal("post", form.GetAttribute("method"));
+        Assert.Equal("/account/watches/7", form.GetAttribute("action"));
+        Assert.Equal(AccountPageTests.FakeAntiforgery.Value, form.QuerySelector("input[name=__RequestVerificationToken]")!.GetAttribute("value"));
+
+        var button = Assert.Single(form.QuerySelectorAll("button"));
+        Assert.Equal("submit", button.GetAttribute("type"));
+        Assert.Contains("Watch this event", button.TextContent);
+        Assert.Equal("Watch this event", cut.Find("#watch-heading").TextContent);
+    }
+
+    [Fact]
+    public void Signed_in_and_watching_the_page_says_so_and_offers_no_form()
+    {
+        Services.AddSingleton<IAccountQueries>(new FakeAccounts(7));
+        Services.AddSingleton<IOnSaleRecordService>(new FakeRecords(Recorded()));
+
+        var cut = Render<EventRecord>(p => p.Add(x => x.Slug, Address).Add(x => x.AccountId, 5));
+
+        Assert.Equal("Watching", cut.Find("#watch-heading").TextContent);
+        Assert.Empty(cut.FindAll(".record-page__watch form"));
+        Assert.Contains(cut.FindAll(".record-page__watch a"), a => a.GetAttribute("href") == "/account");
     }
 
     [Fact]

@@ -29,6 +29,8 @@ public class TicketMiserDbContext(DbContextOptions<TicketMiserDbContext> options
     // Personal data (legal-guidelines rule 8): excluded from every published snapshot.
     public DbSet<Subscription> Subscriptions => Set<Subscription>();
     public DbSet<AlertDelivery> AlertDeliveries => Set<AlertDelivery>();
+    public DbSet<Account> Accounts => Set<Account>();
+    public DbSet<SignInToken> SignInTokens => Set<SignInToken>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -101,9 +103,14 @@ public class TicketMiserDbContext(DbContextOptions<TicketMiserDbContext> options
 
         b.Entity<Watch>(e =>
         {
-            e.HasIndex(x => x.EventId).IsUnique();
+            // One watch per owner per event, the operator's (no owner) included: NULLS NOT
+            // DISTINCT, so the operator cannot hold two either. Two owners on one event are two
+            // rows and one fetch; the scheduler reads the union (WatchUnion).
+            e.HasIndex(x => new { x.OwnerId, x.EventId }).IsUnique().AreNullsDistinct(false);
+            e.HasIndex(x => x.EventId);
             e.Property(x => x.TargetPrice).HasPrecision(12, 2);
             e.HasOne(x => x.Event).WithMany().HasForeignKey(x => x.EventId);
+            e.HasOne(x => x.Owner).WithMany().HasForeignKey(x => x.OwnerId).OnDelete(DeleteBehavior.Cascade);
         });
 
         b.Entity<PriceObservation>(e =>
@@ -167,7 +174,9 @@ public class TicketMiserDbContext(DbContextOptions<TicketMiserDbContext> options
             e.Property(x => x.Currency).HasMaxLength(3).IsRequired();
             e.Property(x => x.Note).HasMaxLength(1024);
             e.HasIndex(x => x.PurchasedAt);
+            e.HasIndex(x => x.OwnerId);
             e.HasOne(x => x.Event).WithMany().HasForeignKey(x => x.EventId);
+            e.HasOne(x => x.Owner).WithMany().HasForeignKey(x => x.OwnerId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Source).WithMany().HasForeignKey(x => x.SourceId).OnDelete(DeleteBehavior.SetNull);
         });
 
@@ -220,6 +229,8 @@ public class TicketMiserDbContext(DbContextOptions<TicketMiserDbContext> options
             e.HasIndex(x => x.EventId);
 
             e.HasOne(x => x.Event).WithMany().HasForeignKey(x => x.EventId).OnDelete(DeleteBehavior.Cascade);
+            // An account's deletion takes the alerts it asked for with it.
+            e.HasOne(x => x.Account).WithMany().HasForeignKey(x => x.AccountId).OnDelete(DeleteBehavior.Cascade);
         });
 
         b.Entity<AlertDelivery>(e =>
@@ -231,6 +242,21 @@ public class TicketMiserDbContext(DbContextOptions<TicketMiserDbContext> options
 
             e.HasOne(x => x.Alert).WithMany().HasForeignKey(x => x.AlertId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Subscription).WithMany().HasForeignKey(x => x.SubscriptionId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<Account>(e =>
+        {
+            e.Property(x => x.Email).HasMaxLength(Subscription.EmailMaxLength).IsRequired();
+            e.HasIndex(x => x.Email).IsUnique();
+        });
+
+        b.Entity<SignInToken>(e =>
+        {
+            e.Property(x => x.Email).HasMaxLength(Subscription.EmailMaxLength).IsRequired();
+            e.Property(x => x.TokenHash).HasMaxLength(SignInToken.HashLength).IsFixedLength().IsRequired();
+            e.HasIndex(x => x.TokenHash).IsUnique();
+            // "Was a link sent to this address a moment ago": the resend throttle's read.
+            e.HasIndex(x => new { x.Email, x.CreatedAt });
         });
     }
 }

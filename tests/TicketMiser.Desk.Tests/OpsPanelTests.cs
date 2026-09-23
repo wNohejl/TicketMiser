@@ -118,6 +118,27 @@ public class OpsPanelTests : OperationsPanelBench
     }
 
     [Fact]
+    public void The_quota_line_is_the_union_of_owners_watches_one_call_per_distinct_event()
+    {
+        var source = Ticketmaster(perDay: 5000);
+        var usage = new BudgetUsage(0, 0, 0, 200, 5000, null);
+
+        // Six owners keep twenty watches on fourteen events: a sweep costs fourteen calls.
+        var snapshot = OpsSnapshot.Empty with
+        {
+            Health = [new SourceHealth(source, null, null, 1.0, 0, 0, null, null, null)],
+            Budgets = [new SourceBudget(source, usage, 5000, 0, 1000, 4000)],
+            Plan = new PollPlan(TimeSpan.FromMinutes(30), 14, 100, "ticketmaster", 14, 0, 0, 1000, Watches: 20, Owners: 6),
+            SweepsUnattended = true
+        };
+
+        var cut = Render(snapshot);
+
+        Assert.Contains("for 14 watched events, 20 watches across 6 owners", cut.Markup);
+        Assert.Contains(">14</span> calls a sweep", cut.Markup);
+    }
+
+    [Fact]
     public void An_open_alert_shows_its_first_runbook_step_on_the_row()
     {
         var source = Ticketmaster();

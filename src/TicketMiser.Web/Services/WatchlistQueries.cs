@@ -61,10 +61,18 @@ public sealed record WatchlistRow(
     }
 }
 
-/// <summary>What the Watchlist panel reads. An interface so a render test can hand the panel its rows.</summary>
+/// <summary>
+/// What the Watchlist panel reads. An interface so a render test can hand the panel its rows.
+/// Everything here is read on behalf of the <see cref="IOwnerContext"/>: an account sees and
+/// changes its own watches, the operator sees every watch (see <see cref="Ownership"/>).
+/// </summary>
 public interface IWatchlistQueries
 {
-    /// <summary>Every enabled watch on an event that has not started, soonest first.</summary>
+    /// <summary>
+    /// Every enabled watch on an event that has not started, soonest first; one row per event.
+    /// The operator's view is the union the scheduler polls, drawn from the operator's own watch
+    /// where there is one.
+    /// </summary>
     Task<IReadOnlyList<WatchlistRow>> LoadAsync(CancellationToken ct = default);
 
     /// <summary>
@@ -74,10 +82,14 @@ public interface IWatchlistQueries
     /// </summary>
     Task<IReadOnlyList<WatchCandidate>> CandidatesAsync(string? search, CancellationToken ct = default);
 
-    /// <summary>Watches the event: a new watch, or the old one switched back on. A watch is the instruction to poll.</summary>
+    /// <summary>Watches the event: the reader's own watch, new or switched back on. A watch is the instruction to poll.</summary>
     Task WatchAsync(int eventId, CancellationToken ct = default);
 
-    /// <summary>Stops polling the event. The watch is switched off rather than deleted, so the record keeps its reason.</summary>
+    /// <summary>
+    /// Stops the reader's watching of the event. Switched off rather than deleted, so the record
+    /// keeps its reason. An account stops its own watch; the operator stops every watch on the
+    /// event, which is how the desk stops polling it: the quota is the operator's to spend.
+    /// </summary>
     Task UnwatchAsync(int eventId, CancellationToken ct = default);
 }
 
@@ -97,10 +109,11 @@ public sealed record WatchCandidate(Event Event, bool Watched)
 /// a context that lived with it would hold every row the operator ever looked at.
 /// </para>
 /// </summary>
-public sealed class WatchlistQueries(IDbContextFactory<TicketMiserDbContext> factory, TimeProvider clock) : IWatchlistQueries
+public sealed class WatchlistQueries(IDbContextFactory<TicketMiserDbContext> factory, TimeProvider clock, IOwnerContext owners) : IWatchlistQueries
 {
     public async Task<IReadOnlyList<WatchCandidate>> CandidatesAsync(string? search, CancellationToken ct = default)
     {
+        var owner = await owners.GetAsync(ct);
         await using var db = await factory.CreateDbContextAsync(ct);
         var now = clock.GetUtcNow();
 
@@ -133,6 +146,7 @@ public sealed class WatchlistQueries(IDbContextFactory<TicketMiserDbContext> fac
 
         var ids = events.Select(e => e.Id).ToList();
         var watched = await db.Watches
+            .VisibleTo(owner)
             .Where(w => w.Enabled && ids.Contains(w.EventId))
             .Select(w => w.EventId)
             .ToListAsync(ct);
@@ -143,9 +157,10 @@ public sealed class WatchlistQueries(IDbContextFactory<TicketMiserDbContext> fac
 
     public async Task WatchAsync(int eventId, CancellationToken ct = default)
     {
+        var owner = await owners.GetAsync(ct);
         await using var db = await factory.CreateDbContextAsync(ct);
 
-        var existing = await db.Watches.Where(w => w.EventId == eventId).OrderByDescending(w => w.Id).FirstOrDefaultAsync(ct);
+        var existing = await db.Watches.OwnedBy(owner).Where(w => w.EventId == eventId).FirstOrDefaultAsync(ct);
         if (existing is not null)
         {
             existing.Enabled = true;
@@ -155,7 +170,7 @@ public sealed class WatchlistQueries(IDbContextFactory<TicketMiserDbContext> fac
             if (!await db.Events.AnyAsync(e => e.Id == eventId, ct))
                 throw new InvalidOperationException($"No event has id {eventId}.");
 
-            db.Watches.Add(new Watch { EventId = eventId, CreatedAt = clock.GetUtcNow() });
+            db.Watches.Add(new Watch { EventId = eventId, OwnerId = owner.OwnerId, CreatedAt = clock.GetUtcNow() });
         }
 
         await db.SaveChangesAsync(ct);
@@ -163,25 +178,36 @@ public sealed class WatchlistQueries(IDbContextFactory<TicketMiserDbContext> fac
 
     public async Task UnwatchAsync(int eventId, CancellationToken ct = default)
     {
+        var owner = await owners.GetAsync(ct);
         await using var db = await factory.CreateDbContextAsync(ct);
 
         await db.Watches
+            .VisibleTo(owner)
             .Where(w => w.EventId == eventId && w.Enabled)
             .ExecuteUpdateAsync(s => s.SetProperty(w => w.Enabled, false), ct);
     }
 
     public async Task<IReadOnlyList<WatchlistRow>> LoadAsync(CancellationToken ct = default)
     {
+        var owner = await owners.GetAsync(ct);
         await using var db = await factory.CreateDbContextAsync(ct);
         var now = clock.GetUtcNow();
 
-        var watches = await db.Watches
+        // One row per event. An account has at most one watch per event; the operator sees
+        // every owner's, and a board row is an event, so the operator's own watch speaks for it
+        // where there is one and the earliest other watch where there is not.
+        var watches = (await db.Watches
             .AsNoTracking()
+            .VisibleTo(owner)
             .Include(w => w.Event!).ThenInclude(e => e.Venue)
             .Include(w => w.Event!).ThenInclude(e => e.Performer)
             .Where(w => w.Enabled && w.Event!.StartsAt > now)
             .OrderBy(w => w.Event!.StartsAt)
-            .ToListAsync(ct);
+            .ThenBy(w => w.OwnerId != null)
+            .ThenBy(w => w.Id)
+            .ToListAsync(ct))
+            .DistinctBy(w => w.EventId)
+            .ToList();
 
         if (watches.Count == 0)
             return [];

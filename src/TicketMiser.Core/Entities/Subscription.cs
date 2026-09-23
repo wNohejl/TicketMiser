@@ -30,6 +30,14 @@ public class Subscription
     public int EventId { get; set; }
     public Event? Event { get; set; }
 
+    /// <summary>
+    /// The account whose address this is, once that address has signed in. Set when a sign-in
+    /// claims the address's confirmed subscriptions as owned watches, and when an account's
+    /// watch stands in for a subscription; null for an address that never signed in.
+    /// </summary>
+    public int? AccountId { get; set; }
+    public Account? Account { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 
     /// <summary>The secret in the confirmation link. Random, url-safe, never derived from the address.</summary>

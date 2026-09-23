@@ -104,7 +104,7 @@ public interface IDestinationQueries
 /// The destinations' reads. Upcoming events carry each market's best from the sources' latest
 /// quotes, the same rule the Watchlist reads by; past events carry their final prices.
 /// </summary>
-public sealed class DestinationQueries(IDbContextFactory<TicketMiserDbContext> factory, TimeProvider clock) : IDestinationQueries
+public sealed class DestinationQueries(IDbContextFactory<TicketMiserDbContext> factory, TimeProvider clock, IOwnerContext owners) : IDestinationQueries
 {
     public async Task<IReadOnlyList<PerformerSummary>> PerformersAsync(string? search, CancellationToken ct = default)
     {
@@ -206,7 +206,9 @@ public sealed class DestinationQueries(IDbContextFactory<TicketMiserDbContext> f
             .Select(g => g.OrderByDescending(t => t.ObservedAt).First())
             .ToListAsync(ct);
 
+        // "Watched" means by this reader: an account's own watches, or any watch for the operator.
         var watched = (await db.Watches
+            .VisibleTo(await owners.GetAsync(ct))
             .Where(w => w.Enabled && upcomingIds.Contains(w.EventId))
             .Select(w => w.EventId)
             .ToListAsync(ct)).ToHashSet();

@@ -74,7 +74,7 @@
             <text>
                 Sweeping every <span class="mono">@Cadence(plan.Interval)</span> at
                 <span class="mono">@plan.CallsPerSweep</span> @Plural(plan.CallsPerSweep, "call") a sweep
-                for @plan.Watchlist watched @Plural(plan.Watchlist, "event")
+                for @Union(plan)
             </text>
             @if (plan.SweepsRemainingToday is { } left)
             {
@@ -91,7 +91,7 @@
             <text>
                 Prices are swept on request only — nothing is fetched unasked. A sweep costs
                 <span class="mono">@plan.CallsPerSweep</span> @Plural(plan.CallsPerSweep, "call")
-                for @plan.Watchlist watched @Plural(plan.Watchlist, "event"). Use <strong>Prices now</strong>.
+                for @Union(plan). Use <strong>Prices now</strong>.
             </text>
         }
         @* The on-sale watch is the expensive part of the day, and it runs unattended whatever
@@ -311,6 +311,20 @@ else if (S.Health.Count > 0)
     };
 
     private static string Plural(int count, string noun) => count == 1 ? noun : noun + "s";
+
+    /// <summary>
+    /// The watchlist the quota is spent on: the union across owners, which is what a sweep
+    /// costs — "14 watched events, 20 watches across 6 owners". Two owners on one event are
+    /// one event here and one call a sweep, so the first number is the one to hold against the
+    /// budget and the rest says how many people it serves.
+    /// </summary>
+    private static string Union(TicketMiser.Ingestion.Services.PollPlan plan)
+    {
+        var events = $"{plan.Watchlist:N0} watched {Plural(plan.Watchlist, "event")}";
+        return plan.Watches == 0
+            ? events
+            : $"{events}, {plan.Watches:N0} {(plan.Watches == 1 ? "watch" : "watches")} across {plan.Owners:N0} {Plural(plan.Owners, "owner")}";
+    }
 
     private string NextSweep => S.NextSweepAt is { } at
         ? at <= DateTimeOffset.UtcNow ? "next tick" : at.ToLocalTime().ToString("HH:mm")

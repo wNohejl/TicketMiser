@@ -32,4 +32,11 @@
     <ProjectReference Include="..\..\src\TicketMiser.Ingestion\TicketMiser.Ingestion.csproj" />
   </ItemGroup>
 
+  <!-- The web host, for the queries the ownership rule guards: OwnershipTests runs the very
+       WatchlistQueries and PurchaseQueries the desk and the pages call, against Postgres,
+       rather than a copy of them moved somewhere a test can reach. -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\TicketMiser.Web\TicketMiser.Web.csproj" />
+  </ItemGroup>
+
 </Project>

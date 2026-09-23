@@ -11,6 +11,10 @@ public class Purchase
     public int EventId { get; set; }
     public Event? Event { get; set; }
 
+    /// <summary>The account that logged it, or null for the operator's own. Read only by its owner and the operator.</summary>
+    public int? OwnerId { get; set; }
+    public Account? Owner { get; set; }
+
     /// <summary>Where it was bought. Null when bought somewhere we do not track.</summary>
     public int? SourceId { get; set; }
     public Source? Source { get; set; }

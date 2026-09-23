@@ -31,16 +31,17 @@ public class OnSaleWatchService(
 
     public const string JobKey = "onsale:watch";
 
-    /// <summary>Watched events whose window contains <paramref name="now"/> and whose current mark is unrecorded.</summary>
+    /// <summary>
+    /// Watched events whose window contains <paramref name="now"/> and whose current mark is
+    /// unrecorded. The union across owners: an event two people watch is due once.
+    /// </summary>
     public async Task<IReadOnlyList<Event>> DueEventsAsync(DateTimeOffset now, CancellationToken ct)
     {
         var earliest = now - _settings.Tail - _settings.HourlyTail;
         var latest = now + _settings.Lead;
 
-        var candidates = await db.Watches
-            .Where(w => w.Enabled && w.Event!.OnSaleAt != null
-                        && w.Event.OnSaleAt >= earliest && w.Event.OnSaleAt <= latest)
-            .Select(w => w.Event!)
+        var candidates = await db.WatchedEvents()
+            .Where(e => e.OnSaleAt != null && e.OnSaleAt >= earliest && e.OnSaleAt <= latest)
             .ToListAsync(ct);
 
         if (candidates.Count == 0)

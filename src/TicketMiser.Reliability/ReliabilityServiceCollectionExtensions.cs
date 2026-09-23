@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using TicketMiser.Reliability.Accounts;
 using TicketMiser.Reliability.Notifications;
 
 namespace TicketMiser.Reliability;
@@ -29,7 +30,7 @@ public static class ReliabilityServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Email: subscriptions, alert delivery, and exactly one <see cref="INotifier"/>. Postmark
+    /// Email: subscriptions, alert delivery, sign-in links, and exactly one <see cref="INotifier"/>. Postmark
     /// only when <c>Notifications:Provider</c> is <c>postmark</c> and a server token is set;
     /// otherwise the pickup directory, which sends nothing to the internet. Decided once, at
     /// startup, so a running host never changes how it sends.
@@ -60,6 +61,9 @@ public static class ReliabilityServiceCollectionExtensions
 
         services.AddScoped<SubscriptionService>();
         services.AddScoped<AlertDeliveryService>();
+
+        // Magic-link sign-in sends through the same notifier: the link is an email like any other.
+        services.AddScoped<AccountService>();
 
         return services;
     }

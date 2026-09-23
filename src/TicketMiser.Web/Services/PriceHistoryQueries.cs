@@ -43,20 +43,22 @@ public interface IPriceHistoryQueries
 /// <see cref="LatestQuotes.For"/>) so it can be pinned without a database; this class only
 /// fetches the rows. A context per call, like every desk query.
 /// </summary>
-public sealed class PriceHistoryQueries(IDbContextFactory<TicketMiserDbContext> factory, TimeProvider clock) : IPriceHistoryQueries
+public sealed class PriceHistoryQueries(IDbContextFactory<TicketMiserDbContext> factory, TimeProvider clock, IOwnerContext owners) : IPriceHistoryQueries
 {
     /// <summary>How far back a started event stays pickable: long enough to read how its prices ended.</summary>
     public const int RecentDays = 30;
 
     public async Task<IReadOnlyList<Event>> ChoicesAsync(CancellationToken ct = default)
     {
+        var owner = await owners.GetAsync(ct);
         await using var db = await factory.CreateDbContextAsync(ct);
         var since = clock.GetUtcNow().AddDays(-RecentDays);
+        var watches = db.Watches.VisibleTo(owner);
 
         return await db.Events
             .AsNoTracking()
             .Include(e => e.Venue)
-            .Where(e => e.StartsAt >= since && db.Watches.Any(w => w.Enabled && w.EventId == e.Id))
+            .Where(e => e.StartsAt >= since && watches.Any(w => w.Enabled && w.EventId == e.Id))
             .OrderBy(e => e.StartsAt)
             .ToListAsync(ct);
     }
@@ -109,7 +111,7 @@ public sealed class PriceHistoryQueries(IDbContextFactory<TicketMiserDbContext> 
             .Include(e => e.Performer)
             .FirstOrDefaultAsync(e => e.Id == eventId, ct);
 
-    private static async Task<PriceHistory?> ReadAsync(TicketMiserDbContext db, int eventId, CancellationToken ct)
+    private async Task<PriceHistory?> ReadAsync(TicketMiserDbContext db, int eventId, CancellationToken ct)
     {
         if (await EventAsync(db, eventId, ct) is not { } evt)
             return null;
@@ -132,8 +134,10 @@ public sealed class PriceHistoryQueries(IDbContextFactory<TicketMiserDbContext> 
             .ToListAsync(ct);
 
         // Read, never written: the history marks what was paid and leaves the grading to Purchases.
+        // The reader's own purchases only; another owner's are not theirs to see.
         var purchases = await db.Purchases
             .AsNoTracking()
+            .VisibleTo(await owners.GetAsync(ct))
             .Where(p => p.EventId == eventId)
             .ToListAsync(ct);
 

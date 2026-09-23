@@ -9,9 +9,11 @@ using TicketMiser.Core.Analytics;
 using TicketMiser.Data;
 using TicketMiser.Desk;
 using TicketMiser.Ingestion;
+using TicketMiser.Core.Entities;
 using TicketMiser.Observability;
 using TicketMiser.Reliability;
 using TicketMiser.Reliability.Notifications;
+using TicketMiser.Web.Accounts;
 using TicketMiser.Web.Components;
 using TicketMiser.Web.Components.Pages;
 using TicketMiser.Web.Services;
@@ -75,7 +77,14 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy(SubscribeLimit, http => RateLimitPartition.GetFixedWindowLimiter(
         http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(10), QueueLimit = 0 }));
+
+    // The sign-in form is the other anonymous write, and sends an email the same way.
+    options.AddPolicy(AccountEndpoints.SignInLimit, AccountEndpoints.SignInPartition);
 });
+
+// Magic-link accounts: a cookie naming the account, no Identity, no password. Whoever is
+// not signed in is the operator (OwnerScope), so the desk reads every row as it always has.
+builder.Services.AddAccountSignIn();
 
 // What the operations windows read. Each is an interface over the reliability layer and the
 // database so a panel holds no EF query of its own and a render test can hand it a snapshot.
@@ -86,18 +95,20 @@ builder.Services.AddSingleton<IRunQueries, RunQueries>();
 builder.Services.AddSingleton<IHistoryQueries, HistoryQueries>();
 
 // The board's read: every enabled watch with each market's best number and its rail, composed
-// per market and never across them. A context per call, like the rest.
-builder.Services.AddSingleton<IWatchlistQueries, WatchlistQueries>();
+// per market and never across them. A context per call, like the rest. Scoped, as are the
+// three below, because each reads on behalf of whoever is reading (IOwnerContext): an account
+// sees its own watches and purchases, the operator sees all of them.
+builder.Services.AddScoped<IWatchlistQueries, WatchlistQueries>();
 
 // One event's prices over time — Price history, the Event window's history tab, Trend and All
 // sources — and the Performers, Performer and Venue windows. Per market, never across; the
 // composition is in Core. A context per call.
-builder.Services.AddSingleton<IPriceHistoryQueries, PriceHistoryQueries>();
-builder.Services.AddSingleton<IDestinationQueries, DestinationQueries>();
+builder.Services.AddScoped<IPriceHistoryQueries, PriceHistoryQueries>();
+builder.Services.AddScoped<IDestinationQueries, DestinationQueries>();
 
 // The purchase ledger: Purchases, Savings, the Log purchase follow-up and the receipt export.
 // Graded against day-of prices of the same all-in kind only. A context per call.
-builder.Services.AddSingleton<IPurchaseQueries, PurchaseQueries>();
+builder.Services.AddScoped<IPurchaseQueries, PurchaseQueries>();
 
 // Persist Data Protection keys outside the container when a path is configured, so a
 // replaced container does not invalidate every live circuit.
@@ -137,6 +148,9 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
+// Authentication first: the output cache must know a request is signed in, so that it
+// neither stores nor serves a copy of a page drawn for one account.
+app.UseAuthentication();
 app.UseAntiforgery();
 app.UseRateLimiter();
 app.UseOutputCache();
@@ -155,14 +169,16 @@ app.MapStaticAssets();
 // why it carries no @page), so a fan with a link needs no account and loads no script.
 // GET /e/{id} is the address the desk can build before a row has a slug; it redirects to
 // the slug once one exists and renders the record by id until then.
-app.MapGet("/e/{id:int}", async (int id, IOnSaleRecordService records, CancellationToken ct) =>
+// A signed-in fan's copy carries "Watch this event" and is not cached: the cache policy keeps
+// the default rule that an authenticated request is neither stored nor served from the cache.
+app.MapGet("/e/{id:int}", async (int id, HttpContext http, IOnSaleRecordService records, CancellationToken ct) =>
         await records.SlugForAsync(id, ct) is { } slug
             ? Results.Redirect($"/e/{slug}", permanent: true)
-            : new RazorComponentResult<EventRecord>(new { EventId = id }))
+            : new RazorComponentResult<EventRecord>(new { EventId = id, OwnerScope.From(http.User).AccountId }))
     .AllowAnonymous();
 
-app.MapGet("/e/{slug}", (string slug, string? subscribed) =>
-        new RazorComponentResult<EventRecord>(new { Slug = slug, Subscribed = subscribed }))
+app.MapGet("/e/{slug}", (string slug, string? subscribed, HttpContext http) =>
+        new RazorComponentResult<EventRecord>(new { Slug = slug, Subscribed = subscribed, OwnerScope.From(http.User).AccountId }))
     .AllowAnonymous()
     .CacheOutput(EventRecordCache);
 
@@ -244,9 +260,10 @@ app.MapGet("/onsales.ics", async (HttpContext http, IOnSaleCalendarService calen
 // The ledger as a dated receipt (legal guidelines, rule 9): one event's on-sale record and the
 // purchases logged against it, as a Markdown file to keep or attach to a complaint. A file, not
 // a page ("exports are files"), so it is served as an attachment and never cached.
-// Mapped beside the desk, which has no sign-in yet. It is NOT meant to be public: the receipt
-// carries the operator's purchases, which are personal. Phase 7 moves it behind sign-in and
-// scopes the purchases to their owner; until then it is as open as the desk it serves.
+// Purchases are read through the ownership rule: a request carrying an account's cookie gets
+// that account's purchases only; a request with no account is the operator's, unchanged, and
+// carries every purchase logged against the event. That last case is as open as the desk it
+// serves — exposing the desk publicly will need an operator sign-in, which is not built yet.
 app.MapGet("/receipts/{eventId:int}.md", async (int eventId, HttpContext http, IOnSaleRecordService records,
         IPurchaseQueries purchases, TimeProvider clock, CancellationToken ct) =>
     {
@@ -261,6 +278,8 @@ app.MapGet("/receipts/{eventId:int}.md", async (int eventId, HttpContext http, I
         http.Response.Headers.ContentDisposition = $"attachment; filename=\"{PurchaseReceipt.FileName(record.Event, now)}\"";
         return Results.Text(markdown, PurchaseReceipt.ContentType);
     });
+
+app.MapAccountEndpoints();
 
 // Global Interactive Server render mode: MudBlazor does not support static server
 // rendering, so interactivity is declared once at the root rather than per component.

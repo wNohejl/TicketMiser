@@ -4,6 +4,7 @@
 @using TicketMiser.Web.Components.Records
 @using TicketMiser.Web.Services
 @inject IOnSaleRecordService Records
+@inject IAccountQueries Accounts
 @inject DeskBrand Brand
 
 @*
@@ -27,6 +28,11 @@
     a citation on every cell and SeatGeek's name where its numbers are; rule 4 says why
     there are only numbers here; rule 9 says the page never claims a violation occurred —
     it shows the timeline and says where a reader can take it.
+
+    A signed-in fan sees "Watch this event" in place of the subscribe form: a post, with an
+    antiforgery token, that keeps an owned watch and the email that goes with it. That copy
+    of the page is never cached — the output cache neither stores nor serves a response for
+    an authenticated request — so the shared five-minute document is always the signed-out one.
 *@
 
 <!DOCTYPE html>
@@ -71,6 +77,8 @@
         .record-page__subscribe form { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
         .record-page__subscribe .field { flex: 1 1 24ch; min-width: 0; }
         .record-page__fine { color: var(--text-tertiary); font-size: var(--text-footnote); margin: var(--space-2) 0 0; }
+        .record-page__subscribe a { color: var(--accent); text-decoration: none; }
+        .record-page__subscribe a:hover { text-decoration: underline; }
         .record-page__notice { color: var(--text-primary); font-size: var(--text-body); background: var(--accent-wash); border-radius: var(--radius); padding: var(--space-2) var(--space-3); margin: 0 0 var(--space-3); }
         .record-page__notice--error { background: var(--state-negative-wash); }
         .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
@@ -117,7 +125,32 @@
                 <OnSaleRecordView Record="_record" InDesk="false" />
             </div>
 
-            @if (Event.Slug is { Length: > 0 } slug)
+            @if (AccountId is not null)
+            {
+                <aside class="record-page__subscribe record-page__watch" aria-labelledby="watch-heading">
+                    <h2 id="watch-heading">@(_watching ? "Watching" : "Watch this event")</h2>
+                    @if (_watching)
+                    {
+                        <p class="record-page__notice" role="status">
+                            This event is on your watchlist. You will get one email if Ticketmaster shows
+                            tickets available again after not available.
+                        </p>
+                        <p class="record-page__fine"><a href="/account">Your watchlist</a></p>
+                    }
+                    else
+                    {
+                        <form method="post" action="/account/watches/@Event.Id.ToString(CultureInfo.InvariantCulture)">
+                            <AntiforgeryToken />
+                            <DeskButton Emphasis="DeskEmphasis.Tinted" ButtonType="ButtonType.Submit">Watch this event</DeskButton>
+                        </form>
+                        <p class="record-page__fine">
+                            Adds it to your watchlist, and sends one email to your address if Ticketmaster
+                            shows tickets available again after not available. Every email has a one-click unsubscribe.
+                        </p>
+                    }
+                </aside>
+            }
+            else if (Event.Slug is { Length: > 0 } slug)
             {
                 @* A plain form posting to a minimal endpoint, so the page stays scriptless. Not a
                    <section>: the two sections below are the page's account of itself. *@
@@ -140,6 +173,7 @@
                     <p class="record-page__fine">
                         One email if Ticketmaster shows tickets available again after not available. The address
                         is used only for this alert, and each email has a one-click unsubscribe.
+                        <a href="/account">Sign in</a> to keep a watchlist instead.
                     </p>
                 </aside>
             }
@@ -209,6 +243,14 @@
     /// </summary>
     [Parameter] public string? Subscribed { get; set; }
 
+    /// <summary>
+    /// The signed-in account, from the endpoint's cookie; null when nobody is signed in, which
+    /// is the cached document. Set, the page offers "Watch this event" in place of the form.
+    /// </summary>
+    [Parameter] public int? AccountId { get; set; }
+
+    private bool _watching;
+
     /// <summary>Null under a render test; the endpoint supplies it so a miss can be a 404.</summary>
     [CascadingParameter] public HttpContext? HttpContext { get; set; }
 
@@ -245,6 +287,9 @@
 
         if (_record is null && HttpContext is { } http)
             http.Response.StatusCode = StatusCodes.Status404NotFound;
+
+        if (_record is not null && AccountId is { } accountId)
+            _watching = await Accounts.IsWatchingAsync(accountId, _record.Event.Id);
     }
 
     private static string LastTick(OnSaleRecord record)

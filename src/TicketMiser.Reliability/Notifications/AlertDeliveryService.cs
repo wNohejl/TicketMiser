@@ -95,6 +95,10 @@ public class AlertDeliveryService(
 
         foreach (var alert in alerts)
         {
+            // A signed-in fan's watch is a confirmed subscription for delivery; make sure its
+            // row exists, so the read below finds the account's address exactly once.
+            await AlertSubscriptions.EnsureForOwnedWatchesAsync(db, alert.EventId!.Value, clock.GetUtcNow(), ct);
+
             var owed = await db.Subscriptions
                 .AsNoTracking()
                 .Where(s => s.EventId == alert.EventId

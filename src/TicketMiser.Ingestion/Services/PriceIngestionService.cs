@@ -27,15 +27,18 @@ public class PriceIngestionService(
     public static IReadOnlyList<string> KeysOf(IPriceSource source)
         => new[] { source.Key, source.KeyFor(ListingChannel.Marketplace) }.Distinct().ToList();
 
-    /// <summary>Watched, future events this adapter has an id for under any of its keys, ready to fetch.</summary>
+    /// <summary>
+    /// Watched, future events this adapter has an id for under any of its keys, ready to fetch.
+    /// The union across owners, so an event two people watch is one ref and one call.
+    /// </summary>
     public async Task<IReadOnlyList<ExternalEventRef>> WatchlistRefsAsync(IPriceSource source, CancellationToken ct)
     {
         var now = clock.GetUtcNow();
         var keys = KeysOf(source);
 
-        var events = await db.Watches
-            .Where(w => w.Enabled && w.Event!.StartsAt > now)
-            .Select(w => new { w.EventId, w.Event!.ExternalIds })
+        var events = await db.WatchedEvents()
+            .Where(e => e.StartsAt > now)
+            .Select(e => new { EventId = e.Id, e.ExternalIds })
             .ToListAsync(ct);
 
         return events
