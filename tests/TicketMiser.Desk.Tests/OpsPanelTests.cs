@@ -24,11 +24,11 @@ public class OpsPanelTests : OperationsPanelBench
     private IRenderedComponent<OpsPanel> Render(OpsSnapshot snapshot)
     {
         Services.AddSingleton<IOpsQueries>(new FakeOpsQueries(snapshot));
-        return RenderComponent<OpsPanel>();
+        return Render<OpsPanel>();
     }
 
     /// <summary>The value under a tile's label, found by the label's own words.</summary>
-    private static string MetricValue(IRenderedFragment cut, string label)
+    private static string MetricValue(IRenderedComponent<OpsPanel> cut, string label)
     {
         var tile = cut.FindAll(".metric")
             .Single(m => m.QuerySelector(".metric__label")?.TextContent.Trim() == label);

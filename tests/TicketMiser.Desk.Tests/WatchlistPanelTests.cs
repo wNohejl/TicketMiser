@@ -64,7 +64,7 @@ public class WatchlistPanelTests : DeskTestContext
         Services.AddSingleton(_manager);
         Services.AddSingleton<IWatchlistQueries>(_fake);
 
-        return RenderComponent<WatchlistPanel>();
+        return Render<WatchlistPanel>();
     }
 
     private static Event Bridgestone(int id, string name) => new()
@@ -286,7 +286,7 @@ public class WatchlistPanelTests : DeskTestContext
         Assert.Equal(OnSaleState.Unannounced, WatchlistRow.StateOf(evt, Now));
     }
 
-    private static string MetricValue(IRenderedFragment cut, string label)
+    private static string MetricValue(IRenderedComponent<WatchlistPanel> cut, string label)
     {
         var tile = cut.FindAll(".metric")
             .Single(m => m.QuerySelector(".metric__label")?.TextContent.Trim() == label);

@@ -16,7 +16,7 @@ namespace TicketMiser.Desk.Tests;
 /// checked: a mode change that forgets to persist would pass a loose stub silently.
 /// </para>
 /// </summary>
-public class ThemeServiceTests : TestContext
+public class ThemeServiceTests : BunitContext
 {
     private const string DarkAttribute = "apple-dark";
     private const string LightAttribute = "light";

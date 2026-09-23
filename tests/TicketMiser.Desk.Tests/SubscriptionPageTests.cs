@@ -12,7 +12,7 @@ public class SubscriptionPageTests : DeskTestContext
     [Fact]
     public void The_unsubscribe_link_shows_one_button_posting_to_itself()
     {
-        var cut = RenderComponent<SubscriptionPage>(p => p
+        var cut = Render<SubscriptionPage>(p => p
             .Add(x => x.Kind, SubscriptionPageKind.UnsubscribePrompt)
             .Add(x => x.Token, "abc_DEF-123"));
 
@@ -25,7 +25,7 @@ public class SubscriptionPageTests : DeskTestContext
     [Fact]
     public void The_unsubscribed_page_names_no_event_and_no_address()
     {
-        var cut = RenderComponent<SubscriptionPage>(p => p.Add(x => x.Kind, SubscriptionPageKind.Unsubscribed));
+        var cut = Render<SubscriptionPage>(p => p.Add(x => x.Kind, SubscriptionPageKind.Unsubscribed));
 
         Assert.Equal("Unsubscribed", cut.Find("h1").TextContent);
         Assert.Contains("If this link belonged to a subscription", cut.Find("main").TextContent);
@@ -35,7 +35,7 @@ public class SubscriptionPageTests : DeskTestContext
     [Fact]
     public void A_confirmation_names_the_event_and_links_back_to_its_record()
     {
-        var cut = RenderComponent<SubscriptionPage>(p => p
+        var cut = Render<SubscriptionPage>(p => p
             .Add(x => x.Kind, SubscriptionPageKind.Confirmed)
             .Add(x => x.EventName, "Example Tour")
             .Add(x => x.Slug, "example-tour-bridgestone-arena-2026-11-19"));

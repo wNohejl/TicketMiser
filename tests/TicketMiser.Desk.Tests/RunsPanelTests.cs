@@ -16,7 +16,7 @@ public class RunsPanelTests : OperationsPanelBench
     {
         Services.AddSingleton<IRunQueries>(new FakeRunQueries());
 
-        var cut = RenderComponent<RunsPanel>();
+        var cut = Render<RunsPanel>();
 
         var empty = cut.FindAll(".empty").Select(e => e.TextContent.Trim()).Single();
 
@@ -37,7 +37,7 @@ public class RunsPanelTests : OperationsPanelBench
 
         Services.AddSingleton<IRunQueries>(queries);
 
-        var cut = RenderComponent<RunsPanel>(p => p.Add(x => x.SourceId, 1));
+        var cut = Render<RunsPanel>(p => p.Add(x => x.SourceId, 1));
 
         Assert.Equal(1, queries.LastFilter?.SourceId);
         Assert.Contains("onsale:watch", cut.Markup);

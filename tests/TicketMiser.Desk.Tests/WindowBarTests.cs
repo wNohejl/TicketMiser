@@ -32,17 +32,17 @@ public class WindowBarTests : DeskTestContext
         return manager;
     }
 
-    private static string[] Keys(IRenderedFragment bar) => bar
+    private static string[] Keys(IRenderedComponent<WindowBar> bar) => bar
         .FindAll(".bar__key")
         .Select(k => k.GetAttribute("aria-label") ?? string.Empty)
         .ToArray();
 
-    private static string[] Names(IRenderedFragment bar) => bar
+    private static string[] Names(IRenderedComponent<WindowBar> bar) => bar
         .FindAll(".bar__key .bar__key-name")
         .Select(t => t.TextContent.Trim())
         .ToArray();
 
-    private static IElement KeyFor(IRenderedFragment bar, string title) => bar
+    private static IElement KeyFor(IRenderedComponent<WindowBar> bar, string title) => bar
         .FindAll(".bar__key")
         .Single(k => k.QuerySelector(".bar__key-name")?.TextContent.Trim() == title);
 
@@ -51,7 +51,7 @@ public class WindowBarTests : DeskTestContext
     {
         NewDesk();
 
-        var bar = RenderComponent<WindowBar>();
+        var bar = Render<WindowBar>();
         var openable = WindowCatalog.All.Count(d => !d.RequiresSubject);
 
         Assert.Equal(openable, Keys(bar).Length);
@@ -65,7 +65,7 @@ public class WindowBarTests : DeskTestContext
     {
         var manager = NewDesk();
 
-        var bar = RenderComponent<WindowBar>();
+        var bar = Render<WindowBar>();
         var before = Names(bar);
 
         manager.Open(WindowCatalog.Find(WindowCatalog.Watchlist)!);
@@ -80,7 +80,7 @@ public class WindowBarTests : DeskTestContext
         var manager = NewDesk();
         manager.Open(WindowCatalog.Find(WindowCatalog.Watchlist)!);
 
-        var bar = RenderComponent<WindowBar>();
+        var bar = Render<WindowBar>();
 
         // One key, wearing the open marking — not a key plus a tab.
         Assert.Single(bar.FindAll(".bar__key--open"));
@@ -96,7 +96,7 @@ public class WindowBarTests : DeskTestContext
         var ops = manager.Open(WindowCatalog.Find(WindowCatalog.Ops)!);
         manager.Focus(ops.Id);
 
-        var bar = RenderComponent<WindowBar>();
+        var bar = Render<WindowBar>();
         var current = bar.FindAll(".bar__key--current");
 
         Assert.Single(current);
@@ -125,7 +125,7 @@ public class WindowBarTests : DeskTestContext
 
         manager.SetPulse(ops.Id, PulseState.Critical, "breached");
 
-        var bar = RenderComponent<WindowBar>();
+        var bar = Render<WindowBar>();
 
         var groups = bar.FindAll(".bar__group");
         var operations = groups.Single(g => g.QuerySelector(".bar__group-name")!.TextContent.Trim() == "Operations");
@@ -152,7 +152,7 @@ public class WindowBarTests : DeskTestContext
         var manager = NewDesk();
         var board = manager.Open(WindowCatalog.Find(WindowCatalog.Watchlist)!);
 
-        var bar = RenderComponent<WindowBar>();
+        var bar = Render<WindowBar>();
         var before = Names(bar);
 
         manager.Close(board.Id);
@@ -175,7 +175,7 @@ public class WindowBarTests : DeskTestContext
 
         manager.SetPulse(board.Id, PulseState.Critical, "breached");
 
-        var bar = RenderComponent<WindowBar>();
+        var bar = Render<WindowBar>();
         var pulse = KeyFor(bar, "Watchlist").QuerySelector(".bar__pulse");
 
         Assert.NotNull(pulse);
@@ -187,7 +187,7 @@ public class WindowBarTests : DeskTestContext
     {
         NewDesk();
 
-        var bar = RenderComponent<WindowBar>();
+        var bar = Render<WindowBar>();
 
         Assert.Empty(bar.FindAll(".bar__pulse"));
     }
@@ -200,7 +200,7 @@ public class WindowBarTests : DeskTestContext
 
         manager.ToggleMinimise(board.Id);
 
-        var bar = RenderComponent<WindowBar>();
+        var bar = Render<WindowBar>();
 
         Assert.Contains("bar__key--collapsed", KeyFor(bar, "Watchlist").ClassName);
         Assert.Contains("Restore Watchlist", Keys(bar));
@@ -221,7 +221,7 @@ public class WindowBarTests : DeskTestContext
         foreach (var subject in subjects)
             manager.Open(subject, titleOverride: "Boston Red Sox at New York Yankees");
 
-        var bar = RenderComponent<WindowBar>();
+        var bar = Render<WindowBar>();
         var names = Names(bar);
 
         Assert.DoesNotContain("Boston Red Sox at New York Yankees", names);
@@ -233,7 +233,7 @@ public class WindowBarTests : DeskTestContext
     {
         NewDesk();
 
-        var bar = RenderComponent<WindowBar>();
+        var bar = Render<WindowBar>();
 
         var rendered = bar.FindAll(".bar__group-name")
             .Select(g => g.TextContent.Trim())
@@ -258,7 +258,7 @@ public class WindowBarTests : DeskTestContext
     {
         var manager = NewDesk();
 
-        var bar = RenderComponent<WindowBar>();
+        var bar = Render<WindowBar>();
         var settings = KeyFor(bar, "Desk settings");
 
         Assert.Equal("Ctrl+,", settings.QuerySelector(".bar__kbd")?.TextContent.Trim());
@@ -275,7 +275,7 @@ public class WindowBarTests : DeskTestContext
     {
         NewDesk();
 
-        var bar = RenderComponent<WindowBar>();
+        var bar = Render<WindowBar>();
 
         Assert.Null(KeyFor(bar, "Watchlist").QuerySelector(".bar__kbd"));
     }

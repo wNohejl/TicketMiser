@@ -30,15 +30,7 @@
     <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.10" />
 
     <!-- Render tests for the Desk primitives. -->
-    <PackageVersion Include="bunit" Version="1.40.0" />
-    <!--
-      bunit 1.40 depends on AngleSharp 1.2.0, which carries GHSA-pgww-w46g-26qg (mXSS when parsing
-      untrusted HTML). Every patched AngleSharp breaks bunit 1.40's binary contract (13 render tests
-      fail on IHtmlCollection's indexer). The parser is test-only and parses our own render output,
-      so the advisory is suppressed here rather than pinned around. The real fix is bunit 2.x, which
-      depends on AngleSharp 1.8; that is a migration of every test file and is tracked in PHASES.md.
-    -->
-    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-pgww-w46g-26qg" />
+    <PackageVersion Include="bunit" Version="2.11.3" />
 
     <!-- Telemetry. The instrumentation packages track the SDK version, so they move together. -->
     <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.17.0" />

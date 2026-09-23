@@ -16,7 +16,7 @@ public class IncidentsPanelTests : OperationsPanelBench
     {
         Services.AddSingleton<IIncidentQueries>(new FakeIncidentQueries());
 
-        var cut = RenderComponent<IncidentsPanel>();
+        var cut = Render<IncidentsPanel>();
 
         var empty = cut.Find(".empty--new");
 
@@ -40,7 +40,7 @@ public class IncidentsPanelTests : OperationsPanelBench
 
         Services.AddSingleton<IIncidentQueries>(new FakeIncidentQueries([incident]));
 
-        var cut = RenderComponent<IncidentsPanel>(p => p.Add(x => x.IncidentId, 3));
+        var cut = Render<IncidentsPanel>(p => p.Add(x => x.IncidentId, 3));
 
         Assert.Single(cut.FindAll(".runbook"));
         Assert.Contains("Incident opened from alert", cut.Markup);

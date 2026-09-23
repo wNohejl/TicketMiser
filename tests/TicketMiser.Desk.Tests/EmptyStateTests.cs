@@ -19,7 +19,7 @@ public class EmptyStateTests : DeskTestContext
     [Fact]
     public void Renders_the_action_in_its_own_span()
     {
-        var cut = RenderComponent<EmptyState>(p => p
+        var cut = Render<EmptyState>(p => p
             .Add(x => x.ChildContent, "No settled entries yet.")
             .Add(x => x.Action, "<button>Open the Journal</button>"));
 
@@ -31,7 +31,7 @@ public class EmptyStateTests : DeskTestContext
     [Fact]
     public void Renders_no_action_span_when_there_is_no_action()
     {
-        var cut = RenderComponent<EmptyState>(p => p.AddChildContent("Nothing here."));
+        var cut = Render<EmptyState>(p => p.AddChildContent("Nothing here."));
 
         Assert.Empty(cut.FindAll(".empty__action"));
     }
@@ -39,7 +39,7 @@ public class EmptyStateTests : DeskTestContext
     [Fact]
     public void Keeps_its_kind_on_the_paragraph_when_an_action_is_present()
     {
-        var cut = RenderComponent<EmptyState>(p => p
+        var cut = Render<EmptyState>(p => p
             .Add(x => x.Kind, EmptyStateKind.New)
             .Add(x => x.ChildContent, "Nothing yet.")
             .Add(x => x.Action, "<button>Start</button>"));

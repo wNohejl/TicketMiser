@@ -50,7 +50,7 @@ public class EventRecordPageTests : DeskTestContext
     {
         Services.AddSingleton<IOnSaleRecordService>(new FakeRecords(record));
 
-        return RenderComponent<EventRecord>(p => p.Add(x => x.Slug, slug));
+        return Render<EventRecord>(p => p.Add(x => x.Slug, slug));
     }
 
     private static OnSaleTick Tick(Source source, int minute, string? primaryStatus = null, decimal? lowest = null, bool? allIn = null, int? listings = null) => new()
@@ -209,7 +209,7 @@ public class EventRecordPageTests : DeskTestContext
     {
         Services.AddSingleton<IOnSaleRecordService>(new FakeRecords(Recorded()));
 
-        return RenderComponent<EventRecord>(p => p.Add(x => x.Slug, Address).Add(x => x.Subscribed, subscribed));
+        return Render<EventRecord>(p => p.Add(x => x.Slug, Address).Add(x => x.Subscribed, subscribed));
     }
 
     [Fact]
@@ -250,12 +250,12 @@ public class EventRecordPageTests : DeskTestContext
     }
 
     [Fact]
-    public void An_invalid_address_is_said_to_be_one_and_an_unknown_flag_says_nothing()
+    public async Task An_invalid_address_is_said_to_be_one_and_an_unknown_flag_says_nothing()
     {
         Assert.Contains("does not look like an email address", OpenWithFlag("invalid").Find(".record-page__notice").TextContent);
 
-        DisposeComponents();
-        Assert.Empty(RenderComponent<EventRecord>(p => p.Add(x => x.Slug, Address).Add(x => x.Subscribed, "<script>")).FindAll(".record-page__notice"));
+        await DisposeComponentsAsync();
+        Assert.Empty(Render<EventRecord>(p => p.Add(x => x.Slug, Address).Add(x => x.Subscribed, "<script>")).FindAll(".record-page__notice"));
     }
 
     [Fact]

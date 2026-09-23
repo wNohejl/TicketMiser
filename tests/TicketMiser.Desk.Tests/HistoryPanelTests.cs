@@ -17,7 +17,7 @@ public class HistoryPanelTests : OperationsPanelBench
     {
         Services.AddSingleton<IHistoryQueries>(new FakeHistoryQueries());
 
-        var cut = RenderComponent<HistoryPanel>();
+        var cut = Render<HistoryPanel>();
 
         var empty = cut.Find(".empty--new").TextContent;
 
@@ -47,7 +47,7 @@ public class HistoryPanelTests : OperationsPanelBench
 
         Services.AddSingleton<IHistoryQueries>(new FakeHistoryQueries(new HistorySummary(3, 1, 1), [final]));
 
-        var cut = RenderComponent<HistoryPanel>();
+        var cut = Render<HistoryPanel>();
 
         Assert.Empty(cut.FindAll(".empty--new"));
         Assert.Contains("The Killers", cut.Markup);

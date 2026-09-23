@@ -13,7 +13,7 @@ public class DeskLinkTests : DeskTestContext
     [Fact]
     public void Renders_its_label_inside_the_label_span()
     {
-        var cut = RenderComponent<DeskLink>(p => p
+        var cut = Render<DeskLink>(p => p
             .Add(x => x.Destination, "movement")
             .AddChildContent("Lakers @ Suns"));
 
@@ -23,7 +23,7 @@ public class DeskLinkTests : DeskTestContext
     [Fact]
     public void Is_a_plain_button_so_it_never_submits_a_form()
     {
-        var cut = RenderComponent<DeskLink>(p => p.Add(x => x.Destination, "movement"));
+        var cut = Render<DeskLink>(p => p.Add(x => x.Destination, "movement"));
 
         var button = cut.Find("button.desklink");
 
@@ -33,7 +33,7 @@ public class DeskLinkTests : DeskTestContext
     [Fact]
     public void Title_names_the_destination_by_default()
     {
-        var cut = RenderComponent<DeskLink>(p => p.Add(x => x.Destination, "movement"));
+        var cut = Render<DeskLink>(p => p.Add(x => x.Destination, "movement"));
 
         Assert.Equal("Open movement", cut.Find("button").GetAttribute("title"));
     }
@@ -41,7 +41,7 @@ public class DeskLinkTests : DeskTestContext
     [Fact]
     public void Tooltip_overrides_the_default_title()
     {
-        var cut = RenderComponent<DeskLink>(p => p
+        var cut = Render<DeskLink>(p => p
             .Add(x => x.Destination, "movement")
             .Add(x => x.Tooltip, "See every tick since open"));
 
@@ -55,7 +55,7 @@ public class DeskLinkTests : DeskTestContext
     [Fact]
     public void The_shortcut_is_reserved_and_hidden_from_the_reading_order()
     {
-        var cut = RenderComponent<DeskLink>(p => p.Add(x => x.Destination, "movement"));
+        var cut = Render<DeskLink>(p => p.Add(x => x.Destination, "movement"));
 
         var shortcut = cut.Find(".desklink__shortcut");
 
@@ -68,7 +68,7 @@ public class DeskLinkTests : DeskTestContext
     {
         var clicks = 0;
 
-        var cut = RenderComponent<DeskLink>(p => p
+        var cut = Render<DeskLink>(p => p
             .Add(x => x.Destination, "movement")
             .Add(x => x.OnClick, EventCallback.Factory.Create(this, () => clicks++))
             .AddChildContent("Lakers @ Suns"));
@@ -81,7 +81,7 @@ public class DeskLinkTests : DeskTestContext
     [Fact]
     public void A_one_off_class_joins_the_base_class()
     {
-        var cut = RenderComponent<DeskLink>(p => p
+        var cut = Render<DeskLink>(p => p
             .Add(x => x.Destination, "movement")
             .Add(x => x.Class, "cell--wide"));
 

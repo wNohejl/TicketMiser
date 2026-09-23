@@ -14,7 +14,7 @@ public class DeskAlertTests : DeskTestContext
     [Fact]
     public void States_its_heading_and_message()
     {
-        var cut = RenderComponent<DeskAlert>(p => p
+        var cut = Render<DeskAlert>(p => p
             .Add(x => x.Heading, "Delete this run?")
             .Add(x => x.Message, "The ingested odds stay; only the run record goes."));
 
@@ -25,7 +25,7 @@ public class DeskAlertTests : DeskTestContext
     [Fact]
     public void Offers_a_way_out_beside_the_confirm()
     {
-        var cut = RenderComponent<DeskAlert>(p => p
+        var cut = Render<DeskAlert>(p => p
             .Add(x => x.Heading, "Delete this run?"));
 
         var buttons = cut.FindAll("button");
@@ -36,7 +36,7 @@ public class DeskAlertTests : DeskTestContext
     [Fact]
     public void A_single_button_alert_drops_the_cancel()
     {
-        var cut = RenderComponent<DeskAlert>(p => p
+        var cut = Render<DeskAlert>(p => p
             .Add(x => x.Heading, "Ingest finished")
             .Add(x => x.CancelLabel, (string?)null));
 
@@ -58,7 +58,7 @@ public class DeskAlertTests : DeskTestContext
     [Fact]
     public void A_destructive_confirm_is_red_and_not_the_default()
     {
-        var cut = RenderComponent<DeskAlert>(p => p
+        var cut = Render<DeskAlert>(p => p
             .Add(x => x.Heading, "Delete this run?")
             .Add(x => x.Destructive, true));
 
@@ -74,7 +74,7 @@ public class DeskAlertTests : DeskTestContext
     [Fact]
     public void A_normal_confirm_is_the_default()
     {
-        var cut = RenderComponent<DeskAlert>(p => p
+        var cut = Render<DeskAlert>(p => p
             .Add(x => x.Heading, "Apply these changes?"));
 
         var confirm = cut.Find("button.desk-btn--filled");
@@ -100,7 +100,7 @@ public class DeskAlertTests : DeskTestContext
     [Fact]
     public void A_destructive_alert_with_no_cancel_still_focuses_something()
     {
-        var cut = RenderComponent<DeskAlert>(p => p
+        var cut = Render<DeskAlert>(p => p
             .Add(x => x.Heading, "The run was deleted")
             .Add(x => x.Destructive, true)
             .Add(x => x.CancelLabel, (string?)null));
@@ -147,13 +147,13 @@ public class DeskAlertTests : DeskTestContext
     [Fact]
     public void The_alert_focuses_its_default_button_once_when_it_opens()
     {
-        var cut = RenderComponent<DeskAlert>(p => p
+        var cut = Render<DeskAlert>(p => p
             .Add(x => x.Heading, "Delete this run?")
             .Add(x => x.Destructive, true));
 
         Assert.Single(FocusCalls);
 
-        cut.SetParametersAndRender(p => p.Add(x => x.Heading, "Delete this run, really?"));
+        cut.Render(p => p.Add(x => x.Heading, "Delete this run, really?"));
 
         Assert.Single(FocusCalls);
     }
@@ -167,7 +167,7 @@ public class DeskAlertTests : DeskTestContext
     [Fact]
     public void A_normal_alert_focuses_on_open_too()
     {
-        RenderComponent<DeskAlert>(p => p
+        Render<DeskAlert>(p => p
             .Add(x => x.Heading, "Apply these changes?"));
 
         Assert.Single(FocusCalls);
@@ -189,7 +189,7 @@ public class DeskAlertTests : DeskTestContext
     [Fact]
     public void The_alert_announces_itself_as_a_dialog_labelled_by_its_heading()
     {
-        var cut = RenderComponent<DeskAlert>(p => p
+        var cut = Render<DeskAlert>(p => p
             .Add(x => x.Heading, "Delete this run?")
             .Add(x => x.Message, "The ingested odds stay; only the run record goes."));
 
@@ -212,7 +212,7 @@ public class DeskAlertTests : DeskTestContext
     [Fact]
     public void An_alert_with_no_message_describes_nothing()
     {
-        var cut = RenderComponent<DeskAlert>(p => p
+        var cut = Render<DeskAlert>(p => p
             .Add(x => x.Heading, "Ingest finished"));
 
         Assert.False(cut.Find(".desk-alert").HasAttribute("aria-describedby"));
@@ -221,7 +221,7 @@ public class DeskAlertTests : DeskTestContext
     [Fact]
     public void Labels_can_name_the_actual_consequence()
     {
-        var cut = RenderComponent<DeskAlert>(p => p
+        var cut = Render<DeskAlert>(p => p
             .Add(x => x.Heading, "Delete this run?")
             .Add(x => x.ConfirmLabel, "Delete run")
             .Add(x => x.CancelLabel, "Keep it"));
@@ -295,9 +295,9 @@ public class DeskAlertTests : DeskTestContext
     /// task is deliberately not awaited here — it completes only once the alert is
     /// answered, which is what each test then does.
     /// </summary>
-    private (IRenderedFragment Provider, Task<bool> Answer) Ask(bool destructive = false)
+    private (IRenderedComponent<MudDialogProvider> Provider, Task<bool> Answer) Ask(bool destructive = false)
     {
-        var provider = RenderComponent<MudDialogProvider>();
+        var provider = Render<MudDialogProvider>();
         var alerts = new DeskAlerts(Services.GetRequiredService<IDialogService>());
 
         Task<bool>? answer = null;

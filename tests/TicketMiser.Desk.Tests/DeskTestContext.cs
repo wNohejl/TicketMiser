@@ -16,8 +16,16 @@ namespace TicketMiser.Desk.Tests;
 /// browser behaviour, not markup semantics, and a test that had to stub each import would
 /// break every time a component picked up an animation.
 /// </summary>
-public abstract class DeskTestContext : TestContext
+public abstract class DeskTestContext : BunitContext, IAsyncLifetime
 {
+    // MudBlazor's PointerEventsNoneService and the desk's ThemeService are async-only
+    // disposables. bunit 2's synchronous Dispose hands them to a container that refuses them,
+    // and xUnit 2 only ever calls Dispose on a test class; routing teardown through
+    // IAsyncLifetime disposes the context asynchronously first, and the later Dispose is a no-op.
+    Task IAsyncLifetime.InitializeAsync() => Task.CompletedTask;
+
+    async Task IAsyncLifetime.DisposeAsync() => await DisposeAsync();
+
     protected DeskTestContext()
     {
         Services.AddMudServices();

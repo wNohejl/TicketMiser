@@ -15,7 +15,7 @@ public class DeskButtonTests : DeskTestContext
     [Fact]
     public void Renders_its_label()
     {
-        var cut = RenderComponent<DeskButton>(p => p.AddChildContent("Ingest"));
+        var cut = Render<DeskButton>(p => p.AddChildContent("Ingest"));
 
         Assert.Contains("Ingest", cut.Find("button").TextContent);
     }
@@ -26,7 +26,7 @@ public class DeskButtonTests : DeskTestContext
     [InlineData(DeskEmphasis.Filled, "desk-btn--filled")]
     public void Emphasis_maps_to_its_class(DeskEmphasis emphasis, string expected)
     {
-        var cut = RenderComponent<DeskButton>(p => p
+        var cut = Render<DeskButton>(p => p
             .Add(x => x.Emphasis, emphasis)
             .AddChildContent("Go"));
 
@@ -43,7 +43,7 @@ public class DeskButtonTests : DeskTestContext
     [Fact]
     public void Default_emphasis_is_plain()
     {
-        var cut = RenderComponent<DeskButton>(p => p.AddChildContent("Go"));
+        var cut = Render<DeskButton>(p => p.AddChildContent("Go"));
 
         Assert.Contains("desk-btn--plain", ClassList(cut));
     }
@@ -51,7 +51,7 @@ public class DeskButtonTests : DeskTestContext
     [Fact]
     public void Destructive_is_marked_independently_of_emphasis()
     {
-        var cut = RenderComponent<DeskButton>(p => p
+        var cut = Render<DeskButton>(p => p
             .Add(x => x.Emphasis, DeskEmphasis.Filled)
             .Add(x => x.Role, DeskRole.Destructive)
             .AddChildContent("Delete"));
@@ -65,7 +65,7 @@ public class DeskButtonTests : DeskTestContext
     [Fact]
     public void A_normal_button_says_nothing_about_role()
     {
-        var cut = RenderComponent<DeskButton>(p => p.AddChildContent("Save"));
+        var cut = Render<DeskButton>(p => p.AddChildContent("Save"));
 
         Assert.DoesNotContain("desk-btn--destructive", ClassList(cut));
     }
@@ -75,7 +75,7 @@ public class DeskButtonTests : DeskTestContext
     [InlineData(DeskKeySize.Large, "desk-btn--lg")]
     public void Size_maps_to_its_class(DeskKeySize size, string expected)
     {
-        var cut = RenderComponent<DeskButton>(p => p
+        var cut = Render<DeskButton>(p => p
             .Add(x => x.Size, size)
             .AddChildContent("Go"));
 
@@ -85,7 +85,7 @@ public class DeskButtonTests : DeskTestContext
     [Fact]
     public void Medium_size_adds_no_class()
     {
-        var cut = RenderComponent<DeskButton>(p => p
+        var cut = Render<DeskButton>(p => p
             .Add(x => x.Size, DeskKeySize.Medium)
             .AddChildContent("Go"));
 
@@ -102,7 +102,7 @@ public class DeskButtonTests : DeskTestContext
     [Fact]
     public void Busy_keeps_its_emphasis_and_is_announced_as_busy()
     {
-        var cut = RenderComponent<DeskButton>(p => p
+        var cut = Render<DeskButton>(p => p
             .Add(x => x.Emphasis, DeskEmphasis.Filled)
             .Add(x => x.Busy, true)
             .AddChildContent("Ingesting"));
@@ -117,7 +117,7 @@ public class DeskButtonTests : DeskTestContext
     [Fact]
     public void A_button_that_is_not_busy_says_nothing_about_it()
     {
-        var cut = RenderComponent<DeskButton>(p => p.AddChildContent("Ingest"));
+        var cut = Render<DeskButton>(p => p.AddChildContent("Ingest"));
 
         var button = cut.Find("button");
 
@@ -130,7 +130,7 @@ public class DeskButtonTests : DeskTestContext
     {
         var presses = 0;
 
-        var cut = RenderComponent<DeskButton>(p => p
+        var cut = Render<DeskButton>(p => p
             .Add(x => x.Busy, true)
             .Add(x => x.OnClick, EventCallback.Factory.Create<MouseEventArgs>(this, () => presses++))
             .AddChildContent("Ingesting"));
@@ -145,7 +145,7 @@ public class DeskButtonTests : DeskTestContext
     {
         var presses = 0;
 
-        var cut = RenderComponent<DeskButton>(p => p
+        var cut = Render<DeskButton>(p => p
             .Add(x => x.OnClick, EventCallback.Factory.Create<MouseEventArgs>(this, () => presses++))
             .AddChildContent("Ingest"));
 
@@ -159,7 +159,7 @@ public class DeskButtonTests : DeskTestContext
     {
         var presses = 0;
 
-        var cut = RenderComponent<DeskButton>(p => p
+        var cut = Render<DeskButton>(p => p
             .Add(x => x.Disabled, true)
             .Add(x => x.OnClick, EventCallback.Factory.Create<MouseEventArgs>(this, () => presses++))
             .AddChildContent("Ingest"));
@@ -172,7 +172,7 @@ public class DeskButtonTests : DeskTestContext
     [Fact]
     public void An_icon_without_a_label_becomes_a_square()
     {
-        var cut = RenderComponent<DeskButton>(p => p
+        var cut = Render<DeskButton>(p => p
             .Add(x => x.Icon, MudBlazor.Icons.Material.Filled.Refresh)
             .Add(x => x.Title, "Refresh"));
 
@@ -185,7 +185,7 @@ public class DeskButtonTests : DeskTestContext
     [Fact]
     public void An_icon_beside_a_label_is_not_a_square()
     {
-        var cut = RenderComponent<DeskButton>(p => p
+        var cut = Render<DeskButton>(p => p
             .Add(x => x.Icon, MudBlazor.Icons.Material.Filled.Refresh)
             .AddChildContent("Refresh"));
 
@@ -195,7 +195,7 @@ public class DeskButtonTests : DeskTestContext
     [Fact]
     public void A_one_off_class_is_appended_last_so_it_can_win()
     {
-        var cut = RenderComponent<DeskButton>(p => p
+        var cut = Render<DeskButton>(p => p
             .Add(x => x.Emphasis, DeskEmphasis.Filled)
             .Add(x => x.Class, "panel__commit")
             .AddChildContent("Save"));
@@ -209,7 +209,7 @@ public class DeskButtonTests : DeskTestContext
     [Fact]
     public void Unmatched_attributes_reach_the_button()
     {
-        var cut = RenderComponent<DeskButton>(p => p
+        var cut = Render<DeskButton>(p => p
             .AddUnmatched("data-testid", "commit")
             .AddChildContent("Save"));
 
@@ -219,7 +219,7 @@ public class DeskButtonTests : DeskTestContext
     [Fact]
     public void Button_type_defaults_to_button_so_a_press_never_submits_by_accident()
     {
-        var cut = RenderComponent<DeskButton>(p => p.AddChildContent("Save"));
+        var cut = Render<DeskButton>(p => p.AddChildContent("Save"));
 
         Assert.Equal("button", cut.Find("button").GetAttribute("type"));
     }
@@ -227,7 +227,7 @@ public class DeskButtonTests : DeskTestContext
     [Fact]
     public void Button_type_can_be_asked_to_submit()
     {
-        var cut = RenderComponent<DeskButton>(p => p
+        var cut = Render<DeskButton>(p => p
             .Add(x => x.ButtonType, MudBlazor.ButtonType.Submit)
             .AddChildContent("Save"));
 

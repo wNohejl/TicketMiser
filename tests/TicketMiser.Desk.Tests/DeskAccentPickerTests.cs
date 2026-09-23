@@ -17,7 +17,7 @@ public class DeskAccentPickerTests : DeskTestContext
         DeskAccent value,
         EventCallback<DeskAccent> changed = default,
         bool isDark = true)
-        => RenderComponent<DeskAccentPicker>(p => p
+        => Render<DeskAccentPicker>(p => p
             .Add(x => x.Value, value)
             .Add(x => x.IsDark, isDark)
             .Add(x => x.ValueChanged, changed));

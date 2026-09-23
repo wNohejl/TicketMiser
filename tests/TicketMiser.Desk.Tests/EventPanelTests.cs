@@ -48,7 +48,7 @@ public class EventPanelTests : DeskTestContext
         Services.AddScoped<WindowManager>();
         Services.AddSingleton<IOnSaleRecordService>(new FakeRecords(record));
 
-        return RenderComponent<EventPanel>(p => p.AddUnmatched("EventId", eventId));
+        return Render<EventPanel>(p => p.AddUnmatched("EventId", eventId));
     }
 
     private static OnSaleTick Tick(Source source, int minute, string? primaryStatus = null, decimal? lowest = null, bool? allIn = null, int? listings = null) => new()

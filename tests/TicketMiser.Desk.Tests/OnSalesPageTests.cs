@@ -44,7 +44,7 @@ public class OnSalesPageTests : DeskTestContext
         Services.AddSingleton<TimeProvider>(new FixedClock(Now));
         Services.AddSingleton<IOnSaleCalendarService>(new FakeCalendar(OnSaleCalendar.Build(events, Now, Now.AddDays(90))));
 
-        return RenderComponent<OnSales>();
+        return Render<OnSales>();
     }
 
     [Fact]

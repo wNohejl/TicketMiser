@@ -12,7 +12,7 @@ Goal: the repository has the operations shell and working rules.
 - [x] `docker-compose.yml`, `compose.dev.yml`, `.env.example`, `scripts/setup.ps1`,
       `publish-data.ps1`, `restore-data.ps1` carried from LineOps with names changed.
 - [x] `.github/workflows/ci.yml` carried from LineOps (build, format, test, pending-migration).
-- [ ] bunit 1.40 → 2.x, so AngleSharp moves off the advisory line and the
+- [x] bunit 1.40 → 2.x, so AngleSharp moves off the advisory line and the
       `NuGetAuditSuppress` in `Directory.Packages.props` can go. Eleven test files, about
       seventy call sites (`TestContext` → `BunitContext`, `RenderComponent` → `Render`).
 
