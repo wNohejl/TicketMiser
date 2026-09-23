@@ -66,6 +66,25 @@ public interface IWatchlistQueries
 {
     /// <summary>Every enabled watch on an event that has not started, soonest first.</summary>
     Task<IReadOnlyList<WatchlistRow>> LoadAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Events a watch could still be kept on: not started, not cancelled, and whose on-sale is
+    /// ahead, unannounced, or still inside its window. Soonest sale first; at most
+    /// <see cref="WatchCandidate.Limit"/> rows, narrowed by name, performer or room.
+    /// </summary>
+    Task<IReadOnlyList<WatchCandidate>> CandidatesAsync(string? search, CancellationToken ct = default);
+
+    /// <summary>Watches the event: a new watch, or the old one switched back on. A watch is the instruction to poll.</summary>
+    Task WatchAsync(int eventId, CancellationToken ct = default);
+
+    /// <summary>Stops polling the event. The watch is switched off rather than deleted, so the record keeps its reason.</summary>
+    Task UnwatchAsync(int eventId, CancellationToken ct = default);
+}
+
+/// <summary>An event the operator could watch, and whether it already is.</summary>
+public sealed record WatchCandidate(Event Event, bool Watched)
+{
+    public const int Limit = 60;
 }
 
 /// <summary>
@@ -78,12 +97,83 @@ public interface IWatchlistQueries
 /// a context that lived with it would hold every row the operator ever looked at.
 /// </para>
 /// </summary>
-public sealed class WatchlistQueries(IDbContextFactory<TicketMiserDbContext> factory) : IWatchlistQueries
+public sealed class WatchlistQueries(IDbContextFactory<TicketMiserDbContext> factory, TimeProvider clock) : IWatchlistQueries
 {
+    public async Task<IReadOnlyList<WatchCandidate>> CandidatesAsync(string? search, CancellationToken ct = default)
+    {
+        await using var db = await factory.CreateDbContextAsync(ct);
+        var now = clock.GetUtcNow();
+
+        // A sale still inside its window can be watched and its remaining marks kept.
+        var windowOpen = now.AddMinutes(-OnSaleRecord.WindowEnd);
+
+        var query = db.Events
+            .AsNoTracking()
+            .Include(e => e.Venue)
+            .Include(e => e.Performer)
+            .Where(e => e.StartsAt > now
+                        && e.Status != EventStatus.Cancelled
+                        && (e.OnSaleAt == null || e.OnSaleTbd || e.OnSaleAt >= windowOpen));
+
+        if (search?.Trim() is { Length: > 0 } term)
+        {
+            // ILIKE's escape character is the backslash: a searched % or _ is a character, not a wildcard.
+            var like = "%" + term.Replace(@"\", @"\\").Replace("%", @"\%").Replace("_", @"\_") + "%";
+            query = query.Where(e => EF.Functions.ILike(e.Name, like)
+                                     || (e.Performer != null && EF.Functions.ILike(e.Performer.Name, like))
+                                     || (e.Venue != null && EF.Functions.ILike(e.Venue.Name, like)));
+        }
+
+        var events = await query
+            .OrderBy(e => e.OnSaleAt == null || e.OnSaleTbd)
+            .ThenBy(e => e.OnSaleAt)
+            .ThenBy(e => e.StartsAt)
+            .Take(WatchCandidate.Limit)
+            .ToListAsync(ct);
+
+        var ids = events.Select(e => e.Id).ToList();
+        var watched = await db.Watches
+            .Where(w => w.Enabled && ids.Contains(w.EventId))
+            .Select(w => w.EventId)
+            .ToListAsync(ct);
+
+        var set = watched.ToHashSet();
+        return events.Select(e => new WatchCandidate(e, set.Contains(e.Id))).ToList();
+    }
+
+    public async Task WatchAsync(int eventId, CancellationToken ct = default)
+    {
+        await using var db = await factory.CreateDbContextAsync(ct);
+
+        var existing = await db.Watches.Where(w => w.EventId == eventId).OrderByDescending(w => w.Id).FirstOrDefaultAsync(ct);
+        if (existing is not null)
+        {
+            existing.Enabled = true;
+        }
+        else
+        {
+            if (!await db.Events.AnyAsync(e => e.Id == eventId, ct))
+                throw new InvalidOperationException($"No event has id {eventId}.");
+
+            db.Watches.Add(new Watch { EventId = eventId, CreatedAt = clock.GetUtcNow() });
+        }
+
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task UnwatchAsync(int eventId, CancellationToken ct = default)
+    {
+        await using var db = await factory.CreateDbContextAsync(ct);
+
+        await db.Watches
+            .Where(w => w.EventId == eventId && w.Enabled)
+            .ExecuteUpdateAsync(s => s.SetProperty(w => w.Enabled, false), ct);
+    }
+
     public async Task<IReadOnlyList<WatchlistRow>> LoadAsync(CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
-        var now = DateTimeOffset.UtcNow;
+        var now = clock.GetUtcNow();
 
         var watches = await db.Watches
             .AsNoTracking()

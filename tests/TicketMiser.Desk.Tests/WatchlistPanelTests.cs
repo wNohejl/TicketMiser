@@ -24,18 +24,45 @@ public class WatchlistPanelTests : DeskTestContext
 
     private static readonly DateTimeOffset Now = DateTimeOffset.UtcNow;
 
-    private sealed class FakeWatchlist(IReadOnlyList<WatchlistRow> rows) : IWatchlistQueries
+    private sealed class FakeWatchlist(IReadOnlyList<WatchlistRow> rows, IReadOnlyList<WatchCandidate>? candidates = null) : IWatchlistQueries
     {
+        public List<int> Watched { get; } = [];
+        public List<int> Unwatched { get; } = [];
+        public List<string?> Searches { get; } = [];
+
         public Task<IReadOnlyList<WatchlistRow>> LoadAsync(CancellationToken ct = default) => Task.FromResult(rows);
+
+        public Task<IReadOnlyList<WatchCandidate>> CandidatesAsync(string? search, CancellationToken ct = default)
+        {
+            Searches.Add(search);
+            return Task.FromResult(candidates ?? []);
+        }
+
+        public Task WatchAsync(int eventId, CancellationToken ct = default)
+        {
+            Watched.Add(eventId);
+            return Task.CompletedTask;
+        }
+
+        public Task UnwatchAsync(int eventId, CancellationToken ct = default)
+        {
+            Unwatched.Add(eventId);
+            return Task.CompletedTask;
+        }
     }
+
+    private FakeWatchlist _fake = default!;
 
     private WindowManager _manager = default!;
 
-    private IRenderedComponent<WatchlistPanel> Render(params WatchlistRow[] rows)
+    private IRenderedComponent<WatchlistPanel> Render(params WatchlistRow[] rows) => RenderWith(rows, null);
+
+    private IRenderedComponent<WatchlistPanel> RenderWith(IReadOnlyList<WatchlistRow> rows, IReadOnlyList<WatchCandidate>? candidates)
     {
         _manager = new WindowManager(new AppWindowCatalog());
+        _fake = new FakeWatchlist(rows, candidates);
         Services.AddSingleton(_manager);
-        Services.AddSingleton<IWatchlistQueries>(new FakeWatchlist(rows));
+        Services.AddSingleton<IWatchlistQueries>(_fake);
 
         return RenderComponent<WatchlistPanel>();
     }
@@ -265,5 +292,52 @@ public class WatchlistPanelTests : DeskTestContext
             .Single(m => m.QuerySelector(".metric__label")?.TextContent.Trim() == label);
 
         return tile.QuerySelector(".metric__value")!.TextContent.Trim();
+    }
+
+    [Fact]
+    public void Add_watches_lists_upcoming_events_and_a_press_watches_one()
+    {
+        var watched = Bridgestone(7, "Already Watched");
+        var fresh = Bridgestone(8, "Fresh Tour");
+        var cut = RenderWith([], [new WatchCandidate(watched, true), new WatchCandidate(fresh, false)]);
+
+        cut.FindAll("button").Single(b => b.TextContent.Contains("Add watches")).Click();
+
+        var rows = cut.FindAll(".watch-picker__row");
+        Assert.Equal(2, rows.Count);
+        Assert.Contains("Watching", rows[0].TextContent);
+        Assert.Empty(rows[0].QuerySelectorAll(".watch-picker__watch"));
+
+        rows[1].QuerySelector(".watch-picker__watch")!.Click();
+
+        Assert.Equal([8], _fake.Watched);
+        cut.WaitForAssertion(() => Assert.Contains("Watching", cut.FindAll(".watch-picker__row")[1].TextContent));
+
+        // The board is replaced while picking, and comes back when done.
+        Assert.Empty(cut.FindAll(".deskgrid"));
+        cut.FindAll("button").Single(b => b.TextContent.Contains("Done adding")).Click();
+        Assert.Empty(cut.FindAll(".watch-picker"));
+    }
+
+    [Fact]
+    public void An_empty_picker_says_where_events_come_from()
+    {
+        var cut = RenderWith([], []);
+
+        cut.FindAll("button").Single(b => b.TextContent.Contains("Add watches")).Click();
+
+        Assert.Contains("daily discovery run", cut.Find(".watch-picker .empty").TextContent);
+    }
+
+    [Fact]
+    public void Stop_watching_switches_the_watch_off()
+    {
+        var evt = Bridgestone(7, "Example Tour");
+        var cut = Render(Row(evt, [Quote(Ticketmaster, 59.5m, allIn: true)]));
+
+        cut.Find("tbody tr").Click();
+        cut.FindAll("button").Single(b => b.TextContent.Contains("Stop watching")).Click();
+
+        Assert.Equal([7], _fake.Unwatched);
     }
 }

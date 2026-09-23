@@ -36,9 +36,81 @@
 
     <span class="ftr__spacer"></span>
 
-    @* No Filled key: this panel reads. The one thing it spends — a window — is spent from a row. *@
+    @* No Filled key: this panel reads. The one thing it spends — a window — is spent from a row.
+       Adding a watch is the one write, and it is Tinted beside Refresh rather than Filled: it is
+       reached for when the board is short, not every time it is open. *@
+    <DeskButton Icon="@(_picking ? Icons.Material.Filled.Close : Icons.Material.Filled.Add)"
+                Emphasis="DeskEmphasis.Tinted" OnClick="TogglePicker">
+        @(_picking ? "Done adding" : "Add watches")
+    </DeskButton>
     <DeskButton Icon="@Icons.Material.Filled.Refresh" OnClick="LoadAsync" Busy="@_loading">Refresh</DeskButton>
 </div>
+
+@if (_picking)
+{
+    @* The picker replaces the board rather than floating over it: choosing what to watch is a
+       self-contained task, and the board it feeds is one press away. Every event listed is one
+       whose record can still be kept — its sale ahead, unannounced, or open right now. *@
+    <div class="watch-picker">
+        <div class="row" style="margin-bottom:12px">
+            <DeskField TValue="string" Value="_pickSearch" ValueChanged="OnPickSearchChanged" Immediate="true"
+                       placeholder="Find an event, performer or venue" aria-label="Find an event to watch" style="max-width:320px" />
+            <span class="quiet">A watch polls the event's sources and keeps its on-sale record. Nothing is fetched without one.</span>
+        </div>
+
+        @if (_candidatesFailed)
+        {
+            <EmptyState Kind="EmptyStateKind.Error">Upcoming events could not be read.</EmptyState>
+        }
+        else if (_candidates.Count == 0)
+        {
+            <EmptyState Kind="EmptyStateKind.Filtered">
+                @(string.IsNullOrWhiteSpace(_pickSearch)
+                    ? "No upcoming event is known. Events arrive with the daily discovery run."
+                    : "No upcoming event matches.")
+            </EmptyState>
+        }
+        else
+        {
+            <table class="grid grid--tight watch-picker__list">
+                <thead>
+                    <tr><th>Event</th><th>Venue</th><th>On sale</th><th>Show</th><th></th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var c in _candidates)
+                    {
+                        <tr @key="c.Event.Id" class="watch-picker__row">
+                            <td>
+                                <div>@c.Event.Name</div>
+                                @if (c.Event.Performer is { } performer && performer.Name != c.Event.Name)
+                                {
+                                    <div class="quiet">@performer.Name</div>
+                                }
+                            </td>
+                            <td>@(c.Event.Venue?.Name ?? "—")</td>
+                            <td>@OnSaleLabel(c.Event)</td>
+                            <td>@When(c.Event.StartsAt, c.Event.Venue?.Timezone)</td>
+                            <td style="text-align:right">
+                                @if (c.Watched)
+                                {
+                                    <Tag State="DeskState.Positive">Watching</Tag>
+                                }
+                                else
+                                {
+                                    <DeskButton Size="DeskKeySize.Small" Icon="@Icons.Material.Filled.Visibility"
+                                                Class="watch-picker__watch" Busy="@(_watching == c.Event.Id)"
+                                                OnClick="@(() => WatchAsync(c.Event.Id))">Watch</DeskButton>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+}
+else
+{
 
 <MetricRow Style="margin-bottom:14px">
     <Metric Label="Watches" Value='@_rows.Count.ToString("N0", Money)' Numeric="true"
@@ -209,6 +281,7 @@ else
 @* Follow-ups live above the desk and outlive the row that opened them, so several events can
    be compared at once. *@
 <FollowUpLayer Launcher="_followUps" OnChanged="StateHasChanged" />
+}
 
 @code {
     /// <summary>Which market the board is being read for.</summary>
@@ -239,6 +312,13 @@ else
     private int? _open;
     private bool _loading = true;
     private bool _failed;
+
+    private bool _picking;
+    private string _pickSearch = string.Empty;
+    private List<WatchCandidate> _candidates = [];
+    private bool _candidatesFailed;
+    private int? _watching;
+    private CancellationTokenSource? _pickDebounce;
 
     private int _reported;
     private int _onSaleToday;
@@ -470,8 +550,91 @@ else
                 // solid accent per row would put a dozen primaries on one board.
                 Emphasis = DeskEmphasis.Tinted,
                 OpenWindow = () => Launch(WindowCatalog.LogPurchase, id, name, "480px")
+            },
+            new()
+            {
+                Key = "unwatch",
+                Label = "Stop watching",
+                Icon = Icons.Material.Filled.VisibilityOff,
+                OpenWindow = () => UnwatchAsync(id)
             }
         ];
+    }
+
+    // ---- adding and dropping watches ----------------------------------------------------
+
+    private async Task TogglePicker()
+    {
+        _picking = !_picking;
+
+        if (_picking)
+            await LoadCandidatesAsync();
+        else
+            await LoadAsync();
+    }
+
+    private async Task OnPickSearchChanged(string? value)
+    {
+        _pickSearch = value ?? string.Empty;
+
+        // A keystroke is not a query: wait for the typing to pause.
+        _pickDebounce?.Cancel();
+        var cts = _pickDebounce = new CancellationTokenSource();
+
+        try
+        {
+            await Task.Delay(250, cts.Token);
+            await LoadCandidatesAsync();
+        }
+        catch (TaskCanceledException)
+        {
+        }
+    }
+
+    private async Task LoadCandidatesAsync()
+    {
+        try
+        {
+            _candidates = (await Queries.CandidatesAsync(_pickSearch)).ToList();
+            _candidatesFailed = false;
+        }
+        catch
+        {
+            _candidatesFailed = true;
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task WatchAsync(int eventId)
+    {
+        _watching = eventId;
+
+        try
+        {
+            await Queries.WatchAsync(eventId);
+            _candidates = _candidates.Select(c => c.Event.Id == eventId ? c with { Watched = true } : c).ToList();
+        }
+        finally
+        {
+            _watching = null;
+        }
+    }
+
+    private async Task UnwatchAsync(int eventId)
+    {
+        await Queries.UnwatchAsync(eventId);
+        _open = null;
+        await LoadAsync();
+    }
+
+    private static string OnSaleLabel(Event evt)
+        => evt.OnSaleTbd || evt.OnSaleAt is not { } at ? "not announced" : When(at, evt.Venue?.Timezone);
+
+    private static string When(DateTimeOffset instant, string? zone)
+    {
+        var local = OnSaleCalendar.InZone(instant, zone ?? "UTC");
+        return local.ToString("ddd d MMM HH:mm", CultureInfo.InvariantCulture);
     }
 
     /// <summary>The Event destination, opened about this event. Not a singleton: two events side by side is the point.</summary>
