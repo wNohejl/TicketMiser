@@ -63,18 +63,36 @@ Step 'ef migrations has-pending-model-changes' {
 
 Step 'container build and health' {
     if ($SkipContainer -or -not (Test-Path 'docker-compose.yml')) { return 'SKIP' }
-    docker compose config -q | Out-Host
-    docker compose build | Out-Host
-    docker compose up -d | Out-Host
-    $ok = $false
-    for ($i = 0; $i -lt 30; $i++) {
-        try {
-            $r = Invoke-WebRequest -Uri 'https://localhost:8443/health' -UseBasicParsing -SkipCertificateCheck -TimeoutSec 3
-            if ($r.StatusCode -eq 200) { $ok = $true; break }
-        } catch { Start-Sleep -Seconds 2 }
+
+    # Docker writes its progress to stderr. Under Windows PowerShell 5.1 with
+    # ErrorActionPreference Stop, any stderr line from a native command is a terminating
+    # error, so the build "failed" on its first progress line. Judge docker by its exit code.
+    function Invoke-Docker([string[]] $Arguments) {
+        $previous = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try { & docker @Arguments 2>&1 | ForEach-Object { "$_" } | Out-Host }
+        finally { $ErrorActionPreference = $previous }
+        if ($LASTEXITCODE -ne 0) { throw "docker $($Arguments -join ' ') exited $LASTEXITCODE" }
     }
-    docker compose down | Out-Host
+
+    Invoke-Docker @('compose', 'config', '-q')
+    Invoke-Docker @('compose', 'build')
+    Invoke-Docker @('compose', 'up', '-d')
+    $ok = $false
+    try {
+        # curl.exe ships with Windows 10 and later; -k because the development certificate is
+        # self-signed. Invoke-WebRequest -SkipCertificateCheck exists only in PowerShell 7.
+        for ($i = 0; $i -lt 30; $i++) {
+            $code = & curl.exe -k -s -o NUL -w '%{http_code}' --max-time 3 'https://localhost:8443/health'
+            if ($code -eq '200') { $ok = $true; break }
+            Start-Sleep -Seconds 2
+        }
+    }
+    finally {
+        Invoke-Docker @('compose', 'down')
+    }
     if (-not $ok) { throw "/health did not answer 200 within 60 s" }
+    $global:LASTEXITCODE = 0
 }
 
 Step 'discovery feed size cap configured' {

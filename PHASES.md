@@ -111,7 +111,7 @@ links to its source and shows its all-in flag.
 
 Gate: `release-check` before the deploy; `monthly-report` after the first full month.
 
-- [ ] `release-check` passes with no skipped steps.
+- [x] `release-check` passes with no skipped steps.
 - [ ] First public URL over HTTPS.
 - [ ] `docs/reports/<yyyy-mm>-nashville.md` rendered from the queries, read, then published.
 
