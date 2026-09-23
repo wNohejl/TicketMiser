@@ -37,10 +37,12 @@ public class EventResolver(TicketMiserDbContext db)
             return hit;
 
         var normalised = Normalise(reference.Name);
+        var key = VenueName.Key(reference.Name, reference.City, reference.State);
         var city = reference.City;
 
         var candidates = await db.Venues
             .Where(v => city == null || v.City == city || v.State == reference.State)
+            .OrderBy(v => v.Id)
             .ToListAsync(ct);
 
         Venue? venue = null;
@@ -51,6 +53,13 @@ public class EventResolver(TicketMiserDbContext db)
         // The seeded Nashville list is matched by name so the ticketing provider is known
         // before the first price arrives.
         venue ??= candidates.FirstOrDefault(v => Normalise(v.Name) == normalised);
+
+        // Then by name without the town or state a source tacks on ("The Truth - Nashville"
+        // is Ticketmaster's "The Truth"), and only in the same town: the suffix is stripped
+        // because it is the room's own locality, so the match must be too.
+        venue ??= candidates.FirstOrDefault(v =>
+            (city is null || v.City.Length == 0 || string.Equals(v.City, city, StringComparison.OrdinalIgnoreCase))
+            && VenueName.Key(v.Name, v.City, v.State) == key);
 
         if (venue is null)
         {
@@ -307,6 +316,5 @@ public class EventResolver(TicketMiserDbContext db)
     private static string SerialisePresales(IReadOnlyList<CanonicalPresale> presales)
         => JsonSerializer.Serialize(presales.Select(p => new { name = p.Name, startsAt = p.StartsAt, endsAt = p.EndsAt }));
 
-    private static string Normalise(string name)
-        => new(name.ToLowerInvariant().Where(char.IsLetterOrDigit).ToArray());
+    private static string Normalise(string name) => VenueName.Normalise(name);
 }

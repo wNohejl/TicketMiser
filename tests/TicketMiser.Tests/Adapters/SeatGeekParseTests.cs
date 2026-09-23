@@ -1,3 +1,4 @@
+using TicketMiser.Core.Contracts;
 using TicketMiser.Ingestion.Adapters;
 
 namespace TicketMiser.Tests.Adapters;
@@ -43,7 +44,9 @@ public class SeatGeekParseTests
         var (events, _) = SeatGeekAdapter.ParseEvents(TicketmasterParseTests.Load("seatgeek", "nashville-popular.json"), ObservedAt);
 
         var jonas = events.Single(e => e.SourceEventId == "18503892");
-        Assert.Equal("1B00650D13C6A27C", jonas.KnownAs["ticketmaster"]);
+        // The legacy host id, which the Discovery API cannot fetch, under its own key.
+        Assert.Equal("1B00650D13C6A27C", jonas.KnownAs[ExternalIdKeys.TicketmasterLegacy]);
+        Assert.False(jonas.KnownAs.ContainsKey("ticketmaster"));
 
         // The rest carry none, and say so with an empty map rather than a null.
         var rodrigo = events.Single(e => e.SourceEventId == "18211705");

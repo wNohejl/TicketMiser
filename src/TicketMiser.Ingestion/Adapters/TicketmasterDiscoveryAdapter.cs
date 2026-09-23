@@ -291,7 +291,11 @@ public class TicketmasterDiscoveryAdapter(
             OnSaleAt: onSaleAt,
             OnSaleTbd: onSaleTbd,
             Presales: presales,
-            Channel: ReadChannel(e));
+            Channel: ReadChannel(e),
+            // The event page's legacy host id, which is the id SeatGeek names this event by.
+            CrossReferences: ExternalIdKeys.TicketmasterLegacyIdFromUrl(Str(e, "url")) is { } legacyId
+                ? new Dictionary<string, string> { [ExternalIdKeys.TicketmasterLegacy] = legacyId }
+                : null);
 
         CanonicalPriceObservation? observation = null;
 

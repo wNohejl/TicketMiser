@@ -108,6 +108,28 @@ public class TicketmasterParseTests
     }
 
     [Fact]
+    public void The_event_page_url_gives_the_legacy_id_seatgeek_names_the_event_by()
+    {
+        var parsed = TicketmasterDiscoveryAdapter.ParseEvent(Load("ticketmaster", "event-bridgestone-brooks-dunn.json"), ObservedAt);
+
+        var evt = parsed!.Value.Event;
+
+        // The Discovery id stays the source's own; the URL's host id is a cross-reference under
+        // its own key, the one SeatGeek's "ticketmaster" field carries.
+        Assert.Equal("G5viZ_A30im87", evt.SourceEventId);
+        Assert.Equal("1B006454A4B2E404", evt.KnownAs[ExternalIdKeys.TicketmasterLegacy]);
+        Assert.False(evt.KnownAs.ContainsKey("ticketmaster"));
+    }
+
+    [Theory]
+    [InlineData("1B00650D13C6A27C", true)]
+    [InlineData("G5viZ_A30im87", false)]
+    [InlineData("1b00650d13c6a27c", false)]
+    [InlineData("1B00650D13C6A27", false)]
+    public void Only_sixteen_upper_hex_digits_are_a_legacy_id(string value, bool legacy)
+        => Assert.Equal(legacy, ExternalIdKeys.IsTicketmasterLegacyId(value));
+
+    [Fact]
     public void A_club_event_detail_carries_a_face_value_range_with_no_all_in_claim()
     {
         var parsed = TicketmasterDiscoveryAdapter.ParseEvent(Load("ticketmaster", "event-basement-east-club.json"), ObservedAt);

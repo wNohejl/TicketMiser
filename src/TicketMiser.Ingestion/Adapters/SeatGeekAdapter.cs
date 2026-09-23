@@ -183,11 +183,18 @@ public class SeatGeekAdapter(
                 category = Str(first, "name");
         }
 
-        // SeatGeek names the Ticketmaster event on many events. That id is the fast path for
-        // the resolver, and it is how a resale row finds its primary without the drift window.
+        // SeatGeek names the Ticketmaster event on many events, but by Ticketmaster's legacy host
+        // id, never the Discovery id. Filed under its own key it still joins a resale row to its
+        // primary — Ticketmaster's adapter records the same id from its event URL — without being
+        // mistaken for an id the Discovery API can fetch (see ExternalIdKeys).
         Dictionary<string, string>? crossReferences = null;
         if (Str(e, "ticketmaster") is { Length: > 0 } ticketmasterId)
-            crossReferences = new Dictionary<string, string> { ["ticketmaster"] = ticketmasterId };
+        {
+            var key = ExternalIdKeys.IsTicketmasterLegacyId(ticketmasterId)
+                ? ExternalIdKeys.TicketmasterLegacy
+                : TicketmasterDiscoveryAdapter.SourceKey;
+            crossReferences = new Dictionary<string, string> { [key] = ticketmasterId };
+        }
 
         var canonical = new CanonicalEvent(
             SourceEventId: id,
