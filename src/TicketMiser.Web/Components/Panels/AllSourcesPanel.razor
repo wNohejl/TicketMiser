@@ -1,0 +1,189 @@
+@using TicketMiser.Core.Analytics
+@using TicketMiser.Core.Entities
+@using TicketMiser.Web.Components.Prices
+@using TicketMiser.Web.Services
+@inherits DeskPanel
+@inject IPriceHistoryQueries Queries
+
+@*
+    All sources — the Watchlist's first follow-up, the LineOps "all bets" view for tickets:
+    every source's latest number for one event, primary first and resale second.
+
+    Listed, never ranked. The Watchlist already picks each market's best; this window is where
+    a reader checks every number behind that pick, so it keeps the sources in name order within
+    each market and puts no "best" mark on any row. The two markets are two tables with their
+    own badge, and a primary number and a resale number never sit in one column.
+*@
+
+<div class="stack" style="--desk-gap:12px; padding:4px 0">
+    @if (_loading && _quotes is null)
+    {
+        <EmptyState>Reading every source.</EmptyState>
+    }
+    else if (_failed)
+    {
+        <EmptyState Kind="EmptyStateKind.Error">
+            <ChildContent>The sources could not be read.</ChildContent>
+            <Action>
+                <DeskButton Emphasis="DeskEmphasis.Plain" OnClick="LoadAsync">Try again</DeskButton>
+            </Action>
+        </EmptyState>
+    }
+    else if (_quotes is null)
+    {
+        <EmptyState Kind="EmptyStateKind.Error">
+            No event has id @(EventId?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "(none)"). The window was opened about something that is not on record.
+        </EmptyState>
+    }
+    else
+    {
+        <div class="row">
+            <DeskLink Destination="event" Tooltip="Open event" OnClick="() => Destinations.OpenEvent(Manager, _quotes.Event)">@_quotes.Event.Name</DeskLink>
+            <span class="dim">@PriceText.When(_quotes.Event.StartsAt, _quotes.Event.Venue?.Timezone)</span>
+            <span class="ftr__spacer"></span>
+            <DeskButton Size="DeskKeySize.Small" Icon="@Icons.Material.Filled.Refresh" OnClick="LoadAsync" Busy="@_loading">Refresh</DeskButton>
+        </div>
+
+        @if (_quotes.Quotes.Count == 0)
+        {
+            <EmptyState Kind="EmptyStateKind.New">
+                No source has reported on this event yet. Sources report on a watched event at the
+                next sweep; nothing is fetched without a watch.
+            </EmptyState>
+        }
+        else
+        {
+            @Market(SourceKind.Primary, _quotes.Primary)
+            @Market(SourceKind.Resale, _quotes.Resale)
+
+            <p class="empty" style="padding:0">
+                Listed by source name, not by price. Each market's best is on the Watchlist, chosen
+                only among numbers of the same fee basis.
+            </p>
+
+            @if (PriceText.HasSeatGeek(_quotes.Quotes.Select(q => q.Source)))
+            {
+                <p class="empty attribution" style="padding:0">@PriceText.SeatGeekAttribution</p>
+            }
+        }
+    }
+</div>
+
+@code {
+    /// <summary>The id parameter the window was opened with. Arrives as <c>EventId</c>.</summary>
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? Parameters { get; set; }
+
+    private int? EventId => Destinations.IdFrom(Parameters, Destinations.EventId);
+
+    private int? _loadedId;
+    private bool _loading = true;
+    private bool _failed;
+    private EventQuotes? _quotes;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (EventId == _loadedId && !_loading)
+            return;
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loadedId = EventId;
+        _loading = true;
+        _failed = false;
+
+        try
+        {
+            await WithActivityAsync(
+                async () => _quotes = EventId is { } id ? await Queries.QuotesAsync(id) : null,
+                settle: () => _quotes is null ? PulseState.Warn : _quotes.Quotes.Count == 0 ? PulseState.Idle : PulseState.Healthy,
+                status: () => _quotes is null ? "not found" : $"{_quotes.Quotes.Count} {PriceText.Plural(_quotes.Quotes.Count, "source")}");
+        }
+        catch
+        {
+            _failed = true;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private RenderFragment Market(SourceKind kind, IReadOnlyList<SourceQuote> quotes) => __builder =>
+    {
+        <section class="stack" style="--desk-gap:6px" data-market="@kind.ToString().ToLowerInvariant()">
+            <PanelHeader Gap="PanelHeaderGap.Section">
+                <Tag State="@PriceText.MarketState(kind)">@PriceText.MarketWord(kind)</Tag>
+            </PanelHeader>
+
+            @if (quotes.Count == 0)
+            {
+                <EmptyState>@NoneIn(kind)</EmptyState>
+            }
+            else
+            {
+                <table class="grid grid--tight">
+                    <thead>
+                        <tr>
+                            <th scope="col">Source</th>
+                            <th scope="col">Lowest</th>
+                            <th scope="col">@(kind == SourceKind.Primary ? "Availability" : "Listings")</th>
+                            <th scope="col">Read</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var q in quotes)
+                        {
+                            <tr data-source="@q.Source.Key">
+                                <td>@q.Source.Name</td>
+                                <td>
+                                    @if (q.Lowest is { } low)
+                                    {
+                                        <SourcePrice Source="q.Source" Event="_quotes!.Event" Amount="low" AllIn="q.AllIn" Currency="@q.Currency" />
+                                    }
+                                    else
+                                    {
+                                        <span class="dim">no price</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (kind == SourceKind.Primary && q.PrimaryStatus is { } status)
+                                    {
+                                        <Tag State="@PriceText.StatusState(status)" Title="@status">@PriceText.StatusWord(status)</Tag>
+                                    }
+                                    else if (q.ListingCount is { } listings)
+                                    {
+                                        <span class="num">@listings.ToString("N0", PriceText.Money)</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="dim">—</span>
+                                    }
+                                </td>
+                                <td>
+                                    <span class="num" title="@PriceText.When(q.ObservedAt, _quotes!.Event.Venue?.Timezone)">@PriceText.Age(q.ObservedAt, DateTimeOffset.UtcNow)</span>
+                                    @if (q.FromOnSaleRecord)
+                                    {
+                                        <span class="dim" title="Read from the on-sale record rather than the price sweep"> tick</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </section>
+    };
+
+    private string NoneIn(SourceKind kind)
+    {
+        if (kind == SourceKind.Resale)
+            return "No resale source has reported.";
+
+        return VenueFeed.For(_quotes?.Event.Venue?.TicketingProvider) is { HasPrimaryFeed: false, Provider: not "Unknown" } feed
+            ? feed.Sentence
+            : "No primary source has reported.";
+    }
+}

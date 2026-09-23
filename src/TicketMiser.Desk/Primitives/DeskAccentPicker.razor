@@ -1,0 +1,109 @@
+@namespace TicketMiser.Desk.Primitives
+@using TicketMiser.Desk.Theming
+
+@*
+    The accent picker.
+
+    One filled circle per hue, the way macOS lays its accent colours out. It is a
+    radiogroup like the gate switch — arrows move the choice, Tab leaves the group — but
+    the positions are colours rather than words, so there is no cap to slide: the chosen
+    swatch wears a ring in its own hue and the rest sit plain.
+
+    Each swatch paints its own colour through --swatch, resolved from the accent table for
+    the desk that is showing. That is the one place on the desk a colour is set per element
+    rather than per theme, and it is unavoidable: the row's whole job is to show the hues
+    the operator is *not* on.
+*@
+
+<div class="swatches @Class"
+     role="radiogroup"
+     aria-label="@Label"
+     @onkeydown="OnKeyDown"
+     @attributes="Extra">
+
+    @for (var i = 0; i < DeskAccents.All.Count; i++)
+    {
+        var index = i;
+        var accent = DeskAccents.All[index];
+        var selected = accent == Value;
+        var palette = DeskAccents.For(accent, IsDark);
+
+        <button class="swatch @(selected ? "swatch--on" : null)"
+                type="button"
+                role="radio"
+                aria-checked="@(selected ? "true" : "false")"
+                aria-label="@DeskAccents.Label(accent)"
+                title="@DeskAccents.Label(accent)"
+                tabindex="@(selected ? 0 : -1)"
+                style="--swatch: @palette.Accent"
+                data-accent="@DeskAccents.Key(accent)"
+                @ref="_refs[index]"
+                @onclick="() => SelectAsync(index)"></button>
+    }
+</div>
+
+@code {
+    [Parameter] public DeskAccent Value { get; set; } = DeskAccent.Blue;
+    [Parameter] public EventCallback<DeskAccent> ValueChanged { get; set; }
+
+    /// <summary>Which desk the swatches are drawn on — the dark and light values of a hue differ.</summary>
+    [Parameter] public bool IsDark { get; set; } = true;
+
+    /// <summary>The accessible name of the whole group.</summary>
+    [Parameter] public string Label { get; set; } = "Accent";
+
+    /// <summary>Extra classes, appended last so a one-off can still win.</summary>
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? Extra { get; set; }
+
+    private readonly ElementReference[] _refs = new ElementReference[DeskAccents.All.Count];
+
+    private int SelectedIndex
+    {
+        get
+        {
+            for (var i = 0; i < DeskAccents.All.Count; i++)
+            {
+                if (DeskAccents.All[i] == Value)
+                    return i;
+            }
+
+            return 0;
+        }
+    }
+
+    private async Task SelectAsync(int index)
+    {
+        var accent = DeskAccents.All[index];
+
+        if (accent == Value)
+            return;
+
+        await ValueChanged.InvokeAsync(accent);
+    }
+
+    /// <summary>
+    /// Radiogroup keyboard contract: arrows move the choice and wrap, Home and End jump.
+    /// The choice moves the focus with it, so the ring and the keyboard never disagree.
+    /// </summary>
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        var count = DeskAccents.All.Count;
+        var next = e.Key switch
+        {
+            "ArrowRight" or "ArrowDown" => (SelectedIndex + 1) % count,
+            "ArrowLeft" or "ArrowUp" => (SelectedIndex - 1 + count) % count,
+            "Home" => 0,
+            "End" => count - 1,
+            _ => -1
+        };
+
+        if (next < 0)
+            return;
+
+        await SelectAsync(next);
+        await _refs[next].FocusAsync();
+    }
+}

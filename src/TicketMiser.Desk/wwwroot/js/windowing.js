@@ -12,18 +12,74 @@
 
 let dotNet = null;
 
-export function initialise(dotNetRef) {
+// The desk can be drawn at a zoom (the UI scale setting puts CSS `zoom` on <body>).
+// Under zoom the two coordinate spaces this file works in stop agreeing: pointer
+// clientX and getBoundingClientRect are in viewport pixels, while offsetWidth and the
+// style.left/width this file writes are in the element's own CSS pixels. Every place a
+// viewport measurement meets a CSS one, it is divided by this. currentCSSZoom is the
+// standardised property; the fallback derives the same number from the two spaces.
+function zoomOf(element) {
+    if (typeof element.currentCSSZoom === 'number') return element.currentCSSZoom || 1;
+
+    const width = element.offsetWidth;
+    return width ? (element.getBoundingClientRect().width / width) || 1 : 1;
+}
+
+export function initialise(dotNetRef, shortcuts) {
     dotNet = dotNetRef;
     window.addEventListener('resize', reportViewport, { passive: true });
     reportViewport();
+
+    installShortcuts(shortcuts || []);
+}
+
+export function isMac() {
+    const platform = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '';
+    return /mac|iphone|ipad/i.test(platform);
+}
+
+// ------------------------------------------------------------------- shortcuts ----
+
+// The command modifier is ⌘ on a Mac and Ctrl everywhere else, and a window's shortcut is
+// one key under it. Only the key is matched, in lower case, so ⌘, and ⌘< are the same
+// gesture on a keyboard where they share a cap. The listener is kept on the module so a
+// reconnect replaces it rather than stacking a second one.
+let shortcutListener = null;
+
+function installShortcuts(shortcuts) {
+    if (shortcutListener) {
+        document.removeEventListener('keydown', shortcutListener);
+        shortcutListener = null;
+    }
+
+    if (!shortcuts.length) return;
+
+    const mac = isMac();
+    const byKey = new Map(shortcuts.map((s) => [s.key.toLowerCase(), s.windowKey]));
+
+    shortcutListener = (e) => {
+        const modifier = mac ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey;
+        if (!modifier || e.altKey || e.shiftKey || e.repeat) return;
+
+        const windowKey = byKey.get((e.key || '').toLowerCase());
+        if (!windowKey || !dotNet) return;
+
+        e.preventDefault();
+        dotNet.invokeMethodAsync('OnShortcut', windowKey);
+    };
+
+    document.addEventListener('keydown', shortcutListener);
 }
 
 export function reportViewport() {
     const desk = document.querySelector('[data-desk]');
     if (!desk || !dotNet) return;
 
+    // Reported in CSS pixels — the space the manager lays windows out in — not the
+    // viewport pixels a zoomed desk occupies on screen.
     const rect = desk.getBoundingClientRect();
-    dotNet.invokeMethodAsync('OnViewportChanged', rect.width, rect.height);
+    const zoom = zoomOf(desk);
+    dotNet.invokeMethodAsync('OnViewportChanged', rect.width / zoom, rect.height / zoom);
 }
 
 // ---------------------------------------------------------------- divider (resize) ----
@@ -36,14 +92,14 @@ export function attachDivider(handle, leftId, rightId) {
 
     const onDown = (e) => beginSplit(e, handle, leftId, rightId);
     handle.addEventListener('pointerdown', onDown);
-    handle.__lineopsSplit = onDown;
+    handle.__deskSplit = onDown;
 }
 
 export function detachDivider(handle) {
-    if (!handle || !handle.__lineopsSplit) return;
+    if (!handle || !handle.__deskSplit) return;
 
-    handle.removeEventListener('pointerdown', handle.__lineopsSplit);
-    handle.__lineopsSplit = null;
+    handle.removeEventListener('pointerdown', handle.__deskSplit);
+    handle.__deskSplit = null;
 }
 
 function beginSplit(event, handle, leftId, rightId) {
@@ -56,6 +112,7 @@ function beginSplit(event, handle, leftId, rightId) {
     event.preventDefault();
 
     const startX = event.clientX;
+    const zoom = zoomOf(left);
     const leftStart = left.offsetWidth;
     const rightStart = right.offsetWidth;
     const rightOrigin = parseFloat(right.style.left) || 0;
@@ -72,7 +129,7 @@ function beginSplit(event, handle, leftId, rightId) {
     document.body.classList.add('splitting');
 
     const onMove = (e) => {
-        const delta = Math.min(Math.max(e.clientX - startX, lowerBound), upperBound);
+        const delta = Math.min(Math.max((e.clientX - startX) / zoom, lowerBound), upperBound);
 
         left.style.width = `${leftStart + delta}px`;
         right.style.left = `${rightOrigin + delta}px`;
@@ -120,9 +177,9 @@ export function attachAllTabs(containerSelector) {
 
     container.querySelectorAll('.win').forEach((win) => {
         const handle = win.querySelector('[data-tab-handle]');
-        if (!handle || handle.__lineopsTabWired) return;
+        if (!handle || handle.__deskTabWired) return;
 
-        handle.__lineopsTabWired = true;
+        handle.__deskTabWired = true;
         handle.addEventListener('pointerdown', (e) => beginTabDrag(e, win, handle));
     });
 }
@@ -138,12 +195,13 @@ function beginTabDrag(event, win, handle) {
     const startX = event.clientX;
     const originLeft = parseFloat(win.style.left) || 0;
     const width = win.offsetWidth;
-    const deskRect = desk.getBoundingClientRect();
+    const zoom = zoomOf(desk);
+    const deskWidth = desk.getBoundingClientRect().width / zoom;
 
     let dragging = false;
 
     const onMove = (e) => {
-        const dx = e.clientX - startX;
+        const dx = (e.clientX - startX) / zoom;
 
         if (!dragging) {
             if (Math.abs(dx) < DRAG_THRESHOLD) return;
@@ -156,7 +214,7 @@ function beginTabDrag(event, win, handle) {
         }
 
         const min = 0;
-        const max = Math.max(min, deskRect.width - width);
+        const max = Math.max(min, deskWidth - width);
         win.style.left = `${Math.min(Math.max(originLeft + dx, min), max)}px`;
     };
 

@@ -10,7 +10,7 @@ namespace TicketMiser.Desk.Windowing;
 /// onto its title bar and strip key. That inversion is what makes "any view can be a
 /// window" true: panels are hostable anywhere, and the chrome reads from them.
 ///
-/// This is the domain-free half of what LineOps called <c>PanelBase</c>; the date and price
+/// This is the domain-free half of what the desk's previous host called <c>PanelBase</c>; the date and price
 /// formatters that sat beside it there belong to that product, and a host adds its own.
 /// </summary>
 public abstract class DeskPanel : ComponentBase

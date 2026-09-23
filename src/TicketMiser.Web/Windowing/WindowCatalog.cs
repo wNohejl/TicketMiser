@@ -54,7 +54,7 @@ public static class WindowCatalog
             Title = "Watchlist",
             Icon = Icons.Material.Filled.Leaderboard,
             Group = "Data",
-            ComponentType = typeof(Placeholder),
+            ComponentType = typeof(WatchlistPanel),
             Description = "Every watched event, the best price on it now, the source holding it, and how far the rest are behind.",
             DefaultWeight = 1.9,
             MinWidth = 680
@@ -65,7 +65,7 @@ public static class WindowCatalog
             Title = "Price history",
             Icon = Icons.Material.Filled.ShowChart,
             Group = "Data",
-            ComponentType = typeof(Placeholder),
+            ComponentType = typeof(PriceHistoryPanel),
             Description = "The lowest price per source over time, with the event and any purchase marked.",
             // Two charts side by side is the point of a chart.
             Singleton = false,
@@ -77,7 +77,7 @@ public static class WindowCatalog
             Title = "Performers",
             Icon = Icons.Material.Filled.People,
             Group = "Data",
-            ComponentType = typeof(Placeholder),
+            ComponentType = typeof(PerformersPanel),
             Description = "Artists, teams and productions; open one to see its events."
         },
         new()
@@ -86,7 +86,7 @@ public static class WindowCatalog
             Title = "Purchases",
             Icon = Icons.Material.Filled.Receipt,
             Group = "Analytics",
-            ComponentType = typeof(Placeholder),
+            ComponentType = typeof(PurchasesPanel),
             Description = "What was paid, where, and how it compares with the price on the day."
         },
         new()
@@ -95,7 +95,7 @@ public static class WindowCatalog
             Title = "Savings",
             Icon = Icons.Material.Filled.Savings,
             Group = "Analytics",
-            ComponentType = typeof(Placeholder),
+            ComponentType = typeof(SavingsPanel),
             Description = "Paid against day-of prices, by source and by category."
         },
         new()
@@ -104,7 +104,7 @@ public static class WindowCatalog
             Title = "Ops",
             Icon = Icons.Material.Filled.MonitorHeart,
             Group = "Operations",
-            ComponentType = typeof(Placeholder),
+            ComponentType = typeof(OpsPanel),
             Description = "Source health, the allowance each feed has left, and the open alerts.",
             DefaultWeight = 1.4
         },
@@ -114,7 +114,7 @@ public static class WindowCatalog
             Title = "Incidents",
             Icon = Icons.Material.Filled.Warning,
             Group = "Operations",
-            ComponentType = typeof(Placeholder),
+            ComponentType = typeof(IncidentsPanel),
             Description = "What broke, and the write-up that closes it."
         },
         new()
@@ -123,7 +123,7 @@ public static class WindowCatalog
             Title = "Runs",
             Icon = Icons.Material.Filled.PlayArrow,
             Group = "Operations",
-            ComponentType = typeof(Placeholder),
+            ComponentType = typeof(RunsPanel),
             Description = "Every fetch, what it cost, and what it wrote."
         },
         new()
@@ -132,18 +132,19 @@ public static class WindowCatalog
             Title = "History",
             Icon = Icons.Material.Filled.History,
             Group = "Operations",
-            ComponentType = typeof(Placeholder),
+            ComponentType = typeof(HistoryPanel),
             Description = "Walk past events for their final prices, where a source still offers them."
         },
         new()
         {
             Key = Desk,
-            Title = "Window manager",
+            Title = "Desk settings",
             Icon = Icons.Material.Filled.Tune,
             Group = "System",
-            ComponentType = typeof(WindowManagerPanel),
-            Description = "The window ceiling, the primary window and its share, resolution, and the theme.",
-            MinWidth = 360
+            ComponentType = typeof(DeskSettingsPanel),
+            Description = "Appearance — theme, accent, text size and scale — then the window ceiling, the primary window and its share, and resolution.",
+            MinWidth = 360,
+            Shortcut = ","
         },
 
         // Destinations.
@@ -155,7 +156,7 @@ public static class WindowCatalog
             Title = "Event",
             Icon = Icons.Material.Filled.Event,
             Group = "Data",
-            ComponentType = typeof(Placeholder),
+            ComponentType = typeof(EventPanel),
             Singleton = false,
             Description = "One event: every source's price now, its history, and the purchases logged against it."
         },
@@ -163,11 +164,11 @@ public static class WindowCatalog
         {
             Key = Performer,
             RequiresSubject = true,
-            ReachedBy = "Follow a performer's name from the Watchlist or Performers.",
+            ReachedBy = "Follow a performer's name from the Watchlist, Performers or an Event.",
             Title = "Performer",
             Icon = Icons.Material.Filled.Person,
             Group = "Data",
-            ComponentType = typeof(Placeholder),
+            ComponentType = typeof(PerformerPanel),
             Singleton = false,
             Description = "One performer's upcoming events and how their prices have run."
         },
@@ -175,11 +176,11 @@ public static class WindowCatalog
         {
             Key = Venue,
             RequiresSubject = true,
-            ReachedBy = "Follow a venue's name from an Event.",
+            ReachedBy = "Follow a venue's name from the Watchlist, a Performer or an Event.",
             Title = "Venue",
             Icon = Icons.Material.Filled.Place,
             Group = "Data",
-            ComponentType = typeof(Placeholder),
+            ComponentType = typeof(VenuePanel),
             Singleton = false,
             Description = "One venue's calendar and what its events have cost."
         },
@@ -193,7 +194,7 @@ public static class WindowCatalog
             Title = "All sources",
             Icon = Icons.Material.Filled.ViewList,
             Group = "Data",
-            ComponentType = typeof(Placeholder),
+            ComponentType = typeof(AllSourcesPanel),
             Singleton = false,
             Description = "Every source's number for one event, primary and resale badged apart."
         },
@@ -205,7 +206,7 @@ public static class WindowCatalog
             Title = "Log purchase",
             Icon = Icons.Material.Filled.Bolt,
             Group = "Data",
-            ComponentType = typeof(Placeholder),
+            ComponentType = typeof(LogPurchasePanel),
             Singleton = false,
             Description = "Record what you paid, prefilled from the price shown."
         },
@@ -217,7 +218,7 @@ public static class WindowCatalog
             Title = "Trend",
             Icon = Icons.Material.Filled.TrendingUp,
             Group = "Data",
-            ComponentType = typeof(Placeholder),
+            ComponentType = typeof(TrendPanel),
             Singleton = false,
             Description = "The last weeks of one event's lowest price, at a glance."
         }

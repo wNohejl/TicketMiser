@@ -1,31 +1,61 @@
 # TicketMiser
 
-A ticket price tracker: compile the price of an event's tickets from several marketplaces on
-a schedule, keep the history, and show where the best price is now and how it got there.
+A ticket price tracker for Nashville concerts: know a ticket's price the moment it goes on
+sale, keep every move it makes after that, and say which site to buy from today. The part
+nobody else offers is the **on-sale record**: a per-event ledger of the sale's first hours,
+what the primary market said and when it said "sold out", and what the resale market held at
+the same minute.
 
 .NET 10 · Blazor (Interactive Server) · MudBlazor 9 · PostgreSQL 17 · Docker
 
-## Where it comes from
+## What is where
 
-The desk — the window manager, the strip and its drawers, the primitives, the theme and the
-stylesheet — is `src/TicketMiser.Desk`, carried over from
-[LineOps](https://github.com/wNohejl/LineExtractor) with its git history. `git log --follow`
-on any file in it reaches back to the commit that first wrote it there. The design it
-implements is recorded in `docs/adr` (0007, 0013, 0016), and the plan for what this product
-builds on it is `docs/superpowers/specs/2026-09-11-ticket-tracker-desk-reuse-plan.md`.
+| Project | What it is |
+|---|---|
+| `src/TicketMiser.Core` | Entities, the adapter contracts, the one comparison rule (`PriceComparison`), telemetry names. |
+| `src/TicketMiser.Data` | EF Core context, migrations, the partitioned observation tables, the initialiser that seeds sources and Nashville venues. |
+| `src/TicketMiser.Ingestion` | Adapters (Ticketmaster Discovery, Inventory Status, Discovery Feed, SeatGeek), the resolver, the on-sale watch, the scheduler, the jobs. |
+| `src/TicketMiser.Reliability` | Freshness, success rate, volume, budget and the three watch rules; incidents; the runbook. Carried from LineOps. |
+| `src/TicketMiser.Observability` | OpenTelemetry wiring and health checks. Carried from LineOps. |
+| `src/TicketMiser.Desk` | The window manager, primitives and design system. Carried from LineOps with its history. |
+| `src/TicketMiser.Web` | The host: catalogue of windows, single-process scheduler. |
+| `src/TicketMiser.Worker` | The same scheduler as its own process. |
+| `tests/` | Render tests on the desk; parse tests on fixtures; integration tests on Testcontainers Postgres. |
 
-`src/TicketMiser.Web` is the host: a starter window catalogue in which every window is a
-placeholder, so the desk can be driven end to end before any window has content. The desk's
-render tests are in `tests/TicketMiser.Desk.Tests` and read that catalogue by name.
+The design is in `docs/adr`, the plan in `PHASES.md`, the research and decisions in
+`docs/superpowers/specs`, the working rules in `CLAUDE.md`, and the skills that gate the work
+in `.claude/skills`.
 
 ## Running it
 
 ```powershell
+.\scripts\setup.ps1                                                    # .env, the dev certificate, user-secrets for both hosts
+docker compose -f docker-compose.yml -f compose.dev.yml up -d postgres # Postgres on 127.0.0.1:5434
 dotnet run --project src/TicketMiser.Web --launch-profile http
 ```
 
-Then open <http://localhost:5270>. No database is needed yet; nothing here reads one.
+Where the database password lives, and why a run outside the launch profile fails with
+"No password has been provided": `appsettings.json` is committed, so it carries the
+connection string without a password. The password is generated into `.env` by setup, which
+compose reads, and copied into `dotnet user-secrets` for the Web and Worker projects by
+`scripts/provision-secrets.ps1`. User-secrets load only when the environment is Development,
+which the `http` and `worker` launch profiles set. So run with `--launch-profile`, not from the
+built exe; a published build runs in Production and expects `ConnectionStrings__TicketMiser`
+in its environment, the way compose supplies it. Docker Desktop must be running first, or the
+compose step reports that the engine pipe does not exist.
+
+Then open <http://localhost:5270>. The host migrates the database and seeds the sources and
+venues on start. With no keys configured no source is registered, which the pull menu
+reports as unconfigured rather than broken. Keys go in `.env` for compose or
+`appsettings.Local.json` for host runs, never in the repository.
 
 ```powershell
-dotnet test
+dotnet test                            # render, parse and integration tests; Docker needed for the last
+.\.claude\skills\release-check\release-check.ps1   # the gate, before a deploy
 ```
+
+## Where it comes from
+
+The desk and the reliability layer are LineOps's, carried over per
+`docs/superpowers/specs/2026-09-11-ticket-tracker-desk-reuse-plan.md`. `git log --follow` on
+any desk file reaches back to the commit that first wrote it there.

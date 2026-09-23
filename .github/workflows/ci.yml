@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main, TicketMiser_Development]
+  pull_request:
+    branches: [main, TicketMiser_Development]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore --configuration Release -p:TreatWarningsAsErrors=true
+
+      - name: Verify formatting
+        run: dotnet format --verify-no-changes --no-restore
+
+      # Integration tests start their own PostgreSQL via Testcontainers, using the Docker
+      # daemon already present on the runner.
+      - name: Test
+        run: dotnet test --no-build --configuration Release --logger "console;verbosity=normal"
+
+  migrations:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install EF tools
+        run: dotnet tool install --global dotnet-ef
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore
+
+      # Fails if an entity change was made without a matching migration.
+      - name: Check for pending model changes
+        run: dotnet ef migrations has-pending-model-changes --project src/TicketMiser.Data --no-build

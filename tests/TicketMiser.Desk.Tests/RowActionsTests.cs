@@ -35,7 +35,7 @@ public class RowActionsTests : DeskTestContext
         };
 
     private IRenderedComponent<RowActions> Strip(IReadOnlyList<RowAction> actions, string? label = null)
-        => RenderComponent<RowActions>(p => p
+        => Render<RowActions>(p => p
             .Add(x => x.Actions, actions)
             .Add(x => x.Label, label));
 

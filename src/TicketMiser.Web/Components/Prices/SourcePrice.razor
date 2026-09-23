@@ -1,0 +1,50 @@
+@namespace TicketMiser.Web.Components.Prices
+@using TicketMiser.Core.Analytics
+@using TicketMiser.Core.Entities
+@inject IJSRuntime JS
+
+@*
+    A price wearing its citation: the number is a link to the event on the source that
+    published it (SourceLink.For), the source's monogram stands beside it, and its fee basis is
+    a tag rather than a convention. Every price cell in the history, trend, all-sources and
+    destination windows is one of these, so none of them can forget the link or the tag
+    (legal guidelines rules 3 and 5).
+*@
+
+<span class="row row--nowrap" style="--desk-gap:6px" data-source="@Source.Key">
+    <DeskLink Destination="@Source.Name" Tooltip="@($"Open this event at {Source.Name}")" OnClick="OpenAsync">
+        <span class="num">@PriceText.Amount(Amount, Currency)</span>
+    </DeskLink>
+    @if (ShowMonogram)
+    {
+        <span class="price__book" title="@Source.Name">@SourceMonogram.For(Source)</span>
+    }
+    @if (ShowBasis)
+    {
+        <Tag State="@PriceText.AllInState(AllIn)" Title="@PriceText.AllInTitle(AllIn)">@PriceText.AllInWord(AllIn)</Tag>
+    }
+</span>
+
+@code {
+    [Parameter, EditorRequired] public Source Source { get; set; } = null!;
+
+    [Parameter, EditorRequired] public Event Event { get; set; } = null!;
+
+    [Parameter] public decimal Amount { get; set; }
+
+    [Parameter] public bool? AllIn { get; set; }
+
+    [Parameter] public string Currency { get; set; } = "USD";
+
+    [Parameter] public bool ShowMonogram { get; set; } = true;
+
+    [Parameter] public bool ShowBasis { get; set; } = true;
+
+    private async Task OpenAsync()
+    {
+        var url = SourceLink.For(Source, Event);
+
+        if (url.Length > 0)
+            await JS.InvokeVoidAsync("open", url, "_blank", "noopener,noreferrer");
+    }
+}

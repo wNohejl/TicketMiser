@@ -1,0 +1,107 @@
+@inject DeskBrand Brand
+
+@*
+    The pages behind the links in a subscription email: /s/confirm/{token} and
+    /s/unsubscribe/{token}.
+
+    Rendered the way EventRecord is — a whole static document from a RazorComponentResult,
+    no circuit, no script — and never cached: each is one person's answer. No page here names
+    whether an unsubscribe token matched anything, so the address cannot be probed for who
+    is subscribed (docs/legal-guidelines.md, rule 8).
+*@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="robots" content="noindex" />
+    <meta name="referrer" content="no-referrer" />
+    <base href="/" />
+    <title>@Heading — @Brand.Wordmark@Brand.Emphasis</title>
+    <link rel="stylesheet" href="_content/MudBlazor/MudBlazor.min.css" />
+    <link rel="stylesheet" href="@Assets["_content/TicketMiser.Desk/css/desk.css"]" />
+    <link rel="stylesheet" href="@Assets["_content/TicketMiser.Desk/css/mud-bridge.css"]" />
+    <style>
+        .record-page { max-width: 640px; margin: 0 auto; padding: var(--space-4) var(--space-3) var(--space-6); }
+        .record-page__brand { display: flex; align-items: baseline; gap: var(--space-2); margin-bottom: var(--space-4); }
+        .record-page__brand a { color: var(--text-secondary); text-decoration: none; font-size: var(--text-footnote); font-weight: var(--weight-semibold); letter-spacing: .08em; }
+        .record-page__brand a b { color: var(--text-primary); font-weight: var(--weight-semibold); }
+        .record-page__brand span { color: var(--text-tertiary); font-size: var(--text-footnote); }
+        .record-page h1 { font-size: var(--text-title1); font-weight: var(--weight-semibold); margin: 0 0 var(--space-2); line-height: 1.2; }
+        .record-page p { color: var(--text-secondary); font-size: var(--text-body); line-height: 1.5; margin: 0 0 var(--space-3); }
+        .record-page a { color: var(--accent); text-decoration: none; }
+        .record-page a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <main class="record-page">
+        <header class="record-page__brand">
+            <a href="/"><b>@Brand.Wordmark</b>@Brand.Emphasis</a>
+            <span>@Brand.Tagline</span>
+        </header>
+
+        <h1>@Heading</h1>
+
+        @switch (Kind)
+        {
+            case SubscriptionPageKind.Confirmed:
+                <p>
+                    You will get one email if Ticketmaster shows face-value tickets for
+                    <strong>@EventName</strong> as available again after they were not available.
+                    It reports what the source showed and when; check the event page before buying.
+                </p>
+                <p>The address is used only for this alert, and the email has a one-click unsubscribe.</p>
+                @if (Slug is { Length: > 0 })
+                {
+                    <p><a href="/e/@Uri.EscapeDataString(Slug)">Back to the on-sale record</a></p>
+                }
+                break;
+
+            case SubscriptionPageKind.ConfirmUnknown:
+                <p>
+                    This confirmation link does not match a subscription. It may have been copied
+                    incompletely, or the address may have unsubscribed since it was sent.
+                </p>
+                <p><a href="/onsales">Nashville on-sales</a></p>
+                break;
+
+            case SubscriptionPageKind.UnsubscribePrompt:
+                <p>Stop the face-value alert this link was sent with. Nothing else will be sent about it.</p>
+                <form method="post" action="/s/unsubscribe/@Uri.EscapeDataString(Token ?? string.Empty)">
+                    <DeskButton Emphasis="DeskEmphasis.Tinted" ButtonType="ButtonType.Submit">Unsubscribe</DeskButton>
+                </form>
+                break;
+
+            default:
+                <p>
+                    If this link belonged to a subscription, it is unsubscribed, and no more email
+                    will be sent for it.
+                </p>
+                <p><a href="/onsales">Nashville on-sales</a></p>
+                break;
+        }
+    </main>
+</body>
+</html>
+
+@code {
+    [Parameter] public SubscriptionPageKind Kind { get; set; }
+
+    /// <summary>The event, for <see cref="SubscriptionPageKind.Confirmed"/> only.</summary>
+    [Parameter] public string? EventName { get; set; }
+
+    [Parameter] public string? Slug { get; set; }
+
+    /// <summary>The unsubscribe token, echoed into the form's action; never looked up to draw the page.</summary>
+    [Parameter] public string? Token { get; set; }
+
+    private string Heading => Kind switch
+    {
+        SubscriptionPageKind.Confirmed => "Subscription confirmed",
+        SubscriptionPageKind.ConfirmUnknown => "Link not recognised",
+        SubscriptionPageKind.UnsubscribePrompt => "Unsubscribe",
+        _ => "Unsubscribed"
+    };
+}

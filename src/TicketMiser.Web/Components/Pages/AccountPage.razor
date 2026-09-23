@@ -1,0 +1,199 @@
+@using System.Globalization
+@using TicketMiser.Core.Entities
+@using TicketMiser.Web.Services
+@inject DeskBrand Brand
+
+@*
+    The account pages: /account and /account/verify/{token}.
+
+    Rendered the way EventRecord and SubscriptionPage are — a whole static document from a
+    RazorComponentResult, no circuit, no script — and never cached: each is one person's.
+    The sign-in form says the same thing after every post whether or not the address has an
+    account, and the verify page says the same thing for a link that is unknown, expired or
+    used, so neither can be probed for who has signed in (docs/legal-guidelines.md, rule 8).
+
+    The forms that change a signed-in session (sign out) and the one that starts it (the
+    verify button) carry an antiforgery token. <AntiforgeryToken /> works in a
+    RazorComponentResult: the result renders through the same endpoint renderer as a routed
+    page, which hands the component the request's antiforgery state and sets the cookie the
+    token pairs with before the response starts.
+*@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="robots" content="noindex" />
+    @* The verify page's address is a secret: never send it on as a referrer. *@
+    <meta name="referrer" content="no-referrer" />
+    <base href="/" />
+    <title>@Heading — @Brand.Wordmark@Brand.Emphasis</title>
+    <link rel="stylesheet" href="_content/MudBlazor/MudBlazor.min.css" />
+    <link rel="stylesheet" href="@Assets["_content/TicketMiser.Desk/css/desk.css"]" />
+    <link rel="stylesheet" href="@Assets["_content/TicketMiser.Desk/css/mud-bridge.css"]" />
+    <style>
+        .record-page { max-width: 640px; margin: 0 auto; padding: var(--space-4) var(--space-3) var(--space-6); }
+        .record-page__brand { display: flex; align-items: baseline; gap: var(--space-2); margin-bottom: var(--space-4); }
+        .record-page__brand a { color: var(--text-secondary); text-decoration: none; font-size: var(--text-footnote); font-weight: var(--weight-semibold); letter-spacing: .08em; }
+        .record-page__brand a b { color: var(--text-primary); font-weight: var(--weight-semibold); }
+        .record-page__brand span { color: var(--text-tertiary); font-size: var(--text-footnote); }
+        .record-page h1 { font-size: var(--text-title1); font-weight: var(--weight-semibold); margin: 0 0 var(--space-2); line-height: 1.2; }
+        .record-page h2 { font-size: var(--text-title3); font-weight: var(--weight-semibold); margin: var(--space-5) 0 var(--space-2); }
+        .record-page p { color: var(--text-secondary); font-size: var(--text-body); line-height: 1.5; margin: 0 0 var(--space-3); }
+        .record-page a { color: var(--accent); text-decoration: none; }
+        .record-page a:hover { text-decoration: underline; }
+        .record-page form { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; margin: 0 0 var(--space-3); }
+        .record-page .field { flex: 1 1 24ch; min-width: 0; }
+        .record-page ul { list-style: none; padding: 0; margin: 0 0 var(--space-3); }
+        .record-page li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-2); padding: var(--space-2) 0; border-bottom: 1px solid var(--separator); font-size: var(--text-body); }
+        .record-page li span { color: var(--text-tertiary); font-size: var(--text-footnote); }
+        .record-page__notice { color: var(--text-primary); font-size: var(--text-body); background: var(--accent-wash); border-radius: var(--radius); padding: var(--space-2) var(--space-3); margin: 0 0 var(--space-3); }
+        .record-page__notice--error { background: var(--state-negative-wash); }
+        .record-page__fine { color: var(--text-tertiary); font-size: var(--text-footnote); }
+        .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    </style>
+</head>
+<body>
+    <main class="record-page">
+        <header class="record-page__brand">
+            <a href="/"><b>@Brand.Wordmark</b>@Brand.Emphasis</a>
+            <span>@Brand.Tagline</span>
+        </header>
+
+        <h1>@Heading</h1>
+
+        @switch (Kind)
+        {
+            case AccountPageKind.SignedIn when Summary is { } s:
+                <p>Signed in as <strong>@s.Account.Email</strong>.</p>
+
+                <h2>Watching</h2>
+                @if (s.Watching.Count == 0)
+                {
+                    <p>Nothing yet. Open an event's on-sale record and choose <strong>Watch this event</strong>.</p>
+                }
+                else
+                {
+                    <ul class="account-watches">
+                        @foreach (var evt in s.Watching)
+                        {
+                            <li>
+                                <a href="@RecordHref(evt)">@evt.Name</a>
+                                <span>@Where(evt)</span>
+                            </li>
+                        }
+                    </ul>
+                    <p class="record-page__fine">
+                        Each watched event is polled for you, and you get one email if face-value
+                        tickets come back after selling out. Every email has a one-click unsubscribe.
+                    </p>
+                }
+
+                <h2>Purchases</h2>
+                @if (s.Purchases.Count == 0)
+                {
+                    <p>No purchases logged.</p>
+                }
+                else
+                {
+                    <ul class="account-purchases">
+                        @foreach (var p in s.Purchases)
+                        {
+                            <li>
+                                <a href="/receipts/@(p.EventId.ToString(CultureInfo.InvariantCulture)).md">@(p.Event?.Name ?? "Event")</a>
+                                <span>@p.Quantity × @p.PaidPerTicket.ToString("C2", Money) @(p.AllIn ? "all-in" : "face value")</span>
+                            </li>
+                        }
+                    </ul>
+                }
+
+                <form method="post" action="/account/sign-out">
+                    <AntiforgeryToken />
+                    <DeskButton Emphasis="DeskEmphasis.Tinted" ButtonType="ButtonType.Submit">Sign out</DeskButton>
+                </form>
+                break;
+
+            case AccountPageKind.VerifyPrompt:
+                <p>Sign in to TicketMiser with the link from your email. It works once.</p>
+                <form method="post" action="/account/verify/@Uri.EscapeDataString(Token ?? string.Empty)">
+                    <AntiforgeryToken />
+                    <DeskButton Emphasis="DeskEmphasis.Filled" ButtonType="ButtonType.Submit">Sign in</DeskButton>
+                </form>
+                break;
+
+            case AccountPageKind.VerifyUnknown:
+                <p>
+                    This sign-in link does not work. Links last fifteen minutes and work once; it may
+                    have expired, been used already, or been copied incompletely.
+                </p>
+                <p><a href="/account">Send a new link</a></p>
+                break;
+
+            default:
+                @switch (Notice)
+                {
+                    case AccountNotice.LinkSent:
+                        <p class="record-page__notice" role="status">Check your inbox for a sign-in link. It lasts fifteen minutes and works once.</p>
+                        break;
+                    case AccountNotice.InvalidAddress:
+                        <p class="record-page__notice record-page__notice--error" role="alert">That does not look like an email address. Nothing was sent.</p>
+                        break;
+                    case AccountNotice.SignedOut:
+                        <p class="record-page__notice" role="status">Signed out.</p>
+                        break;
+                }
+                <p>
+                    Keep a watchlist of Nashville on-sales. There is no password: you get a link by
+                    email, and following it signs you in.
+                </p>
+                <form method="post" action="/account/sign-in">
+                    <label class="sr-only" for="account-email">Email address</label>
+                    <input id="account-email" class="field" type="email" name="email" required
+                           maxlength="@Subscription.EmailMaxLength" autocomplete="email" placeholder="you@example.com" />
+                    <DeskButton Emphasis="DeskEmphasis.Filled" ButtonType="ButtonType.Submit">Email me a link</DeskButton>
+                </form>
+                <p class="record-page__fine">
+                    The address is used to send sign-in links and the alerts you ask for, and nothing
+                    else. Face-value alerts you already confirmed for this address become your watches
+                    when you first sign in.
+                </p>
+                break;
+        }
+    </main>
+</body>
+</html>
+
+@code {
+    private static readonly CultureInfo Money = CultureInfo.GetCultureInfo("en-US");
+
+    [Parameter] public AccountPageKind Kind { get; set; }
+
+    [Parameter] public AccountNotice Notice { get; set; }
+
+    /// <summary>For <see cref="AccountPageKind.SignedIn"/>: the account's own rows, read through the ownership rule.</summary>
+    [Parameter] public AccountSummary? Summary { get; set; }
+
+    /// <summary>The sign-in secret, echoed into the verify form's action; never looked up to draw the page.</summary>
+    [Parameter] public string? Token { get; set; }
+
+    private string Heading => Kind switch
+    {
+        AccountPageKind.SignedIn when Summary is not null => "Your account",
+        AccountPageKind.VerifyPrompt => "Sign in",
+        AccountPageKind.VerifyUnknown => "Link not recognised",
+        _ => "Sign in"
+    };
+
+    private static string RecordHref(Event evt)
+        => $"/e/{Uri.EscapeDataString(evt.Slug ?? evt.Id.ToString(CultureInfo.InvariantCulture))}";
+
+    private static string Where(Event evt)
+        => evt.Venue is { } v
+            ? $"{v.Name} · {OnSaleRecordLocal(evt)}"
+            : OnSaleRecordLocal(evt);
+
+    private static string OnSaleRecordLocal(Event evt)
+        => TicketMiser.Web.Components.Records.OnSaleRecordView.Local(evt.StartsAt, evt.Venue?.Timezone);
+}

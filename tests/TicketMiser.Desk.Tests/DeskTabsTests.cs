@@ -22,7 +22,7 @@ public class DeskTabsTests : DeskTestContext
         string value,
         EventCallback<string> changed = default,
         IReadOnlyList<DeskTab<string>>? tabs = null)
-        => RenderComponent<DeskTabs<string>>(p => p
+        => Render<DeskTabs<string>>(p => p
             .Add(x => x.Tabs, tabs ?? Sections)
             .Add(x => x.Label, "Game sections")
             .Add(x => x.Value, value)
@@ -229,8 +229,8 @@ public class DeskTabsTests : DeskTestContext
 
         var cut = Bar("gone", EventCallback.Factory.Create<string>(this, picked.Add));
 
-        cut.SetParametersAndRender(p => p.Add(x => x.Value, "gone"));
-        cut.SetParametersAndRender(p => p.Add(x => x.Value, "gone"));
+        cut.Render(p => p.Add(x => x.Value, "gone"));
+        cut.Render(p => p.Add(x => x.Value, "gone"));
 
         Assert.Equal(["odds"], picked);
     }
@@ -238,7 +238,7 @@ public class DeskTabsTests : DeskTestContext
     [Fact]
     public void A_one_off_class_joins_the_bar()
     {
-        var cut = RenderComponent<DeskTabs<string>>(p => p
+        var cut = Render<DeskTabs<string>>(p => p
             .Add(x => x.Tabs, Sections)
             .Add(x => x.Label, "Game sections")
             .Add(x => x.Value, "odds")

@@ -1,0 +1,133 @@
+# Full stack over HTTPS: `docker compose up -d`, then https://localhost:8443
+#
+# Security posture, carried from LineOps, and why:
+#
+#   * Every published port binds to 127.0.0.1, never 0.0.0.0. Docker writes its own iptables
+#     rules, so the host firewall does not necessarily save you from a bare "8443:8443".
+#   * Postgres is not published at all by default. The app reaches it over the compose
+#     network. Use compose.dev.yml when you want it reachable for psql or host-side `dotnet run`.
+#   * HTTPS only. There is no HTTP listener to downgrade to or forget about.
+#   * Secrets come from .env (gitignored), never from this file.
+#   * Containers run non-root, read-only root filesystem, all capabilities dropped,
+#     no-new-privileges.
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: ticketmiser-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ticketmiser
+      POSTGRES_USER: ticketmiser
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
+    volumes:
+      - ticketmiser-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ticketmiser -d ticketmiser"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETUID, SETGID, DAC_OVERRIDE, FOWNER]
+    tmpfs:
+      - /tmp
+      - /run
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  web:
+    build:
+      context: .
+      dockerfile: src/TicketMiser.Web/Dockerfile
+    container_name: ticketmiser-web
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ConnectionStrings__TicketMiser: "Host=postgres;Port=5432;Database=ticketmiser;Username=ticketmiser;Password=${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env};SSL Mode=Prefer;Trust Server Certificate=true"
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: "https://+:8443"
+      ASPNETCORE_Kestrel__Certificates__Default__Path: /https/TicketMiser.Web.pfx
+      ASPNETCORE_Kestrel__Certificates__Default__Password: ${CERT_PASSWORD:?set CERT_PASSWORD in .env}
+      DataProtection__KeyPath: /keys
+
+      # Keys, from .env. Blank leaves the source unregistered, which reads as unconfigured.
+      Ingestion__Ticketmaster__Enabled: ${TICKETMASTER_ENABLED:-false}
+      Ingestion__Ticketmaster__ApiKey: ${TICKETMASTER_KEY:-}
+      Ingestion__TicketmasterInventory__Enabled: ${TICKETMASTER_INVENTORY_ENABLED:-false}
+      Ingestion__TicketmasterInventory__ApiKey: ${TICKETMASTER_INVENTORY_KEY:-}
+      Ingestion__DiscoveryFeed__Enabled: ${DISCOVERY_FEED_ENABLED:-false}
+      Ingestion__SeatGeek__Enabled: ${SEATGEEK_ENABLED:-false}
+      Ingestion__SeatGeek__ClientId: ${SEATGEEK_CLIENT_ID:-}
+      Ingestion__SeatGeek__ClientSecret: ${SEATGEEK_CLIENT_SECRET:-}
+
+      # Email, from .env. The default provider writes .eml files to /tmp/outbox (tmpfs; the root
+      # filesystem is read-only) and sends nothing; Postmark only with a server token.
+      Notifications__Provider: ${NOTIFICATIONS_PROVIDER:-pickup}
+      Notifications__PostmarkServerToken: ${POSTMARK_SERVER_TOKEN:-}
+      Notifications__From: ${NOTIFICATIONS_FROM:-TicketMiser <alerts@ticketmiser.invalid>}
+      Notifications__PublicBaseUrl: ${NOTIFICATIONS_PUBLIC_BASE_URL:-https://localhost:8443}
+      Notifications__PickupDirectory: /tmp/outbox
+    ports:
+      - "127.0.0.1:${HTTPS_PORT:-8443}:8443"
+    volumes:
+      - ${CERT_PATH:?set CERT_PATH in .env}:/https:ro
+      - ticketmiser-keys:/keys
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+    read_only: true
+    tmpfs:
+      - /tmp
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  # Only starts with `--profile worker`. Set Ingestion__HostScheduler=false on `web` at the
+  # same time so they do not both poll.
+  worker:
+    build:
+      context: .
+      dockerfile: src/TicketMiser.Worker/Dockerfile
+    container_name: ticketmiser-worker
+    restart: unless-stopped
+    profiles: ["worker"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ConnectionStrings__TicketMiser: "Host=postgres;Port=5432;Database=ticketmiser;Username=ticketmiser;Password=${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env};SSL Mode=Prefer;Trust Server Certificate=true"
+      DOTNET_ENVIRONMENT: Production
+      Ingestion__Ticketmaster__Enabled: ${TICKETMASTER_ENABLED:-false}
+      Ingestion__Ticketmaster__ApiKey: ${TICKETMASTER_KEY:-}
+      Ingestion__TicketmasterInventory__Enabled: ${TICKETMASTER_INVENTORY_ENABLED:-false}
+      Ingestion__TicketmasterInventory__ApiKey: ${TICKETMASTER_INVENTORY_KEY:-}
+      Ingestion__DiscoveryFeed__Enabled: ${DISCOVERY_FEED_ENABLED:-false}
+      Ingestion__SeatGeek__Enabled: ${SEATGEEK_ENABLED:-false}
+      Ingestion__SeatGeek__ClientId: ${SEATGEEK_CLIENT_ID:-}
+      Ingestion__SeatGeek__ClientSecret: ${SEATGEEK_CLIENT_SECRET:-}
+      Notifications__Provider: ${NOTIFICATIONS_PROVIDER:-pickup}
+      Notifications__PostmarkServerToken: ${POSTMARK_SERVER_TOKEN:-}
+      Notifications__From: ${NOTIFICATIONS_FROM:-TicketMiser <alerts@ticketmiser.invalid>}
+      Notifications__PublicBaseUrl: ${NOTIFICATIONS_PUBLIC_BASE_URL:-https://localhost:8443}
+      Notifications__PickupDirectory: /tmp/outbox
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+    read_only: true
+    tmpfs:
+      - /tmp
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+
+volumes:
+  ticketmiser-pgdata:
+  ticketmiser-keys:

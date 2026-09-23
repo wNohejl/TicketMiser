@@ -1,0 +1,183 @@
+@using TicketMiser.Core.Entities
+@using TicketMiser.Web.Services
+@inherits DeskPanel
+@inject IRunQueries Queries
+
+@* The quiet columns here are .quiet, not .dim. .dim is --text-tertiary — the tier for an
+   annotation nobody has to read — and it measures below WCAG AA on the panel. A job key, a
+   start time, a duration, a request count and a failure message are the reading, not an
+   aside: they sit a step under the row at --text-secondary, which passes. *@
+
+<Note Style="margin:12px 0">
+    Every fetch lands here, successful or not — this table is the only feed the KPIs, the
+    budget guard and the alerts are computed from. A run refused for budget is a Partial
+    row that says so.
+</Note>
+
+<div class="row" style="margin-bottom:12px">
+    <DeskSelect TValue="string" aria-label="Source"
+                Value="_sourceFilter" ValueChanged="OnSourceChanged">
+        <option value="">All sources</option>
+        @foreach (var s in _sources)
+        {
+            <option value="@s.Id">@s.Name</option>
+        }
+    </DeskSelect>
+
+    <DeskSelect TValue="string" aria-label="Job"
+                Value="_jobFilter" ValueChanged="OnJobChanged">
+        <option value="">Any job</option>
+        @foreach (var key in _jobKeys)
+        {
+            <option value="@key">@key</option>
+        }
+    </DeskSelect>
+
+    <DeskSelect TValue="string" aria-label="State"
+                Value="_statusFilter" ValueChanged="OnStatusChanged">
+        <option value="">Any state</option>
+        @foreach (var s in Enum.GetValues<RunStatus>())
+        {
+            <option value="@s">@s</option>
+        }
+    </DeskSelect>
+
+    <DeskButton Icon="@Icons.Material.Filled.Refresh" OnClick="LoadAsync">
+        Refresh
+    </DeskButton>
+</div>
+
+<DeskGrid T="IngestionRun" Items="_runs" EmptyText="@EmptyText">
+    <PropertyColumn T="IngestionRun" TProperty="RunStatus" Property="r => r.Status" Title="State">
+        <CellTemplate>
+            <Tag State="@StatusState(context.Item.Status)">@context.Item.Status</Tag>
+        </CellTemplate>
+    </PropertyColumn>
+
+    @* A source's runs are this window filtered to it, so the name is the filter. *@
+    <PropertyColumn T="IngestionRun" TProperty="string" Property="r => r.Source!.Name" Title="Source">
+        <CellTemplate>
+            <DeskLink Destination="source"
+                      Icon="@Icons.Material.Filled.FilterAlt"
+                      OnClick="() => OnSourceChanged(context.Item.SourceId.ToString())">
+                @(context.Item.Source?.Name ?? $"#{context.Item.SourceId}")
+            </DeskLink>
+        </CellTemplate>
+    </PropertyColumn>
+
+    <PropertyColumn T="IngestionRun" TProperty="string" Property="r => r.JobKey" Title="Job">
+        <CellTemplate><span class="mono quiet">@context.Item.JobKey</span></CellTemplate>
+    </PropertyColumn>
+
+    <PropertyColumn T="IngestionRun" TProperty="DateTimeOffset" Property="r => r.StartedAt"
+                    Title="Started" CellClass="mud-align-right" HeaderClass="mud-align-right" InitialDirection="SortDirection.Descending">
+        <CellTemplate>
+            <span class="quiet">@context.Item.StartedAt.ToLocalTime().ToString("MMM d HH:mm:ss")</span>
+        </CellTemplate>
+    </PropertyColumn>
+
+    @* Sorts on the real duration so "slowest run" is one click, not a scan of formatted text. *@
+    <PropertyColumn T="IngestionRun" TProperty="double?"
+                    Property="r => r.FinishedAt == null ? null : (r.FinishedAt - r.StartedAt)!.Value.TotalMilliseconds"
+                    Title="Took" CellClass="mud-align-right" HeaderClass="mud-align-right">
+        <CellTemplate>
+            <span class="quiet">@(context.Item.Duration is { } d ? $"{d.TotalMilliseconds:N0}ms" : "—")</span>
+        </CellTemplate>
+    </PropertyColumn>
+
+    <PropertyColumn T="IngestionRun" TProperty="int" Property="r => r.RowsIngested" Title="Rows" CellClass="mud-align-right" HeaderClass="mud-align-right" />
+
+    <PropertyColumn T="IngestionRun" TProperty="int" Property="r => r.RequestsMade" Title="Req" CellClass="mud-align-right" HeaderClass="mud-align-right">
+        <CellTemplate><span class="quiet">@context.Item.RequestsMade</span></CellTemplate>
+    </PropertyColumn>
+
+    <PropertyColumn T="IngestionRun" TProperty="int" Property="r => r.CreditsSpent" Title="Credits" CellClass="mud-align-right" HeaderClass="mud-align-right">
+        <CellTemplate>
+            <span class="quiet">@(context.Item.CreditsSpent > 0 ? context.Item.CreditsSpent.ToString() : "—")</span>
+        </CellTemplate>
+    </PropertyColumn>
+
+    <PropertyColumn T="IngestionRun" TProperty="string" Property="r => r.Error!" Title="Detail">
+        <CellTemplate>
+            <span class="trunc quiet" title="@context.Item.Error">@context.Item.Error</span>
+        </CellTemplate>
+    </PropertyColumn>
+</DeskGrid>
+
+@code {
+    private const int Take = 200;
+
+    /// <summary>Set when opened from a source's name elsewhere on the desk.</summary>
+    [Parameter] public int? SourceId { get; set; }
+
+    private IReadOnlyList<IngestionRun> _runs = [];
+    private IReadOnlyList<Source> _sources = [];
+    private IReadOnlyList<string> _jobKeys = [];
+    private string _sourceFilter = string.Empty;
+    private string _jobFilter = string.Empty;
+    private string _statusFilter = string.Empty;
+
+    private bool Filtered => _sourceFilter.Length > 0 || _jobFilter.Length > 0 || _statusFilter.Length > 0;
+
+    private string EmptyText => Filtered
+        ? "No runs match this filter."
+        : "No runs recorded yet. The first fetch — a discovery, a sweep or an on-sale tick — lands here.";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _sources = await Queries.SourcesAsync();
+        _jobKeys = await Queries.JobKeysAsync();
+
+        // Arriving via a shortcut lands on that source rather than on everything, which is the
+        // whole point of following one — the filter then stays under the operator's control.
+        if (SourceId is { } id)
+            _sourceFilter = id.ToString();
+
+        await LoadAsync();
+    }
+
+    private async Task OnSourceChanged(string value)
+    {
+        _sourceFilter = value ?? string.Empty;
+        await LoadAsync();
+    }
+
+    private async Task OnJobChanged(string value)
+    {
+        _jobFilter = value ?? string.Empty;
+        await LoadAsync();
+    }
+
+    private async Task OnStatusChanged(string value)
+    {
+        _statusFilter = value ?? string.Empty;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        var filter = new RunFilter(
+            SourceId: int.TryParse(_sourceFilter, out var sourceId) ? sourceId : null,
+            Status: Enum.TryParse<RunStatus>(_statusFilter, out var status) ? status : null,
+            JobKey: _jobFilter.Length > 0 ? _jobFilter : null);
+
+        _runs = await Queries.RunsAsync(filter, Take);
+
+        // Recent failures are what this window is for, so they drive its pulse.
+        var recentFailures = _runs.Take(20).Count(r => r.Status == RunStatus.Failed);
+
+        Report(
+            recentFailures > 4 ? PulseState.Critical
+            : recentFailures > 0 ? PulseState.Warn
+            : PulseState.Healthy,
+            recentFailures > 0 ? $"{recentFailures} recent fails" : $"{_runs.Count} runs");
+    }
+
+    private static DeskState StatusState(RunStatus status) => status switch
+    {
+        RunStatus.Success => DeskState.Positive,
+        RunStatus.Partial => DeskState.Warning,
+        RunStatus.Failed => DeskState.Negative,
+        _ => DeskState.Info
+    };
+}

@@ -1,0 +1,1175 @@
+{
+    "events":  [
+                   {
+                       "access_method":  null,
+                       "announce_date":  "2026-07-17T00:00:00",
+                       "announcements":  {
+
+                                         },
+                       "conditional":  false,
+                       "contingent":  false,
+                       "created_at":  "2026-07-17T22:09:26",
+                       "date_tbd":  false,
+                       "datetime_local":  "2027-06-10T17:00:00",
+                       "datetime_tbd":  false,
+                       "datetime_utc":  "2027-06-10T22:00:00",
+                       "tbd_datetime_range_start_utc":  null,
+                       "tbd_datetime_range_end_utc":  null,
+                       "description":  "CMA Fest presented by SoFi is the Ultimate Country Music Fan Experienceâ¢ in Nashville, Tennessee June 10-13, 2027! Buy FOUR-NIGHT STADIUM PASSES for access to nightly concerts at Nissan Stadium, daily admission to Fan Fair X and so much more. Daytime, outdoor stages are open to the public. Visit CMAfest.com for more information and details about the festival, including ticket options, stages, clear bag policy, etc. Email the Box Office at FestTickets@cmaworld.com for questions about passes and ticket options.",
+                       "onsale":  null,
+                       "enddatetime_utc":  "2027-06-10T22:00:00",
+                       "sales_end_datetime_utc":  "2027-06-10T22:00:00",
+                       "expected_experience_end":  "2027-06-11T00:00:00",
+                       "event_promotion":  null,
+                       "game_number":  0,
+                       "home_game_number":  0,
+                       "id":  18386353,
+                       "integrated":  {
+                                          "provider_name":  "OPEN",
+                                          "provider_id":  "e_yYbFVXBR3xfpK5Lgmu1MzjplU094JNq"
+                                      },
+                       "is_open":  true,
+                       "is_visible":  true,
+                       "is_visible_override":  "UNSET",
+                       "links":  [
+                                     {
+                                         "id":  "e_yYbFVXBR3xfpK5Lgmu1MzjplU094JNq",
+                                         "url":  "",
+                                         "provider":  "open",
+                                         "primary":  true,
+                                         "display_name":  "",
+                                         "logos":  {
+
+                                                   },
+                                         "sales":  [
+
+                                                   ],
+                                         "link_type":  "ID"
+                                     },
+                                     {
+                                         "id":  "do_E4QHdMvj52SBwP3QdS2VPZyEuZ81W4A",
+                                         "url":  "",
+                                         "provider":  "open_domain",
+                                         "primary":  false,
+                                         "display_name":  "",
+                                         "logos":  {
+
+                                                   },
+                                         "sales":  [
+
+                                                   ],
+                                         "link_type":  "ID"
+                                     }
+                                 ],
+                       "main_event_id":  null,
+                       "performers":  [
+                                          {
+                                              "type":  "music_festival",
+                                              "name":  "CMA Fest presented by SoFi",
+                                              "id":  2316,
+                                              "divisions":  null,
+                                              "links":  [
+
+                                                        ],
+                                              "has_upcoming_events":  true,
+                                              "primary":  true,
+                                              "stats":  {
+                                                            "event_count":  1
+                                                        },
+                                              "taxonomies":  [
+                                                                 {
+                                                                     "id":  2000000,
+                                                                     "name":  "concert",
+                                                                     "parent_id":  null,
+                                                                     "seo_event_type":  "concert",
+                                                                     "rank":  0
+                                                                 },
+                                                                 {
+                                                                     "id":  2010000,
+                                                                     "name":  "music_festival",
+                                                                     "parent_id":  2000000,
+                                                                     "seo_event_type":  "music-festival",
+                                                                     "rank":  0
+                                                                 }
+                                                             ],
+                                              "url":  "https://seatgeek.com/cma-fest-tickets",
+                                              "score":  0.76,
+                                              "slug":  "cma-fest",
+                                              "home_venue_id":  null,
+                                              "short_name":  "CMA Fest presented by SoFi",
+                                              "num_upcoming_events":  1,
+                                              "colors":  null,
+                                              "popularity":  65111.0,
+                                              "hidden":  false,
+                                              "location":  null,
+                                              "relative_url":  "/cma-fest-tickets",
+                                              "is_event":  true,
+                                              "ada_dominant_image_color":  "#18061b"
+                                          }
+                                      ],
+                       "performer_order":  [
+                                               {
+                                                   "id":  2316,
+                                                   "ordinal":  0
+                                               }
+                                           ],
+                       "playoffs":  null,
+                       "popularity":  0.8448446706,
+                       "relative_url":  "/cma-fest-tickets/nashville-tennessee-nissan-stadium-2027-06-10-5-pm/music-festival/18386353",
+                       "score":  0.7323521778,
+                       "season_stage":  null,
+                       "short_title":  "CMA Fest presented by SoFi (4 Night Pass)",
+                       "stats":  {
+
+                                 },
+                       "status":  "normal",
+                       "taxonomies":  [
+                                          {
+                                              "id":  2000000,
+                                              "name":  "concert",
+                                              "parent_id":  null,
+                                              "seo_event_type":  "concert",
+                                              "rank":  0
+                                          },
+                                          {
+                                              "id":  2010000,
+                                              "name":  "music_festival",
+                                              "parent_id":  2000000,
+                                              "seo_event_type":  "music-festival",
+                                              "rank":  0
+                                          }
+                                      ],
+                       "ticketmaster":  null,
+                       "tdc_pv_id":  0,
+                       "tdc_pvo_id":  0,
+                       "time_tbd":  false,
+                       "title":  "2027 CMA Fest presented by SoFi - FOUR-NIGHT STADIUM PASS",
+                       "url":  "https://seatgeek.com/cma-fest-tickets/nashville-tennessee-nissan-stadium-2027-06-10-5-pm/music-festival/18386353",
+                       "venue":  {
+                                     "id":  1609778,
+                                     "name":  "New Nissan Stadium",
+                                     "name_v2":  "New Nissan Stadium",
+                                     "postal_code":  "",
+                                     "timezone":  "America/Chicago",
+                                     "score":  0.76,
+                                     "popularity":  65111,
+                                     "address":  null,
+                                     "country":  "US",
+                                     "city":  "Nashville",
+                                     "state":  "TN",
+                                     "slug":  "nissan-stadium",
+                                     "metro_code":  659,
+                                     "capacity":  0,
+                                     "hidden":  false,
+                                     "links":  [
+
+                                               ],
+                                     "passes":  [
+
+                                                ],
+                                     "extended_address":  "Nashville, TN None",
+                                     "display_location":  "Nashville, TN",
+                                     "access_method":  null,
+                                     "location":  {
+                                                      "lat":  36.16772,
+                                                      "lon":  -86.76806
+                                                  },
+                                     "has_upcoming_events":  true,
+                                     "num_upcoming_events":  2,
+                                     "url":  "https://seatgeek.com/venues/nissan-stadium/tickets",
+                                     "relative_url":  "/venues/nissan-stadium/tickets",
+                                     "marquee_city":  null,
+                                     "sg_market_area":  32
+                                 },
+                       "visible_at":  "2026-08-04T13:00:00Z",
+                       "visible_until_utc":  "2027-06-10T22:00:00",
+                       "open_domain_id":  "do_E4QHdMvj52SBwP3QdS2VPZyEuZ81W4A",
+                       "open_id":  "e_yYbFVXBR3xfpK5Lgmu1MzjplU094JNq",
+                       "event_group_ids":  [
+
+                                           ],
+                       "type":  "music_festival",
+                       "themes":  [
+
+                                  ],
+                       "domain_information":  [
+
+                                              ]
+                   },
+                   {
+                       "access_method":  null,
+                       "announce_date":  "2026-02-24T00:00:00",
+                       "announcements":  {
+
+                                         },
+                       "conditional":  false,
+                       "contingent":  false,
+                       "created_at":  "2026-02-24T16:19:29",
+                       "date_tbd":  false,
+                       "datetime_local":  "2026-09-12T19:00:00",
+                       "datetime_tbd":  false,
+                       "datetime_utc":  "2026-09-13T00:00:00",
+                       "tbd_datetime_range_start_utc":  null,
+                       "tbd_datetime_range_end_utc":  null,
+                       "description":  "",
+                       "onsale":  null,
+                       "enddatetime_utc":  "2026-09-13T01:30:00",
+                       "sales_end_datetime_utc":  "2026-09-13T01:30:00",
+                       "expected_experience_end":  "2026-09-13T01:30:00",
+                       "event_promotion":  null,
+                       "game_number":  0,
+                       "home_game_number":  0,
+                       "id":  18090556,
+                       "integrated":  null,
+                       "is_open":  false,
+                       "is_visible":  true,
+                       "is_visible_override":  "UNSET",
+                       "links":  [
+                                     {
+                                         "id":  "4163003",
+                                         "url":  "",
+                                         "provider":  "rapidseats",
+                                         "primary":  false,
+                                         "display_name":  "",
+                                         "logos":  {
+
+                                                   },
+                                         "sales":  [
+
+                                                   ],
+                                         "link_type":  "ID"
+                                     },
+                                     {
+                                         "id":  "6703911",
+                                         "url":  "",
+                                         "provider":  "vividseats",
+                                         "primary":  false,
+                                         "display_name":  "",
+                                         "logos":  {
+
+                                                   },
+                                         "sales":  [
+
+                                                   ],
+                                         "link_type":  "ID"
+                                     },
+                                     {
+                                         "id":  "1B006454A4B2E404",
+                                         "url":  "",
+                                         "provider":  "ticketmaster",
+                                         "primary":  false,
+                                         "display_name":  "",
+                                         "logos":  {
+
+                                                   },
+                                         "sales":  [
+
+                                                   ],
+                                         "link_type":  "ID"
+                                     }
+                                 ],
+                       "main_event_id":  null,
+                       "performers":  [
+                                          {
+                                              "type":  "band",
+                                              "name":  "Brooks \u0026 Dunn",
+                                              "id":  379,
+                                              "divisions":  null,
+                                              "links":  [
+
+                                                        ],
+                                              "has_upcoming_events":  true,
+                                              "primary":  true,
+                                              "stats":  {
+                                                            "event_count":  16
+                                                        },
+                                              "taxonomies":  [
+                                                                 {
+                                                                     "id":  2000000,
+                                                                     "name":  "concert",
+                                                                     "parent_id":  null,
+                                                                     "seo_event_type":  "concert",
+                                                                     "rank":  0
+                                                                 }
+                                                             ],
+                                              "url":  "https://seatgeek.com/brooks-dunn-tickets",
+                                              "score":  0.76,
+                                              "slug":  "brooks-dunn",
+                                              "home_venue_id":  null,
+                                              "short_name":  "Brooks \u0026 Dunn",
+                                              "num_upcoming_events":  16,
+                                              "colors":  null,
+                                              "genres":  [
+                                                             {
+                                                                 "id":  450,
+                                                                 "name":  "Country",
+                                                                 "slug":  "country",
+                                                                 "primary":  true
+                                                             }
+                                                         ],
+                                              "popularity":  91106.0,
+                                              "hidden":  false,
+                                              "location":  null,
+                                              "relative_url":  "/brooks-dunn-tickets",
+                                              "is_event":  false,
+                                              "ada_dominant_image_color":  "#e3e4e5"
+                                          },
+                                          {
+                                              "type":  "band",
+                                              "name":  "Tucker Wetmore",
+                                              "id":  1955060,
+                                              "divisions":  null,
+                                              "links":  [
+
+                                                        ],
+                                              "has_upcoming_events":  true,
+                                              "stats":  {
+                                                            "event_count":  18
+                                                        },
+                                              "taxonomies":  [
+                                                                 {
+                                                                     "id":  2000000,
+                                                                     "name":  "concert",
+                                                                     "parent_id":  null,
+                                                                     "seo_event_type":  "concert",
+                                                                     "rank":  0
+                                                                 }
+                                                             ],
+                                              "url":  "https://seatgeek.com/tucker-wetmore-tickets",
+                                              "score":  0.6,
+                                              "slug":  "tucker-wetmore",
+                                              "home_venue_id":  null,
+                                              "short_name":  "Tucker Wetmore",
+                                              "num_upcoming_events":  18,
+                                              "colors":  null,
+                                              "popularity":  85971.0,
+                                              "hidden":  false,
+                                              "location":  null,
+                                              "relative_url":  "/tucker-wetmore-tickets",
+                                              "is_event":  false,
+                                              "ada_dominant_image_color":  "#cbcace"
+                                          }
+                                      ],
+                       "performer_order":  [
+                                               {
+                                                   "id":  379,
+                                                   "ordinal":  0
+                                               },
+                                               {
+                                                   "id":  1955060,
+                                                   "ordinal":  1
+                                               }
+                                           ],
+                       "playoffs":  null,
+                       "popularity":  0.8395187053,
+                       "relative_url":  "/brooks-dunn-tickets/nashville-tennessee-bridgestone-arena-2026-09-12-7-pm/concert/18090556",
+                       "score":  0.6741334136,
+                       "season_stage":  null,
+                       "short_title":  "Brooks \u0026 Dunn with Tucker Wetmore",
+                       "stats":  {
+
+                                 },
+                       "status":  "normal",
+                       "taxonomies":  [
+                                          {
+                                              "id":  2000000,
+                                              "name":  "concert",
+                                              "parent_id":  null,
+                                              "seo_event_type":  "concert",
+                                              "rank":  0
+                                          }
+                                      ],
+                       "ticketmaster":  null,
+                       "tdc_pv_id":  0,
+                       "tdc_pvo_id":  0,
+                       "time_tbd":  false,
+                       "title":  "Brooks \u0026 Dunn with Tucker Wetmore",
+                       "url":  "https://seatgeek.com/brooks-dunn-tickets/nashville-tennessee-bridgestone-arena-2026-09-12-7-pm/concert/18090556",
+                       "venue":  {
+                                     "id":  2195,
+                                     "name":  "Bridgestone Arena",
+                                     "name_v2":  "Bridgestone Arena",
+                                     "postal_code":  "37203",
+                                     "timezone":  "America/Chicago",
+                                     "score":  0.86,
+                                     "popularity":  290008,
+                                     "address":  "501 Broadway",
+                                     "country":  "US",
+                                     "city":  "Nashville",
+                                     "state":  "TN",
+                                     "slug":  "bridgestone-arena",
+                                     "metro_code":  659,
+                                     "capacity":  0,
+                                     "hidden":  false,
+                                     "links":  [
+
+                                               ],
+                                     "passes":  [
+                                                    {
+                                                        "pass_type":  "PARKING",
+                                                        "name":  "Bridgestone Arena Parking",
+                                                        "url":  "https://seatgeek.com/venues/bridgestone-arena/parking",
+                                                        "relative_url":  "/venues/bridgestone-arena/parking",
+                                                        "stats":  {
+                                                                      "event_count":  107
+                                                                  }
+                                                    }
+                                                ],
+                                     "extended_address":  "Nashville, TN 37203",
+                                     "display_location":  "Nashville, TN",
+                                     "access_method":  null,
+                                     "location":  {
+                                                      "lat":  36.1591,
+                                                      "lon":  -86.7785
+                                                  },
+                                     "has_upcoming_events":  true,
+                                     "num_upcoming_events":  109,
+                                     "url":  "https://seatgeek.com/venues/bridgestone-arena/tickets",
+                                     "relative_url":  "/venues/bridgestone-arena/tickets",
+                                     "marquee_city":  null,
+                                     "sg_market_area":  32
+                                 },
+                       "visible_at":  "2026-09-03T07:47:05Z",
+                       "visible_until_utc":  "2026-09-13T01:30:00",
+                       "open_domain_id":  "",
+                       "open_id":  "",
+                       "event_group_ids":  [
+                                               1707
+                                           ],
+                       "type":  "concert",
+                       "themes":  [
+
+                                  ],
+                       "domain_information":  [
+
+                                              ]
+                   },
+                   {
+                       "access_method":  null,
+                       "announce_date":  "2026-04-30T00:00:00",
+                       "announcements":  {
+
+                                         },
+                       "conditional":  false,
+                       "contingent":  false,
+                       "created_at":  "2026-04-30T12:12:03",
+                       "date_tbd":  false,
+                       "datetime_local":  "2026-11-24T19:00:00",
+                       "datetime_tbd":  false,
+                       "datetime_utc":  "2026-11-25T01:00:00",
+                       "tbd_datetime_range_start_utc":  null,
+                       "tbd_datetime_range_end_utc":  null,
+                       "description":  "",
+                       "onsale":  null,
+                       "enddatetime_utc":  "2026-11-25T02:30:00",
+                       "sales_end_datetime_utc":  "2026-11-25T02:30:00",
+                       "expected_experience_end":  "2026-11-25T02:30:00",
+                       "event_promotion":  null,
+                       "game_number":  0,
+                       "home_game_number":  0,
+                       "id":  18211705,
+                       "integrated":  null,
+                       "is_open":  false,
+                       "is_visible":  true,
+                       "is_visible_override":  "UNSET",
+                       "links":  [
+                                     {
+                                         "id":  "1B0064FCA27F84AE",
+                                         "url":  "",
+                                         "provider":  "ticketmaster",
+                                         "primary":  false,
+                                         "display_name":  "",
+                                         "logos":  {
+
+                                                   },
+                                         "sales":  [
+
+                                                   ],
+                                         "link_type":  "ID"
+                                     }
+                                 ],
+                       "main_event_id":  null,
+                       "performers":  [
+                                          {
+                                              "type":  "band",
+                                              "name":  "Olivia Rodrigo",
+                                              "id":  793855,
+                                              "divisions":  null,
+                                              "links":  [
+
+                                                        ],
+                                              "has_upcoming_events":  true,
+                                              "primary":  true,
+                                              "stats":  {
+                                                            "event_count":  59
+                                                        },
+                                              "taxonomies":  [
+                                                                 {
+                                                                     "id":  2000000,
+                                                                     "name":  "concert",
+                                                                     "parent_id":  null,
+                                                                     "seo_event_type":  "concert",
+                                                                     "rank":  0
+                                                                 }
+                                                             ],
+                                              "url":  "https://seatgeek.com/olivia-rodrigo-tickets",
+                                              "score":  0.76,
+                                              "slug":  "olivia-rodrigo",
+                                              "home_venue_id":  null,
+                                              "short_name":  "Olivia Rodrigo",
+                                              "num_upcoming_events":  59,
+                                              "colors":  null,
+                                              "genres":  [
+                                                             {
+                                                                 "id":  452,
+                                                                 "name":  "Pop",
+                                                                 "slug":  "pop",
+                                                                 "primary":  true
+                                                             },
+                                                             {
+                                                                 "id":  456,
+                                                                 "name":  "Rock",
+                                                                 "slug":  "rock",
+                                                                 "primary":  false
+                                                             }
+                                                         ],
+                                              "popularity":  925870.0,
+                                              "hidden":  false,
+                                              "location":  null,
+                                              "relative_url":  "/olivia-rodrigo-tickets",
+                                              "is_event":  false,
+                                              "ada_dominant_image_color":  "#d8c5bc"
+                                          },
+                                          {
+                                              "type":  "band",
+                                              "name":  "Devon Again",
+                                              "id":  803584,
+                                              "divisions":  null,
+                                              "links":  [
+
+                                                        ],
+                                              "has_upcoming_events":  true,
+                                              "stats":  {
+                                                            "event_count":  40
+                                                        },
+                                              "taxonomies":  [
+                                                                 {
+                                                                     "id":  2000000,
+                                                                     "name":  "concert",
+                                                                     "parent_id":  null,
+                                                                     "seo_event_type":  "concert",
+                                                                     "rank":  0
+                                                                 }
+                                                             ],
+                                              "url":  "https://seatgeek.com/devon-again-tickets",
+                                              "score":  0.76,
+                                              "slug":  "devon-again",
+                                              "home_venue_id":  null,
+                                              "short_name":  "Devon Again",
+                                              "num_upcoming_events":  40,
+                                              "colors":  null,
+                                              "popularity":  359521.0,
+                                              "hidden":  false,
+                                              "location":  null,
+                                              "relative_url":  "/devon-again-tickets",
+                                              "is_event":  false,
+                                              "ada_dominant_image_color":  "#050505"
+                                          }
+                                      ],
+                       "performer_order":  [
+                                               {
+                                                   "id":  793855,
+                                                   "ordinal":  0
+                                               },
+                                               {
+                                                   "id":  803584,
+                                                   "ordinal":  1
+                                               }
+                                           ],
+                       "playoffs":  null,
+                       "popularity":  0.8116072826,
+                       "relative_url":  "/olivia-rodrigo-tickets/nashville-tennessee-bridgestone-arena-2026-11-24-7-pm/concert/18211705",
+                       "score":  0.6523706806,
+                       "season_stage":  null,
+                       "short_title":  "Olivia Rodrigo with Devon Again",
+                       "stats":  {
+
+                                 },
+                       "status":  "normal",
+                       "taxonomies":  [
+                                          {
+                                              "id":  2000000,
+                                              "name":  "concert",
+                                              "parent_id":  null,
+                                              "seo_event_type":  "concert",
+                                              "rank":  0
+                                          }
+                                      ],
+                       "ticketmaster":  null,
+                       "tdc_pv_id":  0,
+                       "tdc_pvo_id":  0,
+                       "time_tbd":  false,
+                       "title":  "Olivia Rodrigo with Devon Again",
+                       "url":  "https://seatgeek.com/olivia-rodrigo-tickets/nashville-tennessee-bridgestone-arena-2026-11-24-7-pm/concert/18211705",
+                       "venue":  {
+                                     "id":  2195,
+                                     "name":  "Bridgestone Arena",
+                                     "name_v2":  "Bridgestone Arena",
+                                     "postal_code":  "37203",
+                                     "timezone":  "America/Chicago",
+                                     "score":  0.86,
+                                     "popularity":  290008,
+                                     "address":  "501 Broadway",
+                                     "country":  "US",
+                                     "city":  "Nashville",
+                                     "state":  "TN",
+                                     "slug":  "bridgestone-arena",
+                                     "metro_code":  659,
+                                     "capacity":  0,
+                                     "hidden":  false,
+                                     "links":  [
+
+                                               ],
+                                     "passes":  [
+                                                    {
+                                                        "pass_type":  "PARKING",
+                                                        "name":  "Bridgestone Arena Parking",
+                                                        "url":  "https://seatgeek.com/venues/bridgestone-arena/parking",
+                                                        "relative_url":  "/venues/bridgestone-arena/parking",
+                                                        "stats":  {
+                                                                      "event_count":  107
+                                                                  }
+                                                    }
+                                                ],
+                                     "extended_address":  "Nashville, TN 37203",
+                                     "display_location":  "Nashville, TN",
+                                     "access_method":  null,
+                                     "location":  {
+                                                      "lat":  36.1591,
+                                                      "lon":  -86.7785
+                                                  },
+                                     "has_upcoming_events":  true,
+                                     "num_upcoming_events":  109,
+                                     "url":  "https://seatgeek.com/venues/bridgestone-arena/tickets",
+                                     "relative_url":  "/venues/bridgestone-arena/tickets",
+                                     "marquee_city":  null,
+                                     "sg_market_area":  32
+                                 },
+                       "visible_at":  "2026-09-09T07:23:07Z",
+                       "visible_until_utc":  "2026-11-25T02:30:00",
+                       "open_domain_id":  "",
+                       "open_id":  "",
+                       "event_group_ids":  [
+                                               4214
+                                           ],
+                       "type":  "concert",
+                       "themes":  [
+
+                                  ],
+                       "domain_information":  [
+
+                                              ]
+                   },
+                   {
+                       "access_method":  null,
+                       "announce_date":  "2026-04-30T00:00:00",
+                       "announcements":  {
+
+                                         },
+                       "conditional":  false,
+                       "contingent":  false,
+                       "created_at":  "2026-04-30T12:12:03",
+                       "date_tbd":  false,
+                       "datetime_local":  "2026-11-23T19:00:00",
+                       "datetime_tbd":  false,
+                       "datetime_utc":  "2026-11-24T01:00:00",
+                       "tbd_datetime_range_start_utc":  null,
+                       "tbd_datetime_range_end_utc":  null,
+                       "description":  "",
+                       "onsale":  null,
+                       "enddatetime_utc":  "2026-11-24T02:30:00",
+                       "sales_end_datetime_utc":  "2026-11-24T02:30:00",
+                       "expected_experience_end":  "2026-11-24T02:30:00",
+                       "event_promotion":  null,
+                       "game_number":  0,
+                       "home_game_number":  0,
+                       "id":  18211703,
+                       "integrated":  null,
+                       "is_open":  false,
+                       "is_visible":  true,
+                       "is_visible_override":  "UNSET",
+                       "links":  [
+                                     {
+                                         "id":  "1B0064FCA27B84A6",
+                                         "url":  "",
+                                         "provider":  "ticketmaster",
+                                         "primary":  false,
+                                         "display_name":  "",
+                                         "logos":  {
+
+                                                   },
+                                         "sales":  [
+
+                                                   ],
+                                         "link_type":  "ID"
+                                     }
+                                 ],
+                       "main_event_id":  null,
+                       "performers":  [
+                                          {
+                                              "type":  "band",
+                                              "name":  "Olivia Rodrigo",
+                                              "id":  793855,
+                                              "divisions":  null,
+                                              "links":  [
+
+                                                        ],
+                                              "has_upcoming_events":  true,
+                                              "primary":  true,
+                                              "stats":  {
+                                                            "event_count":  59
+                                                        },
+                                              "taxonomies":  [
+                                                                 {
+                                                                     "id":  2000000,
+                                                                     "name":  "concert",
+                                                                     "parent_id":  null,
+                                                                     "seo_event_type":  "concert",
+                                                                     "rank":  0
+                                                                 }
+                                                             ],
+                                              "url":  "https://seatgeek.com/olivia-rodrigo-tickets",
+                                              "score":  0.76,
+                                              "slug":  "olivia-rodrigo",
+                                              "home_venue_id":  null,
+                                              "short_name":  "Olivia Rodrigo",
+                                              "num_upcoming_events":  59,
+                                              "colors":  null,
+                                              "genres":  [
+                                                             {
+                                                                 "id":  452,
+                                                                 "name":  "Pop",
+                                                                 "slug":  "pop",
+                                                                 "primary":  true
+                                                             },
+                                                             {
+                                                                 "id":  456,
+                                                                 "name":  "Rock",
+                                                                 "slug":  "rock",
+                                                                 "primary":  false
+                                                             }
+                                                         ],
+                                              "popularity":  925870.0,
+                                              "hidden":  false,
+                                              "location":  null,
+                                              "relative_url":  "/olivia-rodrigo-tickets",
+                                              "is_event":  false,
+                                              "ada_dominant_image_color":  "#d8c5bc"
+                                          },
+                                          {
+                                              "type":  "band",
+                                              "name":  "Devon Again",
+                                              "id":  803584,
+                                              "divisions":  null,
+                                              "links":  [
+
+                                                        ],
+                                              "has_upcoming_events":  true,
+                                              "stats":  {
+                                                            "event_count":  40
+                                                        },
+                                              "taxonomies":  [
+                                                                 {
+                                                                     "id":  2000000,
+                                                                     "name":  "concert",
+                                                                     "parent_id":  null,
+                                                                     "seo_event_type":  "concert",
+                                                                     "rank":  0
+                                                                 }
+                                                             ],
+                                              "url":  "https://seatgeek.com/devon-again-tickets",
+                                              "score":  0.76,
+                                              "slug":  "devon-again",
+                                              "home_venue_id":  null,
+                                              "short_name":  "Devon Again",
+                                              "num_upcoming_events":  40,
+                                              "colors":  null,
+                                              "popularity":  359521.0,
+                                              "hidden":  false,
+                                              "location":  null,
+                                              "relative_url":  "/devon-again-tickets",
+                                              "is_event":  false,
+                                              "ada_dominant_image_color":  "#050505"
+                                          }
+                                      ],
+                       "performer_order":  [
+                                               {
+                                                   "id":  793855,
+                                                   "ordinal":  0
+                                               },
+                                               {
+                                                   "id":  803584,
+                                                   "ordinal":  1
+                                               }
+                                           ],
+                       "playoffs":  null,
+                       "popularity":  0.8038689082,
+                       "relative_url":  "/olivia-rodrigo-tickets/nashville-tennessee-bridgestone-arena-2026-11-23-7-pm/concert/18211703",
+                       "score":  0.6337414816,
+                       "season_stage":  null,
+                       "short_title":  "Olivia Rodrigo with Devon Again",
+                       "stats":  {
+
+                                 },
+                       "status":  "normal",
+                       "taxonomies":  [
+                                          {
+                                              "id":  2000000,
+                                              "name":  "concert",
+                                              "parent_id":  null,
+                                              "seo_event_type":  "concert",
+                                              "rank":  0
+                                          }
+                                      ],
+                       "ticketmaster":  null,
+                       "tdc_pv_id":  0,
+                       "tdc_pvo_id":  0,
+                       "time_tbd":  false,
+                       "title":  "Olivia Rodrigo with Devon Again",
+                       "url":  "https://seatgeek.com/olivia-rodrigo-tickets/nashville-tennessee-bridgestone-arena-2026-11-23-7-pm/concert/18211703",
+                       "venue":  {
+                                     "id":  2195,
+                                     "name":  "Bridgestone Arena",
+                                     "name_v2":  "Bridgestone Arena",
+                                     "postal_code":  "37203",
+                                     "timezone":  "America/Chicago",
+                                     "score":  0.86,
+                                     "popularity":  290008,
+                                     "address":  "501 Broadway",
+                                     "country":  "US",
+                                     "city":  "Nashville",
+                                     "state":  "TN",
+                                     "slug":  "bridgestone-arena",
+                                     "metro_code":  659,
+                                     "capacity":  0,
+                                     "hidden":  false,
+                                     "links":  [
+
+                                               ],
+                                     "passes":  [
+                                                    {
+                                                        "pass_type":  "PARKING",
+                                                        "name":  "Bridgestone Arena Parking",
+                                                        "url":  "https://seatgeek.com/venues/bridgestone-arena/parking",
+                                                        "relative_url":  "/venues/bridgestone-arena/parking",
+                                                        "stats":  {
+                                                                      "event_count":  107
+                                                                  }
+                                                    }
+                                                ],
+                                     "extended_address":  "Nashville, TN 37203",
+                                     "display_location":  "Nashville, TN",
+                                     "access_method":  null,
+                                     "location":  {
+                                                      "lat":  36.1591,
+                                                      "lon":  -86.7785
+                                                  },
+                                     "has_upcoming_events":  true,
+                                     "num_upcoming_events":  109,
+                                     "url":  "https://seatgeek.com/venues/bridgestone-arena/tickets",
+                                     "relative_url":  "/venues/bridgestone-arena/tickets",
+                                     "marquee_city":  null,
+                                     "sg_market_area":  32
+                                 },
+                       "visible_at":  "2026-09-09T07:23:07Z",
+                       "visible_until_utc":  "2026-11-24T02:30:00",
+                       "open_domain_id":  "",
+                       "open_id":  "",
+                       "event_group_ids":  [
+                                               4214
+                                           ],
+                       "type":  "concert",
+                       "themes":  [
+
+                                  ],
+                       "domain_information":  [
+
+                                              ]
+                   },
+                   {
+                       "access_method":  null,
+                       "announce_date":  "2026-08-17T00:00:00",
+                       "announcements":  {
+
+                                         },
+                       "conditional":  false,
+                       "contingent":  false,
+                       "created_at":  "2026-08-17T14:33:50",
+                       "date_tbd":  false,
+                       "datetime_local":  "2026-11-05T19:30:00",
+                       "datetime_tbd":  false,
+                       "datetime_utc":  "2026-11-06T01:30:00",
+                       "tbd_datetime_range_start_utc":  null,
+                       "tbd_datetime_range_end_utc":  null,
+                       "description":  "",
+                       "onsale":  null,
+                       "enddatetime_utc":  "2026-11-06T03:00:00",
+                       "sales_end_datetime_utc":  "2026-11-06T03:00:00",
+                       "expected_experience_end":  "2026-11-06T03:00:00",
+                       "event_promotion":  null,
+                       "game_number":  0,
+                       "home_game_number":  0,
+                       "id":  18503892,
+                       "integrated":  {
+                                          "provider_name":  "TICKETMASTER",
+                                          "provider_id":  "1B00650D13C6A27C"
+                                      },
+                       "is_open":  false,
+                       "is_visible":  true,
+                       "is_visible_override":  "UNSET",
+                       "links":  [
+                                     {
+                                         "id":  "1B00650D13C6A27C",
+                                         "url":  "",
+                                         "provider":  "ticketmaster",
+                                         "primary":  false,
+                                         "display_name":  "",
+                                         "logos":  {
+
+                                                   },
+                                         "sales":  [
+
+                                                   ],
+                                         "link_type":  "ID"
+                                     }
+                                 ],
+                       "main_event_id":  null,
+                       "performers":  [
+                                          {
+                                              "type":  "band",
+                                              "name":  "Jonas Brothers",
+                                              "id":  82,
+                                              "divisions":  null,
+                                              "links":  [
+
+                                                        ],
+                                              "has_upcoming_events":  true,
+                                              "primary":  true,
+                                              "stats":  {
+                                                            "event_count":  48
+                                                        },
+                                              "taxonomies":  [
+                                                                 {
+                                                                     "id":  2000000,
+                                                                     "name":  "concert",
+                                                                     "parent_id":  null,
+                                                                     "seo_event_type":  "concert",
+                                                                     "rank":  0
+                                                                 }
+                                                             ],
+                                              "url":  "https://seatgeek.com/jonas-brothers-tickets",
+                                              "score":  0.67,
+                                              "slug":  "jonas-brothers",
+                                              "home_venue_id":  null,
+                                              "short_name":  "Jonas Brothers",
+                                              "num_upcoming_events":  48,
+                                              "colors":  null,
+                                              "genres":  [
+                                                             {
+                                                                 "id":  452,
+                                                                 "name":  "Pop",
+                                                                 "slug":  "pop",
+                                                                 "primary":  true
+                                                             },
+                                                             {
+                                                                 "id":  456,
+                                                                 "name":  "Rock",
+                                                                 "slug":  "rock",
+                                                                 "primary":  false
+                                                             }
+                                                         ],
+                                              "popularity":  496396.0,
+                                              "hidden":  false,
+                                              "location":  null,
+                                              "relative_url":  "/jonas-brothers-tickets",
+                                              "is_event":  false,
+                                              "ada_dominant_image_color":  "#2d100e"
+                                          },
+                                          {
+                                              "type":  "band",
+                                              "name":  "Franklin Jonas",
+                                              "id":  1965831,
+                                              "divisions":  null,
+                                              "links":  [
+
+                                                        ],
+                                              "has_upcoming_events":  true,
+                                              "stats":  {
+                                                            "event_count":  8
+                                                        },
+                                              "taxonomies":  [
+                                                                 {
+                                                                     "id":  2000000,
+                                                                     "name":  "concert",
+                                                                     "parent_id":  null,
+                                                                     "seo_event_type":  "concert",
+                                                                     "rank":  0
+                                                                 }
+                                                             ],
+                                              "url":  "https://seatgeek.com/franklin-jonas-tickets",
+                                              "score":  0.64,
+                                              "slug":  "franklin-jonas",
+                                              "home_venue_id":  null,
+                                              "short_name":  "Franklin Jonas",
+                                              "num_upcoming_events":  8,
+                                              "colors":  null,
+                                              "popularity":  64798.0,
+                                              "hidden":  false,
+                                              "location":  null,
+                                              "relative_url":  "/franklin-jonas-tickets",
+                                              "is_event":  false,
+                                              "ada_dominant_image_color":  "#454143"
+                                          },
+                                          {
+                                              "type":  "band",
+                                              "name":  "Deleasa",
+                                              "id":  1407493,
+                                              "divisions":  null,
+                                              "links":  [
+
+                                                        ],
+                                              "has_upcoming_events":  true,
+                                              "stats":  {
+                                                            "event_count":  45
+                                                        },
+                                              "taxonomies":  [
+                                                                 {
+                                                                     "id":  2000000,
+                                                                     "name":  "concert",
+                                                                     "parent_id":  null,
+                                                                     "seo_event_type":  "concert",
+                                                                     "rank":  0
+                                                                 }
+                                                             ],
+                                              "url":  "https://seatgeek.com/deleasa-tickets",
+                                              "score":  0.66,
+                                              "slug":  "deleasa",
+                                              "home_venue_id":  null,
+                                              "short_name":  "Deleasa",
+                                              "num_upcoming_events":  45,
+                                              "colors":  null,
+                                              "popularity":  354773.0,
+                                              "hidden":  false,
+                                              "location":  null,
+                                              "relative_url":  "/deleasa-tickets",
+                                              "is_event":  false,
+                                              "ada_dominant_image_color":  "#121417"
+                                          }
+                                      ],
+                       "performer_order":  [
+                                               {
+                                                   "id":  82,
+                                                   "ordinal":  0
+                                               },
+                                               {
+                                                   "id":  1965831,
+                                                   "ordinal":  1
+                                               },
+                                               {
+                                                   "id":  1407493,
+                                                   "ordinal":  2
+                                               }
+                                           ],
+                       "playoffs":  null,
+                       "popularity":  0.7872636368,
+                       "relative_url":  "/jonas-brothers-tickets/nashville-tennessee-bridgestone-arena-2026-11-05-7-30-pm/concert/18503892",
+                       "score":  0.6192463122,
+                       "season_stage":  null,
+                       "short_title":  "Jonas Brothers with Franklin Jonas and Deleasa",
+                       "stats":  {
+
+                                 },
+                       "status":  "normal",
+                       "taxonomies":  [
+                                          {
+                                              "id":  2000000,
+                                              "name":  "concert",
+                                              "parent_id":  null,
+                                              "seo_event_type":  "concert",
+                                              "rank":  0
+                                          }
+                                      ],
+                       "ticketmaster":  "1B00650D13C6A27C",
+                       "tdc_pv_id":  0,
+                       "tdc_pvo_id":  0,
+                       "time_tbd":  false,
+                       "title":  "Jonas Brothers with Franklin Jonas and Deleasa",
+                       "url":  "https://seatgeek.com/jonas-brothers-tickets/nashville-tennessee-bridgestone-arena-2026-11-05-7-30-pm/concert/18503892",
+                       "venue":  {
+                                     "id":  2195,
+                                     "name":  "Bridgestone Arena",
+                                     "name_v2":  "Bridgestone Arena",
+                                     "postal_code":  "37203",
+                                     "timezone":  "America/Chicago",
+                                     "score":  0.86,
+                                     "popularity":  290008,
+                                     "address":  "501 Broadway",
+                                     "country":  "US",
+                                     "city":  "Nashville",
+                                     "state":  "TN",
+                                     "slug":  "bridgestone-arena",
+                                     "metro_code":  659,
+                                     "capacity":  0,
+                                     "hidden":  false,
+                                     "links":  [
+
+                                               ],
+                                     "passes":  [
+                                                    {
+                                                        "pass_type":  "PARKING",
+                                                        "name":  "Bridgestone Arena Parking",
+                                                        "url":  "https://seatgeek.com/venues/bridgestone-arena/parking",
+                                                        "relative_url":  "/venues/bridgestone-arena/parking",
+                                                        "stats":  {
+                                                                      "event_count":  107
+                                                                  }
+                                                    }
+                                                ],
+                                     "extended_address":  "Nashville, TN 37203",
+                                     "display_location":  "Nashville, TN",
+                                     "access_method":  null,
+                                     "location":  {
+                                                      "lat":  36.1591,
+                                                      "lon":  -86.7785
+                                                  },
+                                     "has_upcoming_events":  true,
+                                     "num_upcoming_events":  109,
+                                     "url":  "https://seatgeek.com/venues/bridgestone-arena/tickets",
+                                     "relative_url":  "/venues/bridgestone-arena/tickets",
+                                     "marquee_city":  null,
+                                     "sg_market_area":  32
+                                 },
+                       "visible_at":  "2026-08-18T11:04:34Z",
+                       "visible_until_utc":  "2026-11-06T03:00:00",
+                       "open_domain_id":  "",
+                       "open_id":  "",
+                       "event_group_ids":  [
+                                               5831
+                                           ],
+                       "type":  "concert",
+                       "themes":  [
+
+                                  ],
+                       "domain_information":  [
+
+                                              ]
+                   }
+               ],
+    "meta":  {
+                 "geolocation":  null,
+                 "total":  283,
+                 "took":  0,
+                 "page":  1,
+                 "per_page":  5
+             }
+}

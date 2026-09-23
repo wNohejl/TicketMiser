@@ -1,0 +1,12 @@
+{
+    "source":  "ticketmaster",
+    "name":  "nashville-future-onsales",
+    "url":  "https://app.ticketmaster.com/discovery/v2/events.json?city=Nashville\u0026stateCode=TN\u0026countryCode=US\u0026classificationName=music\u0026onsaleOnAfterStartDate=2026-09-13\u0026sort=onSaleStartDate,asc\u0026size=20",
+    "fetchedAt":  "2026-09-12T01:53:57.4318473Z",
+    "status":  200,
+    "bytes":  208198,
+    "redactions":  [
+                       "apikey"
+                   ],
+    "note":  "Add what else was removed, and why, before committing."
+}

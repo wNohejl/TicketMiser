@@ -1,0 +1,426 @@
+@using TicketMiser.Core.Entities
+@using TicketMiser.Reliability
+@using TicketMiser.Web.Services
+@inherits DeskPanel
+@inject IOpsQueries Queries
+@inject DeskToasts Toasts
+
+@*
+    The platform's health, and the allowance it is spending. Carried from LineOps with the
+    sources renamed: the odds feeds section is now the allowance section, because on this
+    desk the thing that fails silently is not a feed that was never registered but a budget
+    that quietly ran out. See the reuse plan, section 5.
+*@
+
+@* The one action this window exists to commit — rolling the KPIs up and re-running the alert
+   rules — so it is the panel's single Filled. Busy rather than Disabled: an evaluation in
+   flight is a control that is occupied, not one that is not for you. See ADR 0016. *@
+<div class="row row--end" style="margin-bottom:12px">
+    <DeskButton Emphasis="DeskEmphasis.Filled" Icon="@Icons.Material.Filled.Refresh"
+                OnClick="EvaluateAsync" Busy="@_busy">
+        Evaluate now
+    </DeskButton>
+</div>
+
+<MetricRow Style="margin-bottom:16px">
+    <Metric Label="Sources in SLO"
+            State="@(_healthy == S.Health.Count ? DeskState.Positive : DeskState.Warning)">
+        @_healthy/@S.Health.Count
+    </Metric>
+    <Metric Label="Open alerts"
+            Value="@S.Alerts.Count.ToString()"
+            Note='@(_criticals > 0 ? $"{_criticals} critical" : "none critical")'
+            State="@(_criticals > 0 ? DeskState.Negative : S.Alerts.Count > 0 ? DeskState.Warning : DeskState.Positive)" />
+    <Metric Label="Rows today" Value='@S.RowsToday.ToString("N0")' />
+    <Metric Label="Open incidents"
+            Value="@S.OpenIncidents.ToString()"
+            State="@(S.OpenIncidents > 0 ? DeskState.Negative : DeskState.Positive)" />
+</MetricRow>
+
+@*
+    The allowance gets its own section because its failure mode is silence: a run the budget
+    guard refuses writes a Partial row and nothing else, so "no prices" and "no quota" look
+    identical without this. The four tiles are the governing provider's — the one the planner
+    paces the sweep by — and the grid under them has every source.
+*@
+<PanelHeader>Allowance</PanelHeader>
+
+@if (S.Governing is { } g)
+{
+    <MetricRow Style="margin-bottom:12px">
+        <Metric Label="Used today" Numeric="true"
+                Note="@g.Source.Name"
+                State="@UsageState(g)">
+            @g.UsedToday.ToString("N0")<span class="quiet">/@(g.DailyLimit?.ToString("N0") ?? "—")</span>
+        </Metric>
+        <Metric Label="Reserved" Numeric="true"
+                Value='@g.Reserved.ToString("N0")'
+                Note="held back for pulls and on-sale watches" />
+        <Metric Label="Left to sweep" Numeric="true"
+                Value='@g.Left.ToString("N0")'
+                State="@(g.Left == 0 && g.DailyLimit is not null ? DeskState.Warning : DeskState.Neutral)" />
+        <Metric Label="Next sweep"
+                Value="@NextSweep"
+                Note="@SweepNote"
+                State="@(S.SweepsUnattended ? DeskState.Info : DeskState.Neutral)" />
+    </MetricRow>
+}
+
+@if (S.Plan is { } plan)
+{
+    <p class="empty" style="padding:0 0 9px">
+        @if (S.SweepsUnattended)
+        {
+            <text>
+                Sweeping every <span class="mono">@Cadence(plan.Interval)</span> at
+                <span class="mono">@plan.CallsPerSweep</span> @Plural(plan.CallsPerSweep, "call") a sweep
+                for @Union(plan)
+            </text>
+            @if (plan.SweepsRemainingToday is { } left)
+            {
+                <text> — <span class="mono">@left</span> @Plural(left, "sweep") left today</text>
+                @if (plan.BoundBy is { } bound)
+                {
+                    <text>, paced by <span class="mono">@bound</span></text>
+                }
+            }
+            <text>.</text>
+        }
+        else
+        {
+            <text>
+                Prices are swept on request only — nothing is fetched unasked. A sweep costs
+                <span class="mono">@plan.CallsPerSweep</span> @Plural(plan.CallsPerSweep, "call")
+                for @Union(plan). Use <strong>Prices now</strong>.
+            </text>
+        }
+        @* The on-sale watch is the expensive part of the day, and it runs unattended whatever
+           the sweep mode: naming what it will cost is how the operator can see the day's
+           allowance being set aside before it is spent. *@
+        <br />
+        @if (plan.OnSaleEventsToday > 0)
+        {
+            <text>
+                <span class="mono">@plan.OnSaleEventsToday</span> on-sale @Plural(plan.OnSaleEventsToday, "window") today
+                at <span class="mono">@S.CallsPerOnSaleEvent</span> calls each —
+                <span class="mono">@plan.OnSaleCallsReserved</span> calls set aside per source.
+            </text>
+        }
+        else
+        {
+            <text>No watched event goes on sale today; each window costs <span class="mono">@S.CallsPerOnSaleEvent</span> calls per source.</text>
+        }
+    </p>
+}
+else if (S.Health.Count > 0)
+{
+    <p class="empty" style="padding:0 0 9px">
+        No priced source is registered, so there is no sweep to plan.
+    </p>
+}
+
+<DeskGrid T="SourceBudget" Items="S.Budgets" EmptyText="No sources registered.">
+    <PropertyColumn T="SourceBudget" TProperty="string" Property="b => b.Source.Name" Title="Source" />
+
+    <PropertyColumn T="SourceBudget" TProperty="int" Property="b => b.UsedToday" Title="Used today" CellClass="mud-align-right" HeaderClass="mud-align-right">
+        <CellTemplate>
+            @if (context.Item.DailyLimit is { } limit)
+            {
+                <span>@context.Item.UsedToday.ToString("N0")<span class="dim">/@limit.ToString("N0")</span></span>
+            }
+            else
+            {
+                <span class="dim">@context.Item.UsedToday.ToString("N0")</span>
+            }
+        </CellTemplate>
+    </PropertyColumn>
+
+    <PropertyColumn T="SourceBudget" TProperty="int" Property="b => b.Reserved" Title="Reserved" CellClass="mud-align-right" HeaderClass="mud-align-right">
+        <CellTemplate><span class="quiet">@(context.Item.DailyLimit is null ? "—" : context.Item.Reserved.ToString("N0"))</span></CellTemplate>
+    </PropertyColumn>
+
+    <PropertyColumn T="SourceBudget" TProperty="int" Property="b => b.Left" Title="Left" CellClass="mud-align-right" HeaderClass="mud-align-right">
+        <CellTemplate>@(context.Item.DailyLimit is null ? "—" : context.Item.Left.ToString("N0"))</CellTemplate>
+    </PropertyColumn>
+
+    @* The dimension under the most pressure, whichever it is: a provider metered by the hour
+       can be exhausted with the day's number looking fine. *@
+    <PropertyColumn T="SourceBudget" TProperty="double" Property="b => b.Usage.WorstUtilisation" Title="Pressure" CellClass="mud-align-right" HeaderClass="mud-align-right">
+        <CellTemplate>
+            @if (context.Item.Usage.Worst is { } worst)
+            {
+                <Note Inline State="@PressureState(worst.Ratio)">
+                    @worst.Ratio.ToString("P0") <span class="dim">@BudgetUsage.Describe(worst.Dimension)</span>
+                </Note>
+            }
+            else
+            {
+                <span class="dim">unmetered</span>
+            }
+        </CellTemplate>
+    </PropertyColumn>
+</DeskGrid>
+
+<PanelHeader>Source health</PanelHeader>
+
+<DeskGrid T="SourceHealth" Items="S.Health" EmptyText="No sources registered.">
+    @* The source name goes through to its runs — "why is this stale" is answered there. *@
+    <PropertyColumn T="SourceHealth" TProperty="string" Property="h => h.Source.Name" Title="Source">
+        <CellTemplate>
+            <DeskLink Destination="runs"
+                      Icon="@Icons.Material.Filled.History"
+                      OnClick="() => OpenRuns(context.Item.Source.Id)">
+                @context.Item.Source.Name
+            </DeskLink>
+        </CellTemplate>
+    </PropertyColumn>
+
+    <PropertyColumn T="SourceHealth" TProperty="SourceKind" Property="h => h.Source.Kind" Title="Market">
+        <CellTemplate><span class="dim">@context.Item.Source.Kind</span></CellTemplate>
+    </PropertyColumn>
+
+    @* Sorts on minutes, so "stalest first" is a click. A never-run source sorts as the worst
+       rather than as zero, which is the two-kinds-of-zero rule from ADR 0003. *@
+    <PropertyColumn T="SourceHealth" TProperty="double"
+                    Property="h => h.FreshnessMinutes ?? double.MaxValue"
+                    Title="Freshness" CellClass="mud-align-right" HeaderClass="mud-align-right">
+        <CellTemplate>
+            <span class="@(IsStale(context.Item) ? "down" : null)">
+                @(context.Item.FreshnessMinutes is { } m ? Age(m) : "never")
+            </span>
+        </CellTemplate>
+    </PropertyColumn>
+
+    <PropertyColumn T="SourceHealth" TProperty="double" Property="h => h.SuccessRate"
+                    Title="Success 7d" CellClass="mud-align-right" HeaderClass="mud-align-right">
+        <CellTemplate>
+            <Note Inline State="@(IsRateLow(context.Item) ? DeskState.Warning : DeskState.Neutral)">@context.Item.SuccessRate.ToString("P0")</Note>
+        </CellTemplate>
+    </PropertyColumn>
+
+    <PropertyColumn T="SourceHealth" TProperty="int" Property="h => h.RowsToday"
+                    Title="Rows today" CellClass="mud-align-right" HeaderClass="mud-align-right" />
+
+    <PropertyColumn T="SourceHealth" TProperty="double" Property="h => h.VolumeRatio ?? -1"
+                    Title="Volume" CellClass="mud-align-right" HeaderClass="mud-align-right">
+        <CellTemplate>
+            <span class="dim">@(context.Item.VolumeRatio is { } v ? v.ToString("P0") : "—")</span>
+        </CellTemplate>
+    </PropertyColumn>
+
+    <TemplateColumn T="SourceHealth" Title="State" Sortable="false">
+        <CellTemplate>
+            @if (context.Item.NeverRun)
+            {
+                <Tag>Not run</Tag>
+            }
+            else if (IsStale(context.Item))
+            {
+                <Tag State="DeskState.Negative">Stale</Tag>
+            }
+            else if (IsRateLow(context.Item))
+            {
+                <Tag State="DeskState.Warning">Degraded</Tag>
+            }
+            else
+            {
+                <Tag State="DeskState.Positive">Healthy</Tag>
+            }
+        </CellTemplate>
+    </TemplateColumn>
+</DeskGrid>
+
+<PanelHeader>Open alerts</PanelHeader>
+
+<DeskGrid T="Alert" Items="S.Alerts" EmptyText="No open alerts. Every source is inside its SLO.">
+    <PropertyColumn T="Alert" TProperty="AlertSeverity" Property="a => a.Severity" Title="Severity"
+                    InitialDirection="SortDirection.Descending">
+        <CellTemplate>
+            <Tag State="@SeverityState(context.Item.Severity)">@context.Item.Severity</Tag>
+        </CellTemplate>
+    </PropertyColumn>
+
+    <PropertyColumn T="Alert" TProperty="string" Property="a => a.RuleKey" Title="Rule">
+        <CellTemplate><span class="mono dim">@context.Item.RuleKey</span></CellTemplate>
+    </PropertyColumn>
+
+    <PropertyColumn T="Alert" TProperty="string" Property="a => a.Message" Title="What happened">
+        <CellTemplate><span class="trunc" title="@context.Item.Message">@context.Item.Message</span></CellTemplate>
+    </PropertyColumn>
+
+    @* The first triage step, on the row. The whole procedure is in the incident once one is
+       opened; this is what to look at before deciding whether to open one. *@
+    <TemplateColumn T="Alert" Title="First step" Sortable="false">
+        <CellTemplate>
+            @{ var step = RunbookSteps.FirstStep(context.Item.RuleKey); }
+            <span class="trunc quiet" title="@step">@(step ?? "No runbook section.")</span>
+        </CellTemplate>
+    </TemplateColumn>
+
+    <PropertyColumn T="Alert" TProperty="DateTimeOffset" Property="a => a.TriggeredAt" Title="Age" CellClass="mud-align-right" HeaderClass="mud-align-right">
+        <CellTemplate>
+            <span class="dim">@Age((DateTimeOffset.UtcNow - context.Item.TriggeredAt).TotalMinutes)</span>
+        </CellTemplate>
+    </PropertyColumn>
+
+    <TemplateColumn T="Alert" Title="" Sortable="false" CellClass="mud-align-right" HeaderClass="mud-align-right">
+        <CellTemplate>
+            @if (context.Item.IncidentId is null)
+            {
+                <DeskButton Size="DeskKeySize.Small" Emphasis="DeskEmphasis.Tinted"
+                            OnClick="() => PromoteAsync(context.Item.Id)">
+                    Open incident
+                </DeskButton>
+            }
+            else
+            {
+                <DeskLink Destination="incident"
+                          Icon="@Icons.Material.Filled.ReportProblem"
+                          OnClick="() => OpenIncident(context.Item.IncidentId.Value)">
+                    <span class="mono">#@context.Item.IncidentId</span>
+                </DeskLink>
+            }
+        </CellTemplate>
+    </TemplateColumn>
+</DeskGrid>
+
+@code {
+    private OpsSnapshot S { get; set; } = OpsSnapshot.Empty;
+
+    private int _healthy;
+    private int _criticals;
+    private bool _busy;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    // Pulled out of the markup because a cell template evaluates per render.
+    private bool IsStale(SourceHealth h) => !h.NeverRun && h.IsStale(S.FreshnessSlo);
+
+    private bool IsRateLow(SourceHealth h) => h.RunsInWindow >= 3 && h.SuccessRate < S.SuccessRateSlo;
+
+    /// <summary>A cadence read as minutes until it is long enough to read as hours.</summary>
+    private static string Cadence(TimeSpan interval)
+        => interval.TotalHours >= 1 ? $"{interval.TotalHours:0.#}h" : $"{interval.TotalMinutes:0.#}m";
+
+    /// <summary>Minutes, read at the scale they are worth: 12m, 3.2h, 2.1d.</summary>
+    private static string Age(double minutes) => minutes switch
+    {
+        < 60 => $"{minutes:F0}m",
+        < 1440 => $"{minutes / 60:F1}h",
+        _ => $"{minutes / 1440:F1}d"
+    };
+
+    private static string Plural(int count, string noun) => count == 1 ? noun : noun + "s";
+
+    /// <summary>
+    /// The watchlist the quota is spent on: the union across owners, which is what a sweep
+    /// costs — "14 watched events, 20 watches across 6 owners". Two owners on one event are
+    /// one event here and one call a sweep, so the first number is the one to hold against the
+    /// budget and the rest says how many people it serves.
+    /// </summary>
+    private static string Union(TicketMiser.Ingestion.Services.PollPlan plan)
+    {
+        var events = $"{plan.Watchlist:N0} watched {Plural(plan.Watchlist, "event")}";
+        return plan.Watches == 0
+            ? events
+            : $"{events}, {plan.Watches:N0} {(plan.Watches == 1 ? "watch" : "watches")} across {plan.Owners:N0} {Plural(plan.Owners, "owner")}";
+    }
+
+    private string NextSweep => S.NextSweepAt is { } at
+        ? at <= DateTimeOffset.UtcNow ? "next tick" : at.ToLocalTime().ToString("HH:mm")
+        : "on request";
+
+    private string? SweepNote => S.Plan is { } plan
+        ? S.SweepsUnattended ? $"every {Cadence(plan.Interval)}" : "nothing fetched unasked"
+        : null;
+
+    private static DeskState UsageState(SourceBudget b) => b.DailyLimit is null
+        ? DeskState.Neutral
+        : PressureState(b.Usage.WorstUtilisation);
+
+    private static DeskState PressureState(double ratio) => ratio switch
+    {
+        >= 1.0 => DeskState.Negative,
+        >= 0.8 => DeskState.Warning,
+        _ => DeskState.Neutral
+    };
+
+    private static DeskState SeverityState(AlertSeverity severity) => severity switch
+    {
+        AlertSeverity.Critical => DeskState.Negative,
+        AlertSeverity.Warn => DeskState.Warning,
+        _ => DeskState.Info
+    };
+
+    private async Task LoadAsync()
+    {
+        S = await Queries.LoadAsync();
+
+        _healthy = S.Health.Count(h => h.NeverRun || !h.IsStale(S.FreshnessSlo));
+        _criticals = S.Alerts.Count(a => a.Severity == AlertSeverity.Critical);
+
+        // This window is the reason the pulse exists: it reports the platform's worst state,
+        // so a minimised Ops window still shows red when something breaches.
+        Report(
+            _criticals > 0 ? PulseState.Critical
+            : S.Alerts.Count > 0 ? PulseState.Warn
+            : PulseState.Healthy,
+            S.Alerts.Count == 0 ? "all clear" : $"{S.Alerts.Count} open");
+    }
+
+    // Identity, not arithmetic. The same evaluation pass that opens an alert also
+    // auto-resolves any whose condition has cleared, so a count delta reports zero — or a
+    // negative — for a pass that genuinely raised something.
+    private HashSet<long> OpenAlertIds() => S.Alerts.Select(a => a.Id).ToHashSet();
+
+    private async Task EvaluateAsync()
+    {
+        _busy = true;
+        Report(PulseState.Active, "evaluating");
+
+        try
+        {
+            await Queries.EvaluateAsync();
+
+            var seen = OpenAlertIds();
+            await LoadAsync();
+
+            // A pass that changes nothing repaints identically to one that did not run. The
+            // notice reports the outcome, not the click, and is transient because the alert
+            // table below is the durable record either way.
+            var opened = S.Alerts.Count(a => !seen.Contains(a.Id));
+
+            if (_criticals > 0)
+                Toasts.Warn($"Evaluated — {S.Alerts.Count} open, {_criticals} critical.");
+            else if (opened > 0)
+                Toasts.Warn($"Evaluated — {opened} new {Plural(opened, "alert")} opened.");
+            else
+                Toasts.Success($"Evaluated — {(S.Alerts.Count == 0 ? "every source inside its SLO" : $"{S.Alerts.Count} open, none critical")}.");
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task PromoteAsync(long alertId)
+    {
+        var incidentId = await Queries.PromoteAsync(alertId);
+        await LoadAsync();
+
+        // Raise the incidents window so the promotion has somewhere visible to land.
+        OpenIncident(incidentId);
+    }
+
+    private void OpenRuns(int sourceId)
+    {
+        if (WindowCatalog.Find(WindowCatalog.Runs) is { } definition)
+            Manager.Open(definition, new() { ["SourceId"] = sourceId });
+    }
+
+    private void OpenIncident(int incidentId)
+    {
+        if (WindowCatalog.Find(WindowCatalog.Incidents) is { } definition)
+            Manager.Open(definition, new() { ["IncidentId"] = incidentId });
+    }
+}

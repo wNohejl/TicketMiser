@@ -65,63 +65,49 @@ public static class DeskChartPalette
     private const string ChartNeutral = DeskTheme.ChartNeutral;
     private const string ChartNeutralDim = DeskTheme.ChartNeutralDim;
 
-    private static readonly string[] Movement =
-        [DeskTheme.Accent, DeskTheme.StatePositive, DeskTheme.StateWarning, DeskTheme.StateNegative, ChartNeutral, ChartNeutralDim];
-
-    private static readonly string[] Ledger =
-        [DeskTheme.StatePositive, DeskTheme.StateNegative, DeskTheme.Accent, DeskTheme.StateWarning, ChartNeutral, ChartNeutralDim];
-
-    private static readonly string[] Health =
-        [DeskTheme.StatePositive, DeskTheme.StateWarning, DeskTheme.StateNegative, DeskTheme.Accent, ChartNeutral, ChartNeutralDim];
-
-    private static readonly string[] Volume =
-        [ChartNeutral, DeskTheme.Accent, ChartNeutralDim, DeskTheme.StatePositive, DeskTheme.StateWarning, DeskTheme.StateNegative];
-
-    // The same four families against a pale plot background.
-    //
-    // This is the one corner of the desk a token block cannot reach, and the reason is in
-    // the summary above: MudChart writes these into SVG attributes and legend markup, where
-    // a var() does not resolve. So a chart is the single place where the second theme costs
-    // a second array rather than nothing — and it is exactly the place where forgetting
-    // would go unnoticed longest, because the dark series colours are saturated enough to
-    // still look deliberate on white. The dim neutral is what gives it away: #636366 on a
-    // pale plot is not a quiet series, it is the darkest thing in the window.
-
-    private static readonly string[] LightMovement =
-        [DeskTheme.LightAccent, DeskTheme.LightStatePositive, DeskTheme.LightStateWarning, DeskTheme.LightStateNegative, DeskTheme.LightChartNeutral, DeskTheme.LightChartNeutralDim];
-
-    private static readonly string[] LightLedger =
-        [DeskTheme.LightStatePositive, DeskTheme.LightStateNegative, DeskTheme.LightAccent, DeskTheme.LightStateWarning, DeskTheme.LightChartNeutral, DeskTheme.LightChartNeutralDim];
-
-    private static readonly string[] LightHealth =
-        [DeskTheme.LightStatePositive, DeskTheme.LightStateWarning, DeskTheme.LightStateNegative, DeskTheme.LightAccent, DeskTheme.LightChartNeutral, DeskTheme.LightChartNeutralDim];
-
-    private static readonly string[] LightVolume =
-        [DeskTheme.LightChartNeutral, DeskTheme.LightAccent, DeskTheme.LightChartNeutralDim, DeskTheme.LightStatePositive, DeskTheme.LightStateWarning, DeskTheme.LightStateNegative];
-
-    /// <summary>The colour order for a family. The array is shared, so treat it as read-only.</summary>
+    /// <summary>The colour order for a family on the dark blue desk. A fresh array each call.</summary>
     public static string[] For(DeskChartFamily family) => For(family, isDark: true);
 
+    /// <summary>The colour order for a family on the desk that is currently showing, in the default blue.</summary>
+    public static string[] For(DeskChartFamily family, bool isDark) => For(family, isDark, DeskAccent.Blue);
+
     /// <summary>
-    /// The colour order for a family on the desk that is currently showing.
+    /// The colour order for a family on the desk that is currently showing, carrying the
+    /// accent the operator chose.
     /// </summary>
     /// <remarks>
-    /// The theme is a parameter rather than something this class reads, because it is static
-    /// and the theme is per-circuit. The single-argument overload above is kept, and kept
-    /// meaning the dark desk, so a call site that has no theme to hand degrades to the desk
-    /// the product already was rather than to a compile error.
+    /// The theme and accent are parameters rather than something this class reads, because
+    /// it is static and both are per-circuit. The shorter overloads are kept, and kept
+    /// meaning the dark blue desk, so a call site that has neither to hand degrades to the
+    /// desk the product already was rather than to a compile error.
+    ///
+    /// <para>
+    /// This is the one corner of the desk a token block cannot reach: MudChart writes these
+    /// into SVG attributes and legend markup, where a <c>var()</c> does not resolve. So a
+    /// chart is the single place where the second theme costs a second array rather than
+    /// nothing — and exactly the place where forgetting would go unnoticed longest, because
+    /// the dark series colours are saturated enough to still look deliberate on white. The
+    /// dim neutral is what gives it away: <c>#636366</c> on a pale plot is not a quiet
+    /// series, it is the darkest thing in the window.
+    /// </para>
     /// </remarks>
-    public static string[] For(DeskChartFamily family, bool isDark) => (family, isDark) switch
+    public static string[] For(DeskChartFamily family, bool isDark, DeskAccent accent)
     {
-        (DeskChartFamily.Ledger, true) => Ledger,
-        (DeskChartFamily.Ledger, false) => LightLedger,
-        (DeskChartFamily.Health, true) => Health,
-        (DeskChartFamily.Health, false) => LightHealth,
-        (DeskChartFamily.Volume, true) => Volume,
-        (DeskChartFamily.Volume, false) => LightVolume,
-        (_, true) => Movement,
-        (_, false) => LightMovement
-    };
+        var acc = DeskAccents.For(accent, isDark).Accent;
+        var positive = isDark ? DeskTheme.StatePositive : DeskTheme.LightStatePositive;
+        var negative = isDark ? DeskTheme.StateNegative : DeskTheme.LightStateNegative;
+        var warning = isDark ? DeskTheme.StateWarning : DeskTheme.LightStateWarning;
+        var neutral = isDark ? ChartNeutral : DeskTheme.LightChartNeutral;
+        var neutralDim = isDark ? ChartNeutralDim : DeskTheme.LightChartNeutralDim;
+
+        return family switch
+        {
+            DeskChartFamily.Ledger => [positive, negative, acc, warning, neutral, neutralDim],
+            DeskChartFamily.Health => [positive, warning, negative, acc, neutral, neutralDim],
+            DeskChartFamily.Volume => [neutral, acc, neutralDim, positive, warning, negative],
+            _ => [acc, positive, warning, negative, neutral, neutralDim]
+        };
+    }
 }
 
 /// <summary>

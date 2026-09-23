@@ -22,7 +22,7 @@ public class DeskSwitchTests : DeskTestContext
         int value,
         EventCallback<int> changed = default,
         IReadOnlyList<DeskSwitchOption<int>>? options = null)
-        => RenderComponent<DeskSwitch<int>>(p => p
+        => Render<DeskSwitch<int>>(p => p
             .Add(x => x.Options, options ?? Lookback)
             .Add(x => x.Label, "Lookback window")
             .Add(x => x.Value, value)
@@ -176,7 +176,7 @@ public class DeskSwitchTests : DeskTestContext
     [InlineData(DeskKeySize.Large, "gate--lg")]
     public void Size_maps_to_its_class(DeskKeySize size, string expected)
     {
-        var cut = RenderComponent<DeskSwitch<int>>(p => p
+        var cut = Render<DeskSwitch<int>>(p => p
             .Add(x => x.Options, Lookback)
             .Add(x => x.Label, "Lookback window")
             .Add(x => x.Value, 30)
@@ -188,7 +188,7 @@ public class DeskSwitchTests : DeskTestContext
     [Fact]
     public void Mono_asks_for_tabular_figures()
     {
-        var cut = RenderComponent<DeskSwitch<int>>(p => p
+        var cut = Render<DeskSwitch<int>>(p => p
             .Add(x => x.Options, Lookback)
             .Add(x => x.Label, "Lookback window")
             .Add(x => x.Value, 30)
@@ -204,7 +204,7 @@ public class DeskSwitchTests : DeskTestContext
     [Fact]
     public void A_callers_style_is_appended_so_the_layout_properties_survive()
     {
-        var cut = RenderComponent<DeskSwitch<int>>(p => p
+        var cut = Render<DeskSwitch<int>>(p => p
             .Add(x => x.Options, Lookback)
             .Add(x => x.Label, "Lookback window")
             .Add(x => x.Value, 30)
@@ -224,7 +224,7 @@ public class DeskSwitchTests : DeskTestContext
     [Fact]
     public void Unmatched_attributes_reach_the_group_but_class_and_style_do_not_splat_twice()
     {
-        var cut = RenderComponent<DeskSwitch<int>>(p => p
+        var cut = Render<DeskSwitch<int>>(p => p
             .Add(x => x.Options, Lookback)
             .Add(x => x.Label, "Lookback window")
             .Add(x => x.Value, 30)

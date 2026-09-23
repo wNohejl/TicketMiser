@@ -1,0 +1,252 @@
+@using TicketMiser.Core.Analytics
+@using TicketMiser.Core.Entities
+@using TicketMiser.Web.Components.Prices
+@using TicketMiser.Web.Services
+@inherits DeskPanel
+@inject IPriceHistoryQueries Queries
+
+@*
+    Trend — the Watchlist's third follow-up, the LineOps "form" view for tickets: the last four
+    weeks of one event's lowest price, at a glance. Small enough to float beside the board.
+
+    Per market and per fee basis. Each line is the cheapest number any of that market's sources
+    on that basis held at the end of each day — the same within-market, within-basis comparison
+    the Watchlist's best is chosen by — so a primary number and a resale number are two charts,
+    and a face-value line and an all-in line are two lines. The full history, every source on
+    its own line, is one press away in the Price history window.
+*@
+
+<div class="stack" style="--desk-gap:12px; padding:4px 0">
+    @if (_loading && _trend is null)
+    {
+        <EmptyState>Reading the trend.</EmptyState>
+    }
+    else if (_failed)
+    {
+        <EmptyState Kind="EmptyStateKind.Error">
+            <ChildContent>The trend could not be read.</ChildContent>
+            <Action>
+                <DeskButton Emphasis="DeskEmphasis.Plain" OnClick="LoadAsync">Try again</DeskButton>
+            </Action>
+        </EmptyState>
+    }
+    else if (_trend is null)
+    {
+        <EmptyState Kind="EmptyStateKind.Error">
+            No event has id @(EventId?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "(none)"). The window was opened about something that is not on record.
+        </EmptyState>
+    }
+    else
+    {
+        <div class="row">
+            <DeskLink Destination="event" Tooltip="Open event" OnClick="() => Destinations.OpenEvent(Manager, _trend.Event)">@_trend.Event.Name</DeskLink>
+            <span class="ftr__spacer"></span>
+            <DeskButton Size="DeskKeySize.Small" Emphasis="DeskEmphasis.Tinted" Icon="@Icons.Material.Filled.ShowChart"
+                        OnClick="() => Destinations.OpenPriceHistory(Manager, _trend.Event)">Full history</DeskButton>
+        </div>
+
+        @if (_trend.IsEmpty)
+        {
+            <EmptyState Kind="EmptyStateKind.New">
+                No source has priced this event in the last @PriceTrend.DefaultDays days. A trend
+                needs readings, and readings need a watch.
+            </EmptyState>
+        }
+        else
+        {
+            @foreach (var market in _markets)
+            {
+                <section class="stack" style="--desk-gap:6px" data-market="@market.Kind.ToString().ToLowerInvariant()">
+                    <PanelHeader Gap="PanelHeaderGap.Section">
+                        <Tag State="@PriceText.MarketState(market.Kind)">@PriceText.MarketWord(market.Kind)</Tag>
+                        lowest, last @PriceTrend.DefaultDays days
+                    </PanelHeader>
+
+                    @if (market.Lines.Count == 0)
+                    {
+                        <EmptyState>No @PriceText.MarketWord(market.Kind).ToLowerInvariant() source has priced this event in the window.</EmptyState>
+                    }
+                    else
+                    {
+                        @if (market.Chart.Count > 0)
+                        {
+                            <DeskChart Series="market.Chart" Labels="market.Labels" Height="130px"
+                                       Family="DeskChartFamily.Movement"
+                                       ShowLegend="@(market.Lines.Count > 1)"
+                                       Takeaway="@($"Lowest {PriceText.MarketWord(market.Kind).ToLowerInvariant()} price per fee basis at each day's end, {Zone ?? "UTC"}.")"
+                                       Description="@($"Daily lowest {PriceText.MarketWord(market.Kind).ToLowerInvariant()} ticket price over the last {PriceTrend.DefaultDays} days, one line per fee basis.")" />
+                        }
+
+                        <table class="grid grid--tight">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Basis</th>
+                                    <th scope="col">Now</th>
+                                    <th scope="col">A week ago</th>
+                                    <th scope="col">Change</th>
+                                    <th scope="col">Window low</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var line in market.Lines)
+                                {
+                                    <tr data-basis="@(line.AllIn ? "all-in" : "face")">
+                                        <td><Tag State="@PriceText.AllInState(line.AllIn)" Title="@PriceText.AllInTitle(line.AllIn)">@line.Basis</Tag></td>
+                                        <td>@Held(line, line.Lowest.Count - 1)</td>
+                                        <td>@Held(line, line.Lowest.Count - 8)</td>
+                                        <td>
+                                            @if (line.WeekChange is { } change)
+                                            {
+                                                <span class="num">@PriceText.Change(change, line.Currency)</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="dim">—</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (line.Floor is { } floor)
+                                            {
+                                                var i = line.Days.ToList().IndexOf(floor.Day);
+                                                @Held(line, i)
+                                                <span class="dim"> @PriceText.Day(floor.Day)</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </section>
+            }
+
+            @if (_hasSeatGeek)
+            {
+                <p class="empty attribution" style="padding:0">@PriceText.SeatGeekAttribution</p>
+            }
+        }
+    }
+</div>
+
+@code {
+    /// <summary>The id parameter the window was opened with. Arrives as <c>EventId</c>.</summary>
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? Parameters { get; set; }
+
+    private int? EventId => Destinations.IdFrom(Parameters, Destinations.EventId);
+
+    private sealed record Market(SourceKind Kind, IReadOnlyList<TrendLine> Lines, IReadOnlyList<ChartSeries<double>> Chart, string[] Labels);
+
+    private int? _loadedId;
+    private bool _loading = true;
+    private bool _failed;
+    private PriceTrend? _trend;
+    private IReadOnlyList<Market> _markets = [];
+    private bool _hasSeatGeek;
+
+    private string? Zone => _trend?.Event.Venue?.Timezone;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (EventId == _loadedId && !_loading)
+            return;
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loadedId = EventId;
+        _loading = true;
+        _failed = false;
+
+        try
+        {
+            await WithActivityAsync(
+                async () =>
+                {
+                    _trend = EventId is { } id ? await Queries.TrendAsync(id) : null;
+                    Shape();
+                },
+                settle: () => _trend is null ? PulseState.Warn : _trend.IsEmpty ? PulseState.Idle : PulseState.Healthy,
+                status: () => _trend is null ? "not found" : _trend.IsEmpty ? "no prices" : $"through {PriceText.Day(_trend.Through)}");
+        }
+        catch
+        {
+            _failed = true;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    /// <summary>
+    /// One small chart per market. The axis starts at the first day any line in the market has a
+    /// value; a line that starts later repeats its first value back to there, because the chart
+    /// cannot draw a gap. A chart of one day is no trend and is left to the table.
+    /// </summary>
+    private void Shape()
+    {
+        _markets = [];
+        _hasSeatGeek = false;
+
+        if (_trend is null)
+            return;
+
+        _markets = new[] { SourceKind.Primary, SourceKind.Resale }
+            .Select(kind =>
+            {
+                var lines = _trend.For(kind);
+                if (lines.Count == 0)
+                    return new Market(kind, lines, [], []);
+
+                var start = lines.Min(l => l.FirstReported);
+                var days = lines[0].Days.Skip(start).ToList();
+
+                if (days.Count < 2)
+                    return new Market(kind, lines, [], []);
+
+                var chart = lines
+                    .Select(l =>
+                    {
+                        var values = l.Lowest.Skip(start).ToList();
+                        var held = (double)values.First(v => v is not null)!.Value;
+                        var data = new double[values.Count];
+
+                        for (var i = 0; i < values.Count; i++)
+                        {
+                            if (values[i] is { } v)
+                                held = (double)v;
+
+                            data[i] = held;
+                        }
+
+                        return new ChartSeries<double> { Name = $"{PriceText.MarketWord(kind)} · {l.Basis}", Data = data };
+                    })
+                    .ToList();
+
+                var labels = days
+                    .Select((d, i) => i == 0 || i == days.Count - 1 || i % 7 == 0 ? PriceText.Day(d) : string.Empty)
+                    .ToArray();
+
+                return new Market(kind, lines, chart, labels);
+            })
+            .ToList();
+
+        _hasSeatGeek = _trend.Primary.Concat(_trend.Resale)
+            .SelectMany(l => l.HeldBy)
+            .Any(s => s?.Key == "seatgeek");
+    }
+
+    /// <summary>A day's lowest as a price cell, linked to the source holding it on that day.</summary>
+    private RenderFragment Held(TrendLine line, int index) => __builder =>
+    {
+        if (index < 0 || index >= line.Lowest.Count || line.Lowest[index] is not { } low || line.HeldBy[index] is not { } source)
+        {
+            <span class="dim">—</span>
+            return;
+        }
+
+        <SourcePrice Source="source" Event="_trend!.Event" Amount="low" AllIn="line.AllIn" Currency="@line.Currency" />
+    };
+}

@@ -1,0 +1,899 @@
+{
+    "events":  [
+                   {
+                       "access_method":  null,
+                       "announce_date":  "2026-04-10T00:00:00",
+                       "announcements":  {
+
+                                         },
+                       "conditional":  false,
+                       "contingent":  false,
+                       "created_at":  "2026-04-10T17:00:50",
+                       "date_tbd":  false,
+                       "datetime_local":  "2026-09-11T20:00:00",
+                       "datetime_tbd":  false,
+                       "datetime_utc":  "2026-09-12T01:00:00",
+                       "tbd_datetime_range_start_utc":  null,
+                       "tbd_datetime_range_end_utc":  null,
+                       "description":  "",
+                       "onsale":  null,
+                       "enddatetime_utc":  "2026-09-12T02:30:00",
+                       "sales_end_datetime_utc":  "2026-09-12T02:30:00",
+                       "expected_experience_end":  "2026-09-12T02:30:00",
+                       "event_promotion":  null,
+                       "game_number":  0,
+                       "home_game_number":  0,
+                       "id":  18169296,
+                       "integrated":  null,
+                       "is_open":  false,
+                       "is_visible":  true,
+                       "is_visible_override":  "VISIBLE",
+                       "links":  [
+                                     {
+                                         "id":  "6880096",
+                                         "url":  "",
+                                         "provider":  "vividseats",
+                                         "primary":  false,
+                                         "display_name":  "",
+                                         "logos":  {
+
+                                                   },
+                                         "sales":  [
+
+                                                   ],
+                                         "link_type":  "ID"
+                                     }
+                                 ],
+                       "main_event_id":  null,
+                       "performers":  [
+                                          {
+                                              "type":  "band",
+                                              "name":  "Paul Cauthen",
+                                              "id":  305734,
+                                              "divisions":  null,
+                                              "links":  [
+
+                                                        ],
+                                              "has_upcoming_events":  true,
+                                              "primary":  true,
+                                              "stats":  {
+                                                            "event_count":  29
+                                                        },
+                                              "taxonomies":  [
+                                                                 {
+                                                                     "id":  2000000,
+                                                                     "name":  "concert",
+                                                                     "parent_id":  null,
+                                                                     "seo_event_type":  "concert",
+                                                                     "rank":  0
+                                                                 }
+                                                             ],
+                                              "url":  "https://seatgeek.com/paul-cauthen-tickets",
+                                              "score":  0.46,
+                                              "slug":  "paul-cauthen",
+                                              "home_venue_id":  null,
+                                              "short_name":  "Paul Cauthen",
+                                              "num_upcoming_events":  29,
+                                              "colors":  null,
+                                              "genres":  [
+                                                             {
+                                                                 "id":  450,
+                                                                 "name":  "Country",
+                                                                 "slug":  "country",
+                                                                 "primary":  false
+                                                             },
+                                                             {
+                                                                 "id":  467,
+                                                                 "name":  "Folk",
+                                                                 "slug":  "folk",
+                                                                 "primary":  true
+                                                             }
+                                                         ],
+                                              "popularity":  1964.0,
+                                              "hidden":  false,
+                                              "location":  null,
+                                              "relative_url":  "/paul-cauthen-tickets",
+                                              "is_event":  false,
+                                              "ada_dominant_image_color":  "#e1dad6"
+                                          }
+                                      ],
+                       "performer_order":  [
+                                               {
+                                                   "id":  305734,
+                                                   "ordinal":  0
+                                               }
+                                           ],
+                       "playoffs":  null,
+                       "popularity":  0.7171433487,
+                       "relative_url":  "/paul-cauthen-tickets/nashville-tennessee-ryman-auditorium-2026-09-11-8-pm/concert/18169296",
+                       "score":  0.3426484425,
+                       "season_stage":  null,
+                       "short_title":  "Paul Cauthen",
+                       "stats":  {
+
+                                 },
+                       "status":  "normal",
+                       "taxonomies":  [
+                                          {
+                                              "id":  2000000,
+                                              "name":  "concert",
+                                              "parent_id":  null,
+                                              "seo_event_type":  "concert",
+                                              "rank":  0
+                                          }
+                                      ],
+                       "ticketmaster":  null,
+                       "tdc_pv_id":  0,
+                       "tdc_pvo_id":  0,
+                       "time_tbd":  false,
+                       "title":  "Paul Cauthen",
+                       "url":  "https://seatgeek.com/paul-cauthen-tickets/nashville-tennessee-ryman-auditorium-2026-09-11-8-pm/concert/18169296",
+                       "venue":  {
+                                     "id":  292,
+                                     "name":  "Ryman Auditorium",
+                                     "name_v2":  "Ryman Auditorium",
+                                     "postal_code":  "37219",
+                                     "timezone":  "America/Chicago",
+                                     "score":  0.74,
+                                     "popularity":  32049,
+                                     "address":  "116 5th Avenue North",
+                                     "country":  "US",
+                                     "city":  "Nashville",
+                                     "state":  "TN",
+                                     "slug":  "ryman-auditorium",
+                                     "metro_code":  659,
+                                     "capacity":  2362,
+                                     "hidden":  false,
+                                     "links":  [
+
+                                               ],
+                                     "passes":  [
+                                                    {
+                                                        "pass_type":  "PARKING",
+                                                        "name":  "Ryman Auditorium Parking",
+                                                        "url":  "https://seatgeek.com/venues/ryman-auditorium/parking",
+                                                        "relative_url":  "/venues/ryman-auditorium/parking",
+                                                        "stats":  {
+                                                                      "event_count":  104
+                                                                  }
+                                                    }
+                                                ],
+                                     "extended_address":  "Nashville, TN 37219",
+                                     "display_location":  "Nashville, TN",
+                                     "access_method":  null,
+                                     "location":  {
+                                                      "lat":  36.1612,
+                                                      "lon":  -86.7785
+                                                  },
+                                     "has_upcoming_events":  true,
+                                     "num_upcoming_events":  98,
+                                     "url":  "https://seatgeek.com/venues/ryman-auditorium/tickets",
+                                     "relative_url":  "/venues/ryman-auditorium/tickets",
+                                     "marquee_city":  null,
+                                     "sg_market_area":  32
+                                 },
+                       "visible_at":  "2026-09-03T08:12:57Z",
+                       "visible_until_utc":  "2026-09-12T02:30:00",
+                       "open_domain_id":  "",
+                       "open_id":  "",
+                       "event_group_ids":  [
+
+                                           ],
+                       "type":  "concert",
+                       "themes":  [
+
+                                  ],
+                       "domain_information":  [
+
+                                              ]
+                   },
+                   {
+                       "access_method":  null,
+                       "announce_date":  "2026-05-16T00:00:00",
+                       "announcements":  {
+
+                                         },
+                       "conditional":  false,
+                       "contingent":  false,
+                       "created_at":  "2026-05-16T13:34:10",
+                       "date_tbd":  false,
+                       "datetime_local":  "2026-09-11T20:00:00",
+                       "datetime_tbd":  false,
+                       "datetime_utc":  "2026-09-12T01:00:00",
+                       "tbd_datetime_range_start_utc":  null,
+                       "tbd_datetime_range_end_utc":  null,
+                       "description":  "",
+                       "onsale":  null,
+                       "enddatetime_utc":  "2026-09-12T02:30:00",
+                       "sales_end_datetime_utc":  "2026-09-12T02:30:00",
+                       "expected_experience_end":  "2026-09-12T02:30:00",
+                       "event_promotion":  null,
+                       "game_number":  0,
+                       "home_game_number":  0,
+                       "id":  18248867,
+                       "integrated":  null,
+                       "is_open":  false,
+                       "is_visible":  true,
+                       "is_visible_override":  "UNSET",
+                       "links":  [
+                                     {
+                                         "id":  "7037331",
+                                         "url":  "",
+                                         "provider":  "vividseats",
+                                         "primary":  false,
+                                         "display_name":  "",
+                                         "logos":  {
+
+                                                   },
+                                         "sales":  [
+
+                                                   ],
+                                         "link_type":  "ID"
+                                     },
+                                     {
+                                         "id":  "1B0064A4F2269224",
+                                         "url":  "",
+                                         "provider":  "ticketmaster",
+                                         "primary":  false,
+                                         "display_name":  "",
+                                         "logos":  {
+
+                                                   },
+                                         "sales":  [
+
+                                                   ],
+                                         "link_type":  "ID"
+                                     }
+                                 ],
+                       "main_event_id":  null,
+                       "performers":  [
+                                          {
+                                              "type":  "band",
+                                              "name":  "Braxton Keith",
+                                              "id":  803108,
+                                              "divisions":  null,
+                                              "links":  [
+
+                                                        ],
+                                              "has_upcoming_events":  true,
+                                              "primary":  true,
+                                              "stats":  {
+                                                            "event_count":  17
+                                                        },
+                                              "taxonomies":  [
+                                                                 {
+                                                                     "id":  2000000,
+                                                                     "name":  "concert",
+                                                                     "parent_id":  null,
+                                                                     "seo_event_type":  "concert",
+                                                                     "rank":  0
+                                                                 }
+                                                             ],
+                                              "url":  "https://seatgeek.com/braxton-keith-tickets",
+                                              "score":  0.54,
+                                              "slug":  "braxton-keith",
+                                              "home_venue_id":  null,
+                                              "short_name":  "Braxton Keith",
+                                              "num_upcoming_events":  17,
+                                              "colors":  null,
+                                              "popularity":  14702.0,
+                                              "hidden":  false,
+                                              "location":  null,
+                                              "relative_url":  "/braxton-keith-tickets",
+                                              "is_event":  false,
+                                              "ada_dominant_image_color":  "#c4abaf"
+                                          }
+                                      ],
+                       "performer_order":  [
+                                               {
+                                                   "id":  803108,
+                                                   "ordinal":  0
+                                               }
+                                           ],
+                       "playoffs":  null,
+                       "popularity":  0.7712906649,
+                       "relative_url":  "/braxton-keith-tickets/nashville-tennessee-brooklyn-bowl-nashville-2026-09-11-8-pm/concert/18248867",
+                       "score":  0.457953827,
+                       "season_stage":  null,
+                       "short_title":  "Braxton Keith",
+                       "stats":  {
+
+                                 },
+                       "status":  "normal",
+                       "taxonomies":  [
+                                          {
+                                              "id":  2000000,
+                                              "name":  "concert",
+                                              "parent_id":  null,
+                                              "seo_event_type":  "concert",
+                                              "rank":  0
+                                          }
+                                      ],
+                       "ticketmaster":  null,
+                       "tdc_pv_id":  0,
+                       "tdc_pvo_id":  0,
+                       "time_tbd":  false,
+                       "title":  "Braxton Keith",
+                       "url":  "https://seatgeek.com/braxton-keith-tickets/nashville-tennessee-brooklyn-bowl-nashville-2026-09-11-8-pm/concert/18248867",
+                       "venue":  {
+                                     "id":  515120,
+                                     "name":  "Brooklyn Bowl - Nashville",
+                                     "name_v2":  "Brooklyn Bowl - Nashville",
+                                     "postal_code":  "37201",
+                                     "timezone":  "America/Chicago",
+                                     "score":  0.63,
+                                     "popularity":  6708,
+                                     "address":  "900 3rd Avenue North",
+                                     "country":  "US",
+                                     "city":  "Nashville",
+                                     "state":  "TN",
+                                     "slug":  "brooklyn-bowl-nashville",
+                                     "metro_code":  659,
+                                     "capacity":  0,
+                                     "hidden":  false,
+                                     "links":  [
+
+                                               ],
+                                     "passes":  [
+                                                    {
+                                                        "pass_type":  "PARKING",
+                                                        "name":  "Brooklyn Bowl - Nashville Parking",
+                                                        "url":  "https://seatgeek.com/venues/brooklyn-bowl-nashville/parking",
+                                                        "relative_url":  "/venues/brooklyn-bowl-nashville/parking",
+                                                        "stats":  {
+                                                                      "event_count":  63
+                                                                  }
+                                                    }
+                                                ],
+                                     "extended_address":  "Nashville, TN 37201",
+                                     "display_location":  "Nashville, TN",
+                                     "access_method":  null,
+                                     "location":  {
+                                                      "lat":  36.1727,
+                                                      "lon":  -86.7828
+                                                  },
+                                     "has_upcoming_events":  true,
+                                     "num_upcoming_events":  65,
+                                     "url":  "https://seatgeek.com/venues/brooklyn-bowl-nashville/tickets",
+                                     "relative_url":  "/venues/brooklyn-bowl-nashville/tickets",
+                                     "marquee_city":  null,
+                                     "sg_market_area":  32
+                                 },
+                       "visible_at":  "2026-05-20T08:52:32Z",
+                       "visible_until_utc":  "2026-09-12T02:30:00",
+                       "open_domain_id":  "",
+                       "open_id":  "",
+                       "event_group_ids":  [
+
+                                           ],
+                       "type":  "concert",
+                       "themes":  [
+
+                                  ],
+                       "domain_information":  [
+
+                                              ]
+                   },
+                   {
+                       "access_method":  null,
+                       "announce_date":  "2026-09-03T00:00:00",
+                       "announcements":  {
+
+                                         },
+                       "conditional":  false,
+                       "contingent":  false,
+                       "created_at":  "2026-09-03T13:34:05",
+                       "date_tbd":  false,
+                       "datetime_local":  "2026-09-11T20:00:00",
+                       "datetime_tbd":  false,
+                       "datetime_utc":  "2026-09-12T01:00:00",
+                       "tbd_datetime_range_start_utc":  null,
+                       "tbd_datetime_range_end_utc":  null,
+                       "description":  "",
+                       "onsale":  null,
+                       "enddatetime_utc":  "2026-09-12T02:30:00",
+                       "sales_end_datetime_utc":  "2026-09-12T02:30:00",
+                       "expected_experience_end":  "2026-09-12T02:30:00",
+                       "event_promotion":  null,
+                       "game_number":  0,
+                       "home_game_number":  0,
+                       "id":  18555643,
+                       "integrated":  null,
+                       "is_open":  false,
+                       "is_visible":  true,
+                       "is_visible_override":  "UNSET",
+                       "links":  [
+                                     {
+                                         "id":  "7457434",
+                                         "url":  "",
+                                         "provider":  "vividseats",
+                                         "primary":  false,
+                                         "display_name":  "",
+                                         "logos":  {
+
+                                                   },
+                                         "sales":  [
+
+                                                   ],
+                                         "link_type":  "ID"
+                                     }
+                                 ],
+                       "main_event_id":  null,
+                       "performers":  [
+                                          {
+                                              "type":  "band",
+                                              "name":  "HoneyLuv",
+                                              "id":  801507,
+                                              "divisions":  null,
+                                              "links":  [
+
+                                                        ],
+                                              "has_upcoming_events":  true,
+                                              "primary":  true,
+                                              "stats":  {
+                                                            "event_count":  1
+                                                        },
+                                              "taxonomies":  [
+                                                                 {
+                                                                     "id":  2000000,
+                                                                     "name":  "concert",
+                                                                     "parent_id":  null,
+                                                                     "seo_event_type":  "concert",
+                                                                     "rank":  0
+                                                                 }
+                                                             ],
+                                              "url":  "https://seatgeek.com/honeyluv-tickets",
+                                              "score":  0.51,
+                                              "slug":  "honeyluv",
+                                              "home_venue_id":  null,
+                                              "short_name":  "HoneyLuv",
+                                              "num_upcoming_events":  1,
+                                              "colors":  null,
+                                              "genres":  [
+                                                             {
+                                                                 "id":  477,
+                                                                 "name":  "Electronic",
+                                                                 "slug":  "electronic",
+                                                                 "primary":  true
+                                                             }
+                                                         ],
+                                              "popularity":  33.0,
+                                              "hidden":  false,
+                                              "location":  null,
+                                              "relative_url":  "/honeyluv-tickets",
+                                              "is_event":  false,
+                                              "ada_dominant_image_color":  "#040405"
+                                          }
+                                      ],
+                       "performer_order":  [
+                                               {
+                                                   "id":  801507,
+                                                   "ordinal":  0
+                                               }
+                                           ],
+                       "playoffs":  null,
+                       "popularity":  0.647050565,
+                       "relative_url":  "/honeyluv-tickets/nashville-tennessee-night-we-met-2026-09-11-8-pm/concert/18555643",
+                       "score":  0.1995701207,
+                       "season_stage":  null,
+                       "short_title":  "HoneyLuv",
+                       "stats":  {
+
+                                 },
+                       "status":  "normal",
+                       "taxonomies":  [
+                                          {
+                                              "id":  2000000,
+                                              "name":  "concert",
+                                              "parent_id":  null,
+                                              "seo_event_type":  "concert",
+                                              "rank":  0
+                                          }
+                                      ],
+                       "ticketmaster":  null,
+                       "tdc_pv_id":  0,
+                       "tdc_pvo_id":  0,
+                       "time_tbd":  false,
+                       "title":  "HoneyLuv",
+                       "url":  "https://seatgeek.com/honeyluv-tickets/nashville-tennessee-night-we-met-2026-09-11-8-pm/concert/18555643",
+                       "venue":  {
+                                     "id":  1608756,
+                                     "name":  "Night We Met",
+                                     "name_v2":  "Night We Met",
+                                     "postal_code":  "37203",
+                                     "timezone":  "America/Chicago",
+                                     "score":  0.38,
+                                     "popularity":  229,
+                                     "address":  null,
+                                     "country":  "US",
+                                     "city":  "Nashville",
+                                     "state":  "TN",
+                                     "slug":  "night-we-met",
+                                     "metro_code":  659,
+                                     "capacity":  0,
+                                     "hidden":  false,
+                                     "links":  [
+
+                                               ],
+                                     "passes":  [
+                                                    {
+                                                        "pass_type":  "PARKING",
+                                                        "name":  "Night We Met Parking",
+                                                        "url":  "https://seatgeek.com/venues/night-we-met/parking",
+                                                        "relative_url":  "/venues/night-we-met/parking",
+                                                        "stats":  {
+                                                                      "event_count":  5
+                                                                  }
+                                                    }
+                                                ],
+                                     "extended_address":  "Nashville, TN 37203",
+                                     "display_location":  "Nashville, TN",
+                                     "access_method":  null,
+                                     "location":  {
+                                                      "lat":  36.1627,
+                                                      "lon":  -86.7816
+                                                  },
+                                     "has_upcoming_events":  true,
+                                     "num_upcoming_events":  5,
+                                     "url":  "https://seatgeek.com/venues/night-we-met/tickets",
+                                     "relative_url":  "/venues/night-we-met/tickets",
+                                     "marquee_city":  null,
+                                     "sg_market_area":  32
+                                 },
+                       "visible_at":  "2026-09-03T09:54:07Z",
+                       "visible_until_utc":  "2026-09-12T02:30:00",
+                       "open_domain_id":  "",
+                       "open_id":  "",
+                       "event_group_ids":  [
+
+                                           ],
+                       "type":  "concert",
+                       "themes":  [
+
+                                  ],
+                       "domain_information":  [
+
+                                              ]
+                   },
+                   {
+                       "access_method":  null,
+                       "announce_date":  "2026-08-26T00:00:00",
+                       "announcements":  {
+
+                                         },
+                       "conditional":  false,
+                       "contingent":  false,
+                       "created_at":  "2026-08-26T19:47:10",
+                       "date_tbd":  false,
+                       "datetime_local":  "2026-09-12T15:30:00",
+                       "datetime_tbd":  false,
+                       "datetime_utc":  "2026-09-12T20:30:00",
+                       "tbd_datetime_range_start_utc":  null,
+                       "tbd_datetime_range_end_utc":  null,
+                       "description":  "",
+                       "onsale":  null,
+                       "enddatetime_utc":  "2026-09-12T22:00:00",
+                       "sales_end_datetime_utc":  "2026-09-12T22:00:00",
+                       "expected_experience_end":  "2026-09-12T22:00:00",
+                       "event_promotion":  null,
+                       "game_number":  0,
+                       "home_game_number":  0,
+                       "id":  18536073,
+                       "integrated":  null,
+                       "is_open":  false,
+                       "is_visible":  true,
+                       "is_visible_override":  "UNSET",
+                       "links":  [
+                                     {
+                                         "id":  "6972097",
+                                         "url":  "",
+                                         "provider":  "vividseats",
+                                         "primary":  false,
+                                         "display_name":  "",
+                                         "logos":  {
+
+                                                   },
+                                         "sales":  [
+
+                                                   ],
+                                         "link_type":  "ID"
+                                     }
+                                 ],
+                       "main_event_id":  null,
+                       "performers":  [
+                                          {
+                                              "type":  "band",
+                                              "name":  "Line Dancing Lessons",
+                                              "id":  602550,
+                                              "divisions":  null,
+                                              "links":  [
+
+                                                        ],
+                                              "has_upcoming_events":  true,
+                                              "primary":  true,
+                                              "stats":  {
+                                                            "event_count":  26
+                                                        },
+                                              "taxonomies":  [
+                                                                 {
+                                                                     "id":  2000000,
+                                                                     "name":  "concert",
+                                                                     "parent_id":  null,
+                                                                     "seo_event_type":  "concert",
+                                                                     "rank":  0
+                                                                 }
+                                                             ],
+                                              "url":  "https://seatgeek.com/line-dancing-lessons-tickets",
+                                              "score":  0.38,
+                                              "slug":  "line-dancing-lessons",
+                                              "home_venue_id":  null,
+                                              "short_name":  "Line Dancing Lessons",
+                                              "num_upcoming_events":  26,
+                                              "colors":  null,
+                                              "popularity":  1348.0,
+                                              "hidden":  false,
+                                              "location":  null,
+                                              "relative_url":  "/line-dancing-lessons-tickets",
+                                              "is_event":  false,
+                                              "ada_dominant_image_color":  "#050505"
+                                          }
+                                      ],
+                       "performer_order":  [
+                                               {
+                                                   "id":  602550,
+                                                   "ordinal":  0
+                                               }
+                                           ],
+                       "playoffs":  null,
+                       "popularity":  0.6885666262,
+                       "relative_url":  "/line-dancing-lessons-tickets/nashville-tennessee-ole-red-nashville-2026-09-12-3-30-pm/concert/18536073",
+                       "score":  0.3892669083,
+                       "season_stage":  null,
+                       "short_title":  "Line Dancing Lessons",
+                       "stats":  {
+
+                                 },
+                       "status":  "normal",
+                       "taxonomies":  [
+                                          {
+                                              "id":  2000000,
+                                              "name":  "concert",
+                                              "parent_id":  null,
+                                              "seo_event_type":  "concert",
+                                              "rank":  0
+                                          }
+                                      ],
+                       "ticketmaster":  null,
+                       "tdc_pv_id":  0,
+                       "tdc_pvo_id":  0,
+                       "time_tbd":  false,
+                       "title":  "Line Dancing Lessons",
+                       "url":  "https://seatgeek.com/line-dancing-lessons-tickets/nashville-tennessee-ole-red-nashville-2026-09-12-3-30-pm/concert/18536073",
+                       "venue":  {
+                                     "id":  519598,
+                                     "name":  "Ole Red Nashville",
+                                     "name_v2":  "Ole Red Nashville",
+                                     "postal_code":  "37201",
+                                     "timezone":  "America/Chicago",
+                                     "score":  0.53,
+                                     "popularity":  1348,
+                                     "address":  "300 Broadway",
+                                     "country":  "US",
+                                     "city":  "Nashville",
+                                     "state":  "TN",
+                                     "slug":  "ole-red-nashville",
+                                     "metro_code":  659,
+                                     "capacity":  0,
+                                     "hidden":  false,
+                                     "links":  [
+
+                                               ],
+                                     "passes":  [
+                                                    {
+                                                        "pass_type":  "PARKING",
+                                                        "name":  "Ole Red Nashville Parking",
+                                                        "url":  "https://seatgeek.com/venues/ole-red-nashville/parking",
+                                                        "relative_url":  "/venues/ole-red-nashville/parking",
+                                                        "stats":  {
+                                                                      "event_count":  25
+                                                                  }
+                                                    }
+                                                ],
+                                     "extended_address":  "Nashville, TN 37201",
+                                     "display_location":  "Nashville, TN",
+                                     "access_method":  null,
+                                     "location":  {
+                                                      "lat":  36.1617,
+                                                      "lon":  -86.7762
+                                                  },
+                                     "has_upcoming_events":  true,
+                                     "num_upcoming_events":  26,
+                                     "url":  "https://seatgeek.com/venues/ole-red-nashville/tickets",
+                                     "relative_url":  "/venues/ole-red-nashville/tickets",
+                                     "marquee_city":  null,
+                                     "sg_market_area":  32
+                                 },
+                       "visible_at":  "2026-09-03T09:49:14Z",
+                       "visible_until_utc":  "2026-09-12T22:00:00",
+                       "open_domain_id":  "",
+                       "open_id":  "",
+                       "event_group_ids":  [
+
+                                           ],
+                       "type":  "concert",
+                       "themes":  [
+
+                                  ],
+                       "domain_information":  [
+
+                                              ]
+                   },
+                   {
+                       "access_method":  null,
+                       "announce_date":  "2026-08-26T00:00:00",
+                       "announcements":  {
+
+                                         },
+                       "conditional":  false,
+                       "contingent":  false,
+                       "created_at":  "2026-08-26T19:47:10",
+                       "date_tbd":  false,
+                       "datetime_local":  "2026-09-12T16:30:00",
+                       "datetime_tbd":  false,
+                       "datetime_utc":  "2026-09-12T21:30:00",
+                       "tbd_datetime_range_start_utc":  null,
+                       "tbd_datetime_range_end_utc":  null,
+                       "description":  "",
+                       "onsale":  null,
+                       "enddatetime_utc":  "2026-09-12T23:00:00",
+                       "sales_end_datetime_utc":  "2026-09-12T23:00:00",
+                       "expected_experience_end":  "2026-09-12T23:00:00",
+                       "event_promotion":  null,
+                       "game_number":  0,
+                       "home_game_number":  0,
+                       "id":  18536076,
+                       "integrated":  null,
+                       "is_open":  false,
+                       "is_visible":  true,
+                       "is_visible_override":  "UNSET",
+                       "links":  [
+
+                                 ],
+                       "main_event_id":  null,
+                       "performers":  [
+                                          {
+                                              "type":  "band",
+                                              "name":  "Line Dancing Lessons",
+                                              "id":  602550,
+                                              "divisions":  null,
+                                              "links":  [
+
+                                                        ],
+                                              "has_upcoming_events":  true,
+                                              "primary":  true,
+                                              "stats":  {
+                                                            "event_count":  26
+                                                        },
+                                              "taxonomies":  [
+                                                                 {
+                                                                     "id":  2000000,
+                                                                     "name":  "concert",
+                                                                     "parent_id":  null,
+                                                                     "seo_event_type":  "concert",
+                                                                     "rank":  0
+                                                                 }
+                                                             ],
+                                              "url":  "https://seatgeek.com/line-dancing-lessons-tickets",
+                                              "score":  0.38,
+                                              "slug":  "line-dancing-lessons",
+                                              "home_venue_id":  null,
+                                              "short_name":  "Line Dancing Lessons",
+                                              "num_upcoming_events":  26,
+                                              "colors":  null,
+                                              "popularity":  1348.0,
+                                              "hidden":  false,
+                                              "location":  null,
+                                              "relative_url":  "/line-dancing-lessons-tickets",
+                                              "is_event":  false,
+                                              "ada_dominant_image_color":  "#050505"
+                                          }
+                                      ],
+                       "performer_order":  [
+                                               {
+                                                   "id":  602550,
+                                                   "ordinal":  0
+                                               }
+                                           ],
+                       "playoffs":  null,
+                       "popularity":  0.6907004078,
+                       "relative_url":  "/line-dancing-lessons-tickets/nashville-tennessee-ole-red-nashville-2026-09-12-4-30-pm/concert/18536076",
+                       "score":  0.3973972762,
+                       "season_stage":  null,
+                       "short_title":  "Line Dancing Lessons",
+                       "stats":  {
+
+                                 },
+                       "status":  "normal",
+                       "taxonomies":  [
+                                          {
+                                              "id":  2000000,
+                                              "name":  "concert",
+                                              "parent_id":  null,
+                                              "seo_event_type":  "concert",
+                                              "rank":  0
+                                          }
+                                      ],
+                       "ticketmaster":  null,
+                       "tdc_pv_id":  0,
+                       "tdc_pvo_id":  0,
+                       "time_tbd":  false,
+                       "title":  "Line Dancing Lessons",
+                       "url":  "https://seatgeek.com/line-dancing-lessons-tickets/nashville-tennessee-ole-red-nashville-2026-09-12-4-30-pm/concert/18536076",
+                       "venue":  {
+                                     "id":  519598,
+                                     "name":  "Ole Red Nashville",
+                                     "name_v2":  "Ole Red Nashville",
+                                     "postal_code":  "37201",
+                                     "timezone":  "America/Chicago",
+                                     "score":  0.53,
+                                     "popularity":  1348,
+                                     "address":  "300 Broadway",
+                                     "country":  "US",
+                                     "city":  "Nashville",
+                                     "state":  "TN",
+                                     "slug":  "ole-red-nashville",
+                                     "metro_code":  659,
+                                     "capacity":  0,
+                                     "hidden":  false,
+                                     "links":  [
+
+                                               ],
+                                     "passes":  [
+                                                    {
+                                                        "pass_type":  "PARKING",
+                                                        "name":  "Ole Red Nashville Parking",
+                                                        "url":  "https://seatgeek.com/venues/ole-red-nashville/parking",
+                                                        "relative_url":  "/venues/ole-red-nashville/parking",
+                                                        "stats":  {
+                                                                      "event_count":  25
+                                                                  }
+                                                    }
+                                                ],
+                                     "extended_address":  "Nashville, TN 37201",
+                                     "display_location":  "Nashville, TN",
+                                     "access_method":  null,
+                                     "location":  {
+                                                      "lat":  36.1617,
+                                                      "lon":  -86.7762
+                                                  },
+                                     "has_upcoming_events":  true,
+                                     "num_upcoming_events":  26,
+                                     "url":  "https://seatgeek.com/venues/ole-red-nashville/tickets",
+                                     "relative_url":  "/venues/ole-red-nashville/tickets",
+                                     "marquee_city":  null,
+                                     "sg_market_area":  32
+                                 },
+                       "visible_at":  "2026-08-26T19:47:07Z",
+                       "visible_until_utc":  "2026-09-12T23:00:00",
+                       "open_domain_id":  "",
+                       "open_id":  "",
+                       "event_group_ids":  [
+
+                                           ],
+                       "type":  "concert",
+                       "themes":  [
+
+                                  ],
+                       "domain_information":  [
+
+                                              ]
+                   }
+               ],
+    "meta":  {
+                 "geolocation":  null,
+                 "total":  494,
+                 "took":  0,
+                 "page":  1,
+                 "per_page":  5
+             }
+}

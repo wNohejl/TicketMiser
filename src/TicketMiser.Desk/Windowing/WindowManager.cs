@@ -146,6 +146,23 @@ public class WindowManager
         Relayout();
     }
 
+    /// <summary>
+    /// Whether the command modifier is ⌘. Told once by the desk's script after the first
+    /// render, because the label on a key and the listener that answers it must agree, and
+    /// only the browser knows. False until then, which prints Ctrl — the label a Mac
+    /// operator sees for one render at most, and never on the machine that matters.
+    /// </summary>
+    public bool IsMac { get; private set; }
+
+    public void SetPlatform(bool isMac)
+    {
+        if (isMac == IsMac)
+            return;
+
+        IsMac = isMac;
+        Notify();
+    }
+
     public void SetViewport(double width, double height)
     {
         var changed = Math.Abs(width - ViewportWidth) >= 1 || Math.Abs(height - ViewportHeight) >= 1;

@@ -1,6 +1,6 @@
 /* ============================================================================
-   LineOps — "The Desk"
-   A single-operator sports-data operations console.
+   TicketMiser — "The Desk"
+   A single-operator console for Nashville concert ticket prices, primary and resale.
 
    The visual language follows Apple's Human Interface Guidelines: true-neutral
    dark surfaces, one accent, translucent materials on anything that floats,
@@ -13,7 +13,8 @@
    ============================================================================ */
 
 /* The default theme is apple-dark. The light theme, below, is that second block:
-   it redeclares the same names and changes nothing else in this file. */
+   it redeclares the same names and changes nothing else in this file. The accent
+   blocks after it redeclare only the five accent tokens, under [data-accent]. */
 :root,
 [data-theme="apple-dark"] {
     /* Native chrome — scrollbars, form controls, the canvas behind the app —
@@ -92,16 +93,27 @@
        font-variant-numeric: tabular-nums, which is what .num and .mono below set. */
     --face-ui: -apple-system, BlinkMacSystemFont, 'Inter var', 'Inter', 'Segoe UI', system-ui, sans-serif;
 
-    /* The HIG text-style ramp. A call site names the style, never the pixels. */
-    --text-largetitle: 26px;
-    --text-title1: 22px;
-    --text-title2: 17px;
-    --text-title3: 15px;
-    --text-headline: 13px; /* same size as body, distinguished by weight */
-    --text-body: 13px;
-    --text-subheadline: 12px;
-    --text-footnote: 11px;
-    --text-caption: 10px;
+    /* Two dials the operator turns from Desk settings, written here by theme.js.
+       --type-scale multiplies every font-size in this file and the bridge, and
+       nothing else — legibility without a denser or looser desk. --ui-scale is
+       the zoom on <body>: the whole desk, spacing included, drawn larger or
+       smaller. They are the only two numbers a component may not read as a
+       literal; a font-size written in bare pixels is a size that ignores the
+       operator. */
+    --type-scale: 1;
+    --ui-scale: 1;
+
+    /* The HIG text-style ramp. A call site names the style, never the pixels.
+       Each is its resting size times --type-scale, so the ramp moves as one. */
+    --text-largetitle: calc(26px * var(--type-scale));
+    --text-title1: calc(22px * var(--type-scale));
+    --text-title2: calc(17px * var(--type-scale));
+    --text-title3: calc(15px * var(--type-scale));
+    --text-headline: calc(13px * var(--type-scale)); /* same size as body, distinguished by weight */
+    --text-body: calc(13px * var(--type-scale));
+    --text-subheadline: calc(12px * var(--type-scale));
+    --text-footnote: calc(11px * var(--type-scale));
+    --text-caption: calc(10px * var(--type-scale));
 
     --leading-title: 1.25;
     --leading-body: 1.45;
@@ -318,6 +330,83 @@
     --sheen-soft: rgba(0, 0, 0, .05);
 }
 
+/* ============================================================================
+   The accent, chosen.
+
+   The desk spends one hue on interactivity, focus and selection. Which hue is
+   the operator's, as it is in macOS's own appearance settings. Blue is the
+   default and lives in the two blocks above; each block here redeclares only
+   the five accent tokens — the colour, its hover and press, and the two washes
+   — under a compound selector, so it weighs (0,2,0) and wins over the theme
+   block it sits on without touching anything else. No accent is a state hue:
+   there is no red, orange or green, because a positive tag and a primary
+   button that shared a hue would stop meaning different things.
+
+   Hover travels the way the ground demands. On the dark desk it lightens; on
+   the light desk it deepens, for the reason --accent-hover already gives.
+   The C# mirror is Theming/DeskAccent.cs and DeskThemeTests pins the pairing.
+   ============================================================================ */
+
+[data-theme="apple-dark"][data-accent="teal"] {
+    --accent: #40C8E0;
+    --accent-hover: #5FD3E7;
+    --accent-press: #2BB7CF;
+    --accent-wash: rgba(64, 200, 224, .15);
+    --accent-wash-strong: rgba(64, 200, 224, .24);
+}
+[data-theme="light"][data-accent="teal"] {
+    --accent: #30B0C7;
+    --accent-hover: #2A9DB2;
+    --accent-press: #24899C;
+    --accent-wash: rgba(48, 176, 199, .12);
+    --accent-wash-strong: rgba(48, 176, 199, .20);
+}
+
+[data-theme="apple-dark"][data-accent="indigo"] {
+    --accent: #5E5CE6;
+    --accent-hover: #7C7AEB;
+    --accent-press: #4B49D9;
+    --accent-wash: rgba(94, 92, 230, .15);
+    --accent-wash-strong: rgba(94, 92, 230, .24);
+}
+[data-theme="light"][data-accent="indigo"] {
+    --accent: #5856D6;
+    --accent-hover: #4F4DC4;
+    --accent-press: #4644AD;
+    --accent-wash: rgba(88, 86, 214, .12);
+    --accent-wash-strong: rgba(88, 86, 214, .20);
+}
+
+[data-theme="apple-dark"][data-accent="purple"] {
+    --accent: #BF5AF2;
+    --accent-hover: #CB78F5;
+    --accent-press: #AD3FE6;
+    --accent-wash: rgba(191, 90, 242, .15);
+    --accent-wash-strong: rgba(191, 90, 242, .24);
+}
+[data-theme="light"][data-accent="purple"] {
+    --accent: #AF52DE;
+    --accent-hover: #A046CF;
+    --accent-press: #8F3DB8;
+    --accent-wash: rgba(175, 82, 222, .12);
+    --accent-wash-strong: rgba(175, 82, 222, .20);
+}
+
+[data-theme="apple-dark"][data-accent="graphite"] {
+    --accent: #8E8E93;
+    --accent-hover: #A1A1A6;
+    --accent-press: #7C7C81;
+    --accent-wash: rgba(142, 142, 147, .15);
+    --accent-wash-strong: rgba(142, 142, 147, .24);
+}
+[data-theme="light"][data-accent="graphite"] {
+    --accent: #8E8E93;
+    --accent-hover: #7D7D82;
+    --accent-press: #6C6C70;
+    --accent-wash: rgba(142, 142, 147, .12);
+    --accent-wash-strong: rgba(142, 142, 147, .20);
+}
+
 /* Inter, self-hosted. The variable file covers every weight the ramp asks for,
    so there is one request rather than four. */
 @font-face {
@@ -349,6 +438,14 @@ html, body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
+
+/* UI scale. CSS zoom rather than a transform, because zoom is layout: 100% still
+   fills the window, text still wraps at the right place, and every popover MudBlazor
+   positions is measured in the same scaled space it is drawn in. On <body> rather
+   than <html> so the canvas colour and the scrollbars stay the browser's own size.
+   windowing.js divides its pointer arithmetic by the live zoom; nothing else needs
+   to know. */
+body { zoom: var(--ui-scale); }
 
 /* Numbers are read in columns, so they get tabular figures everywhere. There is
    no separate mono family any more — SF and Inter both carry proper tabular
@@ -613,6 +710,19 @@ html, body {
     transition:
         background-color var(--dur-fast) var(--ease-standard),
         color var(--dur-fast) var(--ease-standard);
+}
+
+/* The shortcut, printed at the far end of a drawer key the way a Mac menu prints
+   its equivalents: dim, tabular, and never the thing the eye lands on first. Hidden
+   in the strip itself, where a key has no room for a second word. */
+.bar__kbd {
+    margin-left: auto;
+    padding-left: var(--space-3);
+    font-family: inherit;
+    font-size: var(--text-footnote);
+    font-variant-numeric: tabular-nums;
+    color: var(--text-tertiary);
+    white-space: nowrap;
 }
 
 .bar__key-name {
@@ -976,6 +1086,52 @@ html, body {
     .marble.gate__cap { transition: none; }
 }
 
+/* ---- The swatch row --------------------------------------------------------
+   The accent picker: one filled circle per hue, the way macOS lays its accent
+   colours out. A radiogroup like the gate, but the positions are colours, so
+   there is no cap to slide — the chosen swatch wears a ring in its own hue
+   and the rest sit plain. Each swatch paints its own --swatch, which is the
+   one place on the desk a colour token is set per element rather than per
+   theme: the row has to show the hues the operator is *not* on. */
+.swatches {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 2px;
+}
+
+.swatch {
+    position: relative;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: var(--swatch);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .12), var(--shadow-1);
+    cursor: pointer;
+    transition: transform var(--dur-fast) var(--ease-standard);
+}
+
+.swatch:hover { transform: scale(1.08); }
+
+.swatch::after {
+    content: "";
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    transition: border-color var(--dur-fast) var(--ease-standard);
+}
+
+.swatch--on::after { border-color: var(--swatch); }
+
+.swatch:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+@media (prefers-reduced-motion: reduce) {
+    .swatch, .swatch::after { transition: none; }
+}
+
 /* ---- The tab bar ----------------------------------------------------------
    Navigation, not a control: these switch which part of a window you are
    looking at, where the gate above switches what a single reading is made of.
@@ -1024,7 +1180,7 @@ html, body {
     border-radius: 4px;
     color: var(--text-secondary);
     font-family: var(--face-ui);
-    font-size: 10.5px;
+    font-size: calc(10.5px * var(--type-scale));
     font-weight: 600;
     letter-spacing: .09em;
     text-transform: uppercase;
@@ -1145,7 +1301,7 @@ html, body {
 .ftr__divider { width: 1px; height: 16px; background: var(--separator); flex: 0 0 auto; }
 
 .ftr__stat {
-    font-size: 11px;
+    font-size: calc(11px * var(--type-scale));
     color: var(--text-tertiary);
     white-space: nowrap;
     letter-spacing: .04em;
@@ -1154,7 +1310,7 @@ html, body {
 
 .ftr__flag {
     color: var(--accent);
-    font-size: 9.5px;
+    font-size: calc(9.5px * var(--type-scale));
     text-transform: uppercase;
     letter-spacing: .1em;
     margin-left: 4px;
@@ -1170,7 +1326,7 @@ html, body {
     background: var(--state-warning-wash);
     border-radius: 4px;
     color: var(--state-warning);
-    font-size: 11.5px;
+    font-size: calc(11.5px * var(--type-scale));
     flex: 0 1 auto;
     min-width: 0;
 }
@@ -1621,7 +1777,7 @@ body.splitting, body.splitting * { cursor: col-resize !important; }
 }
 
 .launcher__group {
-    font-size: 10px;
+    font-size: calc(10px * var(--type-scale));
     font-weight: 600;
     letter-spacing: .13em;
     text-transform: uppercase;
@@ -1642,7 +1798,7 @@ body.splitting, body.splitting * { cursor: col-resize !important; }
     text-align: left;
     cursor: pointer;
     font-family: inherit;
-    font-size: 13px;
+    font-size: calc(13px * var(--type-scale));
 }
 
 /* Neutral, not accent: a launcher row lights under the pointer, it is not selected.
@@ -1651,20 +1807,20 @@ body.splitting, body.splitting * { cursor: col-resize !important; }
 .launcher__item:hover { background: var(--surface-3); }
 .launcher__item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .launcher__item svg { width: 17px; height: 17px; color: var(--text-secondary); margin-top: 1px; flex: 0 0 auto; }
-.launcher__desc { display: block; color: var(--text-tertiary); font-size: 11.5px; margin-top: 2px; line-height: 1.4; }
+.launcher__desc { display: block; color: var(--text-tertiary); font-size: calc(11.5px * var(--type-scale)); margin-top: 2px; line-height: 1.4; }
 
 .launcher__note {
     padding: 8px 11px;
     margin: 4px 0 0;
     border-top: 1px solid var(--separator);
     color: var(--state-warning);
-    font-size: 11.5px;
+    font-size: calc(11.5px * var(--type-scale));
     line-height: 1.45;
 }
 
 /* Already open: clicking still focuses it, so this informs rather than disables. */
 .launcher__open {
-    font-size: 9px;
+    font-size: calc(9px * var(--type-scale));
     letter-spacing: .11em;
     text-transform: uppercase;
     color: var(--state-positive);
@@ -1679,7 +1835,7 @@ body.splitting, body.splitting * { cursor: col-resize !important; }
 /* --------------------------------------------------- panel typography ---- */
 
 .panel-h {
-    font-size: 10.5px;
+    font-size: calc(10.5px * var(--type-scale));
     font-weight: 600;
     letter-spacing: .13em;
     text-transform: uppercase;
@@ -1703,7 +1859,7 @@ body.splitting, body.splitting * { cursor: col-resize !important; }
 
 .metric__value {
     font-variant-numeric: tabular-nums;
-    font-size: 22px;
+    font-size: calc(22px * var(--type-scale));
     font-weight: var(--weight-medium);
     line-height: 1.05;
     letter-spacing: -.02em;
@@ -1715,14 +1871,14 @@ body.splitting, body.splitting * { cursor: col-resize !important; }
 .metric--info .metric__value { color: var(--accent); }
 
 .metric__label {
-    font-size: 10.5px;
+    font-size: calc(10.5px * var(--type-scale));
     letter-spacing: .1em;
     text-transform: uppercase;
     color: var(--text-secondary);
     margin-top: 5px;
 }
 
-.metric__note { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+.metric__note { font-size: calc(11px * var(--type-scale)); color: var(--text-tertiary); margin-top: 2px; }
 
 /* A tile that is also the way to the thing it counts.
    Gloss is the desk's affordance channel (ADR 0008), so the tile that leads somewhere is
@@ -1749,7 +1905,7 @@ body.splitting, body.splitting * { cursor: col-resize !important; }
     box-shadow: var(--focus-ring);
 }
 
-.metric__go { float: right; font-size: 15px; line-height: 1; color: var(--text-tertiary); }
+.metric__go { float: right; font-size: calc(15px * var(--type-scale)); line-height: 1; color: var(--text-tertiary); }
 .metric--action:hover .metric__go { color: var(--text-primary); }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1853,19 +2009,19 @@ body.splitting, body.splitting * { cursor: col-resize !important; }
 
 .price__line {
     font-variant-numeric: tabular-nums;
-    font-size: 11px;
+    font-size: calc(11px * var(--type-scale));
     color: var(--text-secondary);
 }
 
 .price__odds {
     font-variant-numeric: tabular-nums;
-    font-size: 13px;
+    font-size: calc(13px * var(--type-scale));
     color: var(--text-primary);
 }
 
 /* The book that holds the best number, in two letters. */
 .price__book {
-    font-size: 9px;
+    font-size: calc(9px * var(--type-scale));
     font-weight: 500;
     letter-spacing: .1em;
     color: var(--accent);
@@ -1915,7 +2071,7 @@ body.splitting, body.splitting * { cursor: col-resize !important; }
    does not compete with the ticks. */
 .price__edge {
     font-variant-numeric: tabular-nums;
-    font-size: 9.5px;
+    font-size: calc(9.5px * var(--type-scale));
     letter-spacing: .04em;
     color: var(--text-tertiary);
     opacity: 0;
@@ -1961,7 +2117,7 @@ body.splitting, body.splitting * { cursor: col-resize !important; }
 .board__gap {
     margin-top: 3px;
     color: var(--state-warning);
-    font-size: 11px;
+    font-size: calc(11px * var(--type-scale));
     line-height: 1.35;
     max-width: 34ch;
 }
@@ -2004,7 +2160,7 @@ body.splitting, body.splitting * { cursor: col-resize !important; }
 }
 
 .board__actions-label {
-    font-size: 10px;
+    font-size: calc(10px * var(--type-scale));
     font-weight: 600;
     letter-spacing: .12em;
     text-transform: uppercase;
@@ -2084,7 +2240,7 @@ body.dialog-dragging { user-select: none; }
    even though there is no second family left to set them in. */
 .deskdialog__sub {
     font-variant-numeric: tabular-nums;
-    font-size: 10.5px;
+    font-size: calc(10.5px * var(--type-scale));
     color: var(--text-tertiary);
     white-space: nowrap;
     overflow: hidden;
@@ -2216,13 +2372,13 @@ body.dialog-dragging { user-select: none; }
     gap: 12px;
 }
 
-.pullmenu__label { font-size: 13px; }
+.pullmenu__label { font-size: calc(13px * var(--type-scale)); }
 
 /* The price is stated before the click, not discovered afterwards. */
 .pullmenu__cost {
     flex: 0 0 auto;
     font-variant-numeric: tabular-nums;
-    font-size: 10px;
+    font-size: calc(10px * var(--type-scale));
     letter-spacing: .06em;
     text-transform: uppercase;
     color: var(--text-tertiary);
@@ -2232,7 +2388,7 @@ body.dialog-dragging { user-select: none; }
     display: block;
     margin-top: 2px;
     color: var(--text-tertiary);
-    font-size: 11.5px;
+    font-size: calc(11.5px * var(--type-scale));
     line-height: 1.4;
 }
 
@@ -2283,7 +2439,7 @@ body.dialog-dragging { user-select: none; }
     flex: 0 0 auto;
     opacity: 0;
     color: var(--accent);
-    font-size: 9.5px;
+    font-size: calc(9.5px * var(--type-scale));
     font-weight: 600;
     letter-spacing: .1em;
     text-transform: uppercase;
@@ -2641,6 +2797,14 @@ select.field option { background: var(--surface-2); color: var(--text-primary); 
     border-color: var(--state-negative);
     box-shadow: 0 0 0 3px var(--state-negative-wash), 0 0 0 1px var(--state-negative);
 }
+/* A settings row: a label column that lines up down the panel, the control, and the
+   sentence that says what the control's position means right now. The label column
+   is a fixed rung so five rows read as one table rather than five paragraphs. */
+.setting { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; min-height: 28px; }
+.setting__label { flex: 0 0 72px; font-size: var(--text-subheadline); color: var(--text-secondary); }
+.setting__hint { font-size: var(--text-footnote); color: var(--text-secondary); }
+.setting__hint.num { font-variant-numeric: tabular-nums; }
+
 .row--end { justify-content: flex-end; }
 .row--start { justify-content: flex-start; }
 .row--center { justify-content: center; }
@@ -2663,7 +2827,7 @@ select.field option { background: var(--surface-2); color: var(--text-primary); 
     border-radius: 4px;
     background: var(--surface-2);
     color: var(--text-secondary);
-    font-size: 12px;
+    font-size: calc(12px * var(--type-scale));
     line-height: 1.5;
 }
 
@@ -2716,7 +2880,7 @@ select.field option { background: var(--surface-2); color: var(--text-primary); 
     padding: 8px 11px;
     cursor: pointer;
     color: var(--text-primary);
-    font-size: 12px;
+    font-size: calc(12px * var(--type-scale));
     font-weight: 600;
     list-style: none;
     display: flex;
@@ -2740,7 +2904,7 @@ select.field option { background: var(--surface-2); color: var(--text-primary); 
     padding: 2px 11px 11px;
     border-top: 1px solid var(--separator);
     color: var(--text-secondary);
-    font-size: 12px;
+    font-size: calc(12px * var(--type-scale));
     line-height: 1.55;
 }
 
@@ -2762,7 +2926,7 @@ select.field option { background: var(--surface-2); color: var(--text-primary); 
    platform stack, not a bundled font: nothing here has to match Inter's metrics. */
 .runbook__body code {
     font-family: ui-monospace, monospace;
-    font-size: 11px;
+    font-size: calc(11px * var(--type-scale));
     background: var(--surface-1);
     padding: 1px 4px;
     border-radius: 3px;
@@ -2869,11 +3033,11 @@ select.field option { background: var(--surface-2); color: var(--text-primary); 
     margin-bottom: 5px;
     color: var(--text-secondary);
     font-family: var(--face-ui);
-    font-size: 11.5px;
+    font-size: calc(11.5px * var(--type-scale));
     line-height: 1.3;
 }
 
-.prog__pct { color: var(--text-primary); font-size: 11.5px; flex: 0 0 auto; }
+.prog__pct { color: var(--text-primary); font-size: calc(11.5px * var(--type-scale)); flex: 0 0 auto; }
 
 .prog__track {
     height: 4px;
@@ -3027,7 +3191,7 @@ select.field option { background: var(--surface-2); color: var(--text-primary); 
     padding: 6px 9px;
     background: var(--surface-2);
     border-bottom: 1px solid var(--separator);
-    font-size: 11px;
+    font-size: calc(11px * var(--type-scale));
 }
 
 .snippet__icon { display: inline-flex; color: var(--text-secondary); }
@@ -3039,7 +3203,7 @@ select.field option { background: var(--surface-2); color: var(--text-primary); 
     color: var(--text-secondary);
 }
 
-.snippet__note { color: var(--text-tertiary); font-size: 10.5px; }
+.snippet__note { color: var(--text-tertiary); font-size: calc(10.5px * var(--type-scale)); }
 .snippet__spacer { flex: 1 1 auto; }
 
 /* The escape hatch. Quiet by default — the snippet is usually the answer, and a
@@ -3053,7 +3217,7 @@ select.field option { background: var(--surface-2); color: var(--text-primary); 
     border-radius: 4px;
     color: var(--text-secondary);
     font: inherit;
-    font-size: 10.5px;
+    font-size: calc(10.5px * var(--type-scale));
     padding: 2px 6px;
     cursor: pointer;
     transition: color .12s ease, border-color .12s ease;
@@ -3069,7 +3233,7 @@ select.field option { background: var(--surface-2); color: var(--text-primary); 
 .snippet__markets { display: flex; gap: 18px; flex-wrap: wrap; }
 
 .snippet__market-name {
-    font-size: 10px;
+    font-size: calc(10px * var(--type-scale));
     letter-spacing: .1em;
     text-transform: uppercase;
     color: var(--text-tertiary);
@@ -3082,21 +3246,21 @@ select.field option { background: var(--surface-2); color: var(--text-primary); 
     display: flex;
     align-items: baseline;
     gap: 6px;
-    font-size: 12px;
+    font-size: calc(12px * var(--type-scale));
 }
 
 .snippet__side--empty { color: var(--text-tertiary); }
 .snippet__sel { max-width: 16ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .snippet__line { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 .snippet__price { color: var(--text-primary); font-weight: var(--weight-semibold); font-variant-numeric: tabular-nums; }
-.snippet__book { font-size: 10.5px; }
+.snippet__book { font-size: calc(10.5px * var(--type-scale)); }
 
 /* Form snippet: one run of results per side. */
 .snippet__form { display: flex; gap: 22px; flex-wrap: wrap; }
 .snippet__formside { display: flex; flex-direction: column; gap: 3px; }
 
 .snippet__formname {
-    font-size: 12px;
+    font-size: calc(12px * var(--type-scale));
     font-weight: var(--weight-semibold);
     color: var(--text-primary);
     max-width: 22ch;
@@ -3123,19 +3287,19 @@ select.field option { background: var(--surface-2); color: var(--text-primary); 
 }
 
 .fact__label {
-    font-size: 10px;
+    font-size: calc(10px * var(--type-scale));
     letter-spacing: .1em;
     text-transform: uppercase;
     color: var(--text-tertiary);
     margin-bottom: 3px;
 }
 
-.fact__value { font-size: 12.5px; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.fact__value { font-size: calc(12.5px * var(--type-scale)); color: var(--text-primary); font-variant-numeric: tabular-nums; }
 .fact__value .good { color: var(--state-positive); }
 .fact__value .bad { color: var(--state-negative); }
 
 /* A tighter grid, for tables that live inside a snippet rather than a window. */
-.grid--tight { font-size: 12px; }
+.grid--tight { font-size: calc(12px * var(--type-scale)); }
 .grid--tight th { padding: 0 7px 5px; position: static; }
 .grid--tight td { padding: 5px 7px; }
 
@@ -3159,7 +3323,7 @@ select.field option { background: var(--surface-2); color: var(--text-primary); 
     border-radius: 4px;
     color: var(--text-secondary);
     font: inherit;
-    font-size: 11px;
+    font-size: calc(11px * var(--type-scale));
     padding: 3px 9px;
     cursor: pointer;
     transition: color .12s ease, border-color .12s ease, background .12s ease;
@@ -3167,7 +3331,7 @@ select.field option { background: var(--surface-2); color: var(--text-primary); 
 
 .splits__key:hover { color: var(--text-primary); border-color: var(--separator-strong); }
 
-.splits__pick { max-width: 190px; margin-left: auto; font-size: 11px; }
+.splits__pick { max-width: 190px; margin-left: auto; font-size: calc(11px * var(--type-scale)); }
 
 /* ---- Log rows --------------------------------------------------------------
    A game or a player, expandable in place. Not a table, because the expanded
@@ -3196,7 +3360,7 @@ select.field option { background: var(--surface-2); color: var(--text-primary); 
     border: 0;
     color: var(--text-primary);
     font: inherit;
-    font-size: 12.5px;
+    font-size: calc(12.5px * var(--type-scale));
     text-align: left;
     cursor: pointer;
     transition: background .12s ease;
@@ -3206,7 +3370,7 @@ select.field option { background: var(--surface-2); color: var(--text-primary); 
    is being pointed at, not opened — opening it is what .logrow--open reports. */
 .logrow__head:hover { background: var(--surface-3); }
 
-.logrow__date { font-size: 11.5px; min-width: 7ch; font-variant-numeric: tabular-nums; }
+.logrow__date { font-size: calc(11.5px * var(--type-scale)); min-width: 7ch; font-variant-numeric: tabular-nums; }
 
 .logrow__opp {
     flex: 1 1 auto;
@@ -3246,7 +3410,7 @@ select.field option { background: var(--surface-2); color: var(--text-primary); 
     padding-top: 7px;
     border-top: 1px solid var(--separator);
     color: var(--text-tertiary);
-    font-size: 10.5px;
+    font-size: calc(10.5px * var(--type-scale));
     line-height: 1.5;
 }
 
@@ -3275,7 +3439,7 @@ select.field option { background: var(--surface-2); color: var(--text-primary); 
    difference. Tracked, and set in a 3px-radius chip rather than a capsule — a capsule
    is the tag's shape and means "a state", which this is not: it names a side. */
 .price__sel {
-    font-size: 10px;
+    font-size: calc(10px * var(--type-scale));
     font-weight: var(--weight-semibold);
     letter-spacing: .04em;
     color: var(--text-secondary);

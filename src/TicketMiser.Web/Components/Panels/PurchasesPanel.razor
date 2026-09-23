@@ -1,0 +1,348 @@
+@using System.Globalization
+@using TicketMiser.Core.Analytics
+@using TicketMiser.Core.Entities
+@using TicketMiser.Web.Services
+@inherits DeskPanel
+@inject IPurchaseQueries Queries
+@inject IDeskAlerts Alerts
+@inject DeskToasts Toasts
+@inject IJSRuntime JS
+
+@*
+    What was paid, where, and how it compares with the price on the day. LineOps's journal,
+    with the closing line become the day-of price.
+
+    A purchase is graded after its event is played, against the final price of the same kind —
+    all-in against all-in, face value against face value, and in the same market when the source
+    is known — and not at all otherwise. An ungraded row says why rather than showing a dash,
+    because "not played yet" and "no comparable price was ever recorded" are different answers.
+
+    The saving is coloured on the number and nowhere else: hue is state, and it belongs on the
+    value that reports it (apple-mudblazor). Open a row for its actions — the Event window, the
+    receipt, and delete, which asks first because it cannot be undone.
+*@
+
+<div class="row" style="margin-bottom:12px">
+    <DeskSwitch Options="Filters" Label="Graded" Value="_filter" ValueChanged="@((Filter f) => SetFilter(f))" />
+    <span class="ftr__spacer"></span>
+    @* No Filled key: this window reads. Logging is done from the row that showed the price. *@
+    <DeskButton Icon="@Icons.Material.Filled.Refresh" OnClick="LoadAsync" Busy="@_loading">Refresh</DeskButton>
+</div>
+
+@if (_failed)
+{
+    <EmptyState Kind="EmptyStateKind.Error">
+        <ChildContent>The purchases could not be read.</ChildContent>
+        <Action>
+            <DeskButton Emphasis="DeskEmphasis.Plain" OnClick="LoadAsync">Try again</DeskButton>
+        </Action>
+    </EmptyState>
+}
+else if (_loading && _lines.Count == 0)
+{
+    <EmptyState>Reading the purchases.</EmptyState>
+}
+else if (_lines.Count == 0)
+{
+    <EmptyState Kind="EmptyStateKind.New">
+        <ChildContent>
+            No purchases logged. Open a row on the Watchlist and press <strong>Log purchase</strong>:
+            the form starts from the price the row shows, and the purchase is graded against the
+            day-of price once the event has been played.
+        </ChildContent>
+        <Action>
+            <DeskButton Size="DeskKeySize.Small" Emphasis="DeskEmphasis.Tinted"
+                        Icon="@Icons.Material.Filled.Leaderboard" OnClick="OpenWatchlist">
+                Open the Watchlist
+            </DeskButton>
+        </Action>
+    </EmptyState>
+}
+else if (_visible.Count == 0)
+{
+    <EmptyState Kind="EmptyStateKind.Filtered">
+        <ChildContent>No @(_filter == Filter.Graded ? "graded" : "ungraded") purchase. The ledger holds @_lines.Count.</ChildContent>
+        <Action>
+            <DeskButton Size="DeskKeySize.Small" Icon="@Icons.Material.Filled.FilterAltOff" OnClick="() => SetFilter(Filter.All)">
+                Show every purchase
+            </DeskButton>
+        </Action>
+    </EmptyState>
+}
+else
+{
+    <DeskGrid T="PurchaseLine" Items="_visible" Class="deskgrid--clickable"
+              RowClassFunc="@((l, _) => _open == l.Purchase.Id ? "board__row--open" : string.Empty)"
+              OnRowClick="@(e => Toggle(e.Item))"
+              EmptyText="No purchases.">
+
+        <TemplateColumn T="PurchaseLine" Title="Event" SortBy="@(l => l.Event.Name)">
+            <CellTemplate>
+                <DeskLink Destination="event" OnClick="() => OpenEvent(context.Item.Event)">@context.Item.Event.Name</DeskLink>
+                <div class="dim num">@Local(context.Item.Event.StartsAt, context.Item.Event.Venue?.Timezone)</div>
+                @if (_open == context.Item.Purchase.Id)
+                {
+                    <RowActions @key="context.Item.Purchase.Id" Actions="ActionsFor(context.Item)" />
+                }
+            </CellTemplate>
+        </TemplateColumn>
+
+        <TemplateColumn T="PurchaseLine" Title="Venue" SortBy="@(l => l.Event.Venue == null ? string.Empty : l.Event.Venue.Name)">
+            <CellTemplate>@(context.Item.Event.Venue?.Name ?? "—")</CellTemplate>
+        </TemplateColumn>
+
+        <TemplateColumn T="PurchaseLine" Title="Bought at" SortBy="@(l => l.Source == null ? string.Empty : l.Source.Name)">
+            <CellTemplate>
+                @if (context.Item.Source is { } source)
+                {
+                    <DeskLink Destination="@source.Name" Tooltip="@($"Open this event at {source.Name}")"
+                              OnClick="() => OpenSourceAsync(source, context.Item.Event)">@source.Name</DeskLink>
+                }
+                else
+                {
+                    <span class="dim">@PurchaseLedger.Elsewhere</span>
+                }
+                <div class="dim num">@Local(context.Item.Purchase.PurchasedAt, PurchaseReceipt.NashvilleZone)</div>
+            </CellTemplate>
+        </TemplateColumn>
+
+        <TemplateColumn T="PurchaseLine" Title="Tickets" SortBy="@(l => l.Purchase.Quantity)">
+            <CellTemplate><span class="num">@context.Item.Purchase.Quantity.ToString("N0", Money)</span></CellTemplate>
+        </TemplateColumn>
+
+        <TemplateColumn T="PurchaseLine" Title="Per ticket" SortBy="@(l => l.Purchase.PaidPerTicket)">
+            <CellTemplate>
+                <span class="num" data-cell="paid">@PurchaseLedger.Amount(context.Item.Purchase.PaidPerTicket, context.Item.Purchase.Currency)</span>
+                <Tag State="@(context.Item.Purchase.AllIn ? DeskState.Info : DeskState.Neutral)"
+                     Title="@(context.Item.Purchase.AllIn ? "Fees included" : "Fees not included")">
+                    @PurchaseLedger.BasisWord(context.Item.Purchase.AllIn)
+                </Tag>
+            </CellTemplate>
+        </TemplateColumn>
+
+        <TemplateColumn T="PurchaseLine" Title="Total" SortBy="@(l => l.Total)">
+            <CellTemplate><span class="num">@PurchaseLedger.Amount(context.Item.Total, context.Item.Purchase.Currency)</span></CellTemplate>
+        </TemplateColumn>
+
+        <TemplateColumn T="PurchaseLine" Title="Day-of" Sortable="false">
+            <CellTemplate>
+                @if (context.Item.Grade == PurchaseGrade.Graded && context.Item.DayOf is { Lowest: { } low } dayOf)
+                {
+                    <span class="num" data-cell="dayof">@PurchaseLedger.Amount(low, dayOf.Currency)</span>
+                    @if (context.Item.DayOfSource is { } dayOfSource)
+                    {
+                        <span class="price__book" title="@dayOfSource.Name">@SourceMonogram.For(dayOfSource)</span>
+                    }
+                }
+                else
+                {
+                    <Tag State="@(context.Item.Grade == PurchaseGrade.NoComparableFinal ? DeskState.Warning : DeskState.Neutral)"
+                         Title="@context.Item.Reason">@GradeWord(context.Item.Grade)</Tag>
+                    <div class="board__gap" data-reason>@context.Item.Reason</div>
+                }
+            </CellTemplate>
+        </TemplateColumn>
+
+        <TemplateColumn T="PurchaseLine" Title="Saved" SortBy="@(l => l.SavedTotal ?? decimal.MinValue)">
+            <CellTemplate>
+                @if (context.Item.SavedPerTicket is { } per)
+                {
+                    <div class="num @Hue(per)" data-cell="saved-per" title="Per ticket, against the day-of price">
+                        @Signed(per) <span class="dim">each</span>
+                    </div>
+                    <div class="num @Hue(per)" data-cell="saved-total" title="All tickets on this line">
+                        @Signed(context.Item.SavedTotal!.Value)
+                    </div>
+                }
+                else
+                {
+                    <span class="dim">—</span>
+                }
+            </CellTemplate>
+        </TemplateColumn>
+    </DeskGrid>
+
+    @if (_visible.Any(l => l.Source?.Key == "seatgeek" || l.DayOfSource?.Key == "seatgeek"))
+    {
+        <p class="empty" style="padding:9px 0 0">Day-of resale prices from SeatGeek.</p>
+    }
+}
+
+@code {
+    private enum Filter { All, Graded, Ungraded }
+
+    private static readonly CultureInfo Money = CultureInfo.GetCultureInfo("en-US");
+
+    private static readonly IReadOnlyList<DeskSwitchOption<Filter>> Filters =
+    [
+        new(Filter.All, "All", "Every purchase"),
+        new(Filter.Graded, "Graded", "Graded against the day-of price"),
+        new(Filter.Ungraded, "Ungraded", "Not played yet, or no day-of price of the same kind")
+    ];
+
+    private List<PurchaseLine> _lines = [];
+    private List<PurchaseLine> _visible = [];
+    private Filter _filter = Filter.All;
+    private long? _open;
+    private bool _loading = true;
+    private bool _failed;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _failed = false;
+
+        try
+        {
+            await WithActivityAsync(
+                async () =>
+                {
+                    _lines = (await Queries.LoadAsync()).ToList();
+                    ApplyFilter();
+                },
+                settle: () => _lines.Count == 0 ? PulseState.Idle : PulseState.Healthy,
+                status: () => _lines.Count == 0 ? "none logged" : $"{_lines.Count(l => l.Grade == PurchaseGrade.Graded)}/{_lines.Count} graded");
+        }
+        catch
+        {
+            _failed = true;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void SetFilter(Filter filter)
+    {
+        _filter = filter;
+        ApplyFilter();
+    }
+
+    /// <summary>Held as a field and rebuilt only when the filter or the data changes, so a sorted grid stays sorted.</summary>
+    private void ApplyFilter()
+    {
+        _visible = _lines
+            .Where(l => _filter switch
+            {
+                Filter.Graded => l.Grade == PurchaseGrade.Graded,
+                Filter.Ungraded => l.Grade != PurchaseGrade.Graded,
+                _ => true
+            })
+            .ToList();
+
+        if (_open is { } open && _visible.All(l => l.Purchase.Id != open))
+            _open = null;
+    }
+
+    private void Toggle(PurchaseLine line)
+        => _open = _open == line.Purchase.Id ? null : line.Purchase.Id;
+
+    private List<RowAction> ActionsFor(PurchaseLine line) =>
+    [
+        new()
+        {
+            Key = "event",
+            Label = "Open event",
+            Icon = Icons.Material.Filled.Event,
+            OpenWindow = () => { OpenEvent(line.Event); return Task.CompletedTask; }
+        },
+        new()
+        {
+            Key = "receipt",
+            Label = "Export receipt",
+            Icon = Icons.Material.Filled.Download,
+            OpenWindow = () => ExportReceiptAsync(line.Event.Id)
+        },
+        new()
+        {
+            Key = "delete",
+            Label = "Delete",
+            Icon = Icons.Material.Filled.Delete,
+            Role = DeskRole.Destructive,
+            OpenWindow = () => DeleteAsync(line)
+        }
+    ];
+
+    /// <summary>
+    /// The receipt is a file, not a page: the endpoint answers with an attachment, so the browser
+    /// saves it rather than navigating the desk away.
+    /// </summary>
+    private async Task ExportReceiptAsync(int eventId)
+        => await JS.InvokeVoidAsync("open", ReceiptUrl(eventId), "_blank", "noopener");
+
+    public static string ReceiptUrl(int eventId) => $"/receipts/{eventId.ToString(CultureInfo.InvariantCulture)}.md";
+
+    private async Task DeleteAsync(PurchaseLine line)
+    {
+        var p = line.Purchase;
+        var what = $"{p.Quantity} × {PurchaseLedger.Amount(p.PaidPerTicket, p.Currency)} {PurchaseLedger.BasisWord(p.AllIn)}";
+
+        if (!await Alerts.ConfirmAsync(
+                heading: "Delete this purchase?",
+                message: $"{what} for {line.Event.Name} is removed from the ledger and from Savings. The event's on-sale record is not touched. This cannot be undone.",
+                confirmLabel: "Delete purchase",
+                cancelLabel: "Keep it",
+                destructive: true))
+        {
+            return;
+        }
+
+        try
+        {
+            await Queries.DeleteAsync(p.Id);
+            Toasts.Success($"Deleted {what} for {line.Event.Name}.");
+        }
+        catch (Exception ex)
+        {
+            Toasts.Fail($"The purchase was not deleted: {ex.Message}");
+        }
+
+        _open = null;
+        await LoadAsync();
+
+        // The press was handled inside RowActions, and Blazor re-renders the component that
+        // handled it — not this panel — so the grid would keep the deleted row until told.
+        StateHasChanged();
+    }
+
+    private void OpenWatchlist()
+    {
+        if (WindowCatalog.Find(WindowCatalog.Watchlist) is { } definition)
+            Manager.Open(definition);
+    }
+
+    private void OpenEvent(Event evt)
+    {
+        if (WindowCatalog.Find(WindowCatalog.Event) is { } definition)
+            Manager.Open(definition, new() { ["EventId"] = evt.Id }, evt.Name);
+    }
+
+    private async Task OpenSourceAsync(Source source, Event evt)
+    {
+        var url = SourceLink.For(source, evt);
+
+        if (url.Length > 0)
+            await JS.InvokeVoidAsync("open", url, "_blank", "noopener,noreferrer");
+    }
+
+    private static string GradeWord(PurchaseGrade grade) => grade switch
+    {
+        PurchaseGrade.NotYetPlayed => "Not played",
+        PurchaseGrade.AwaitingGrade => "Grading",
+        PurchaseGrade.NoComparableFinal => "No like price",
+        _ => "Graded"
+    };
+
+    private static string Hue(decimal saved) => saved > 0 ? "up" : saved < 0 ? "down" : string.Empty;
+
+    private static string Signed(decimal amount)
+        => amount > 0 ? "+" + PurchaseLedger.Amount(amount)
+            : amount < 0 ? "−" + PurchaseLedger.Amount(-amount)
+            : PurchaseLedger.Amount(0m);
+
+    private static string Local(DateTimeOffset instant, string? zone)
+        => OnSaleCalendar.InZone(instant, zone ?? PurchaseReceipt.NashvilleZone).ToString("ddd d MMM yyyy HH:mm", CultureInfo.InvariantCulture);
+}

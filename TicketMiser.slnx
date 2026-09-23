@@ -1,9 +1,16 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/TicketMiser.Core/TicketMiser.Core.csproj" />
+    <Project Path="src/TicketMiser.Data/TicketMiser.Data.csproj" />
+    <Project Path="src/TicketMiser.Reliability/TicketMiser.Reliability.csproj" />
+    <Project Path="src/TicketMiser.Observability/TicketMiser.Observability.csproj" />
+    <Project Path="src/TicketMiser.Ingestion/TicketMiser.Ingestion.csproj" />
     <Project Path="src/TicketMiser.Desk/TicketMiser.Desk.csproj" />
     <Project Path="src/TicketMiser.Web/TicketMiser.Web.csproj" />
+    <Project Path="src/TicketMiser.Worker/TicketMiser.Worker.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/TicketMiser.Desk.Tests/TicketMiser.Desk.Tests.csproj" />
+    <Project Path="tests/TicketMiser.Tests/TicketMiser.Tests.csproj" />
   </Folder>
 </Solution>

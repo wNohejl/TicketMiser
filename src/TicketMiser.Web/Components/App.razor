@@ -8,6 +8,27 @@
        the app and its own scrollbars to match whichever is showing. *@
     <meta name="color-scheme" content="dark light" />
     <base href="/" />
+
+    @*
+        Before the first frame: the appearance this browser last painted, stamped onto
+        <html> from the snapshot theme.js keeps. Inline and synchronous on purpose — a
+        module or deferred script runs after the first paint, which is the frame this
+        exists to remove. No policy here: ThemeService decides, and repaints within the
+        first render if anything moved while the desk was closed.
+    *@
+    <script>
+        (function () {
+            try {
+                var paint = JSON.parse(localStorage.getItem('ticketmiser.paint') || 'null');
+                if (!paint) return;
+                var root = document.documentElement;
+                if (paint.theme) root.setAttribute('data-theme', paint.theme);
+                if (paint.accent) root.setAttribute('data-accent', paint.accent);
+                if (paint.typeScale) root.style.setProperty('--type-scale', String(paint.typeScale));
+                if (paint.uiScale) root.style.setProperty('--ui-scale', String(paint.uiScale));
+            } catch (e) { /* no stored paint, or storage refused: the default desk is fine */ }
+        })();
+    </script>
     <ResourcePreloader />
 
     @*

@@ -55,7 +55,7 @@
         <MudChart T="double"
                   ChartType="@Type"
                   ChartSeries="@_series"
-                  XAxisLabels="@Labels"
+                  ChartLabels="@Labels"
                   ChartOptions="@_options"
                   Width="@Width"
                   Height="@Height" />
@@ -174,7 +174,7 @@
 
         _options = new ChartOptions
         {
-            ChartPalette = DeskChartPalette.For(Family, Theme.IsDark),
+            ChartPalette = DeskChartPalette.For(Family, Theme.IsDark, Theme.Accent),
             ShowLegend = ShowLegend
         };
     }

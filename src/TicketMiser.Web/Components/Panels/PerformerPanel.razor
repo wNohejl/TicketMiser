@@ -1,0 +1,91 @@
+@using TicketMiser.Web.Components.Prices
+@using TicketMiser.Web.Services
+@inherits DeskPanel
+@inject IDestinationQueries Queries
+
+@*
+    One performer — the LineOps Player/Team window, for tickets: their upcoming events with
+    each market's best number now, and how their recent past events' prices ended. Reached by
+    following a performer's name from the Watchlist, Performers, or an Event. Following an
+    event from here opens the Event window; following a venue opens the Venue window.
+*@
+
+<div class="stack" style="--desk-gap:12px; padding:4px 0">
+    @if (_loading && _detail is null)
+    {
+        <EmptyState>Reading the performer.</EmptyState>
+    }
+    else if (_failed)
+    {
+        <EmptyState Kind="EmptyStateKind.Error">
+            <ChildContent>The performer could not be read.</ChildContent>
+            <Action>
+                <DeskButton Emphasis="DeskEmphasis.Plain" OnClick="LoadAsync">Try again</DeskButton>
+            </Action>
+        </EmptyState>
+    }
+    else if (_detail is null)
+    {
+        <EmptyState Kind="EmptyStateKind.Error">
+            No performer has id @(PerformerId?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "(none)"). The window was opened about something that is not on record.
+        </EmptyState>
+    }
+    else
+    {
+        <MetricRow>
+            <Metric Label="Upcoming" Numeric="true" Value="@_detail.Upcoming.Count.ToString("N0", PriceText.Money)"
+                    Note="@(_detail.Upcoming.Count == 0 ? "nothing ahead" : $"{_detail.Upcoming.Count(e => e.Watched)} watched")" />
+            <Metric Label="Next show" Value="@(_detail.Upcoming.FirstOrDefault() is { } next ? PriceText.Day(next.Event.StartsAt, next.Event.Venue?.Timezone) : "—")"
+                    Note="@(_detail.Upcoming.FirstOrDefault()?.Event.Venue?.Name ?? "none on record")" />
+            <Metric Label="Past with a day-of price" Numeric="true"
+                    Value="@_detail.Past.Count(p => p.Primary.Best is not null || p.Resale.Best is not null).ToString("N0", PriceText.Money)"
+                    Note="@($"of the last {_detail.Past.Count}")" />
+        </MetricRow>
+
+        <EventListing Upcoming="_detail.Upcoming" Past="_detail.Past" Other="EventListing.ListingOther.Venue"
+                      EmptyUpcoming="No upcoming event for this performer is on record. Events arrive with the daily discovery run." />
+    }
+</div>
+
+@code {
+    /// <summary>The id parameter the window was opened with. Arrives as <c>PerformerId</c>.</summary>
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? Parameters { get; set; }
+
+    private int? PerformerId => Destinations.IdFrom(Parameters, Destinations.PerformerId);
+
+    private int? _loadedId;
+    private bool _loading = true;
+    private bool _failed;
+    private PerformerDetail? _detail;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (PerformerId == _loadedId && !_loading)
+            return;
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loadedId = PerformerId;
+        _loading = true;
+        _failed = false;
+
+        try
+        {
+            await WithActivityAsync(
+                async () => _detail = PerformerId is { } id ? await Queries.PerformerAsync(id) : null,
+                settle: () => _detail is null ? PulseState.Warn : PulseState.Healthy,
+                status: () => _detail is null ? "not found" : $"{_detail.Upcoming.Count} upcoming");
+        }
+        catch
+        {
+            _failed = true;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Bunit;
 using TicketMiser.Desk.Primitives;
 using Microsoft.AspNetCore.Components;
@@ -115,18 +116,13 @@ public class DeskSheetTests : DeskTestContext
     /// rather than a stand-in. The provider is what is returned, so assertions read the whole
     /// modal surface — Mud's element included.
     /// </summary>
-    private IRenderedFragment RenderInDialog(Action<ComponentParameterCollectionBuilder<DeskSheet>> parameters)
+    private IRenderedComponent<MudDialogProvider> RenderInDialog(Action<SheetParameters> parameters)
     {
-        var provider = RenderComponent<MudDialogProvider>();
+        var provider = Render<MudDialogProvider>();
         var service = Services.GetRequiredService<IDialogService>();
 
-        var builder = new ComponentParameterCollectionBuilder<DeskSheet>();
-        parameters(builder);
-
-        var dialogParameters = new DialogParameters();
-
-        foreach (var p in builder.Build())
-            dialogParameters.Add(p.Name!, p.Value);
+        var dialogParameters = new DialogParameters<DeskSheet>();
+        parameters(new SheetParameters(dialogParameters));
 
         // The show is observed rather than discarded: a fire-and-forget task would swallow any
         // failure inside ShowAsync into an unobserved exception, and the test would go green on
@@ -139,5 +135,19 @@ public class DeskSheetTests : DeskTestContext
         shown!.GetAwaiter().GetResult();
 
         return provider;
+    }
+
+    /// <summary>
+    /// The tests' own <c>p.Add(x => x.Title, …)</c> chain, landing in Mud's typed dialog
+    /// parameters. bunit 2 made its parameter builder's <c>Build</c> internal, so the pairs
+    /// can no longer be read back out of it; this keeps every call site as it was.
+    /// </summary>
+    private sealed class SheetParameters(DialogParameters<DeskSheet> parameters)
+    {
+        public SheetParameters Add<T>(Expression<Func<DeskSheet, T>> parameter, T value)
+        {
+            parameters.Add(parameter, value);
+            return this;
+        }
     }
 }

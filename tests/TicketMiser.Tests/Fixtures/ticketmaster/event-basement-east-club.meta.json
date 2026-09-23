@@ -1,0 +1,12 @@
+{
+    "source":  "ticketmaster",
+    "name":  "event-basement-east-club",
+    "url":  "https://app.ticketmaster.com/discovery/v2/events/rZ7HnEZ1AfOwpd.json",
+    "fetchedAt":  "2026-09-12T01:54:04.0414637Z",
+    "status":  200,
+    "bytes":  4986,
+    "redactions":  [
+                       "apikey"
+                   ],
+    "note":  "Add what else was removed, and why, before committing."
+}

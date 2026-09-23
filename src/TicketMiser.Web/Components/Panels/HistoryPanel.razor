@@ -1,0 +1,122 @@
+@using TicketMiser.Core.Entities
+@using TicketMiser.Web.Services
+@inherits DeskPanel
+@inject IHistoryQueries Queries
+
+@*
+    The record of past events: what the day-of price ended up being, per source.
+
+    The LineOps window this replaces walked back over past days against an unmetered
+    provider. No ticket source offers that — Ticketmaster and SeatGeek answer for events that
+    are on sale, and neither returns a price for one that has started — so this is the
+    bounded version the reuse plan describes: the final prices retention promoted while the
+    events were live, and an honest sentence about why there is nothing to walk. Do not add a
+    backfill service here; there is no source to point it at.
+*@
+
+<Note Style="margin:12px 0">
+    A final price is taken from the observation stream once an event has started, one per
+    source, and kept for good. It is what a logged purchase is graded against. Nothing here
+    is fetched after the fact: the record is only as long as the watch was.
+</Note>
+
+<MetricRow Style="margin-bottom:16px">
+    <Metric Label="Past events" Value="@_summary.PastEvents.ToString("N0")" Numeric="true" />
+    <Metric Label="With a final price"
+            Value="@_summary.EventsWithFinal.ToString("N0")"
+            Note="@Coverage"
+            State="@(_summary.EventsWithFinal > 0 ? DeskState.Positive : DeskState.Neutral)"
+            Numeric="true" />
+    <Metric Label="Price rows" Value="@_summary.FinalRows.ToString("N0")" Numeric="true" />
+</MetricRow>
+
+<PanelHeader>Final prices</PanelHeader>
+
+@if (_finals.Count == 0)
+{
+    <EmptyState Kind="EmptyStateKind.New">
+        No final prices yet. They appear here as watched events start and retention promotes
+        their last observation. No current source offers a backfill for events that have
+        already happened, so a past event that was not watched has no price to show and never
+        will — watch the next one early instead.
+    </EmptyState>
+}
+else
+{
+    <DeskGrid T="FinalPrice" Items="_finals">
+        <PropertyColumn T="FinalPrice" TProperty="DateTimeOffset" Property="f => f.Event!.StartsAt" Title="Event day"
+                        InitialDirection="SortDirection.Descending">
+            <CellTemplate><span class="mono">@(context.Item.Event?.StartsAt.ToLocalTime().ToString("yyyy-MM-dd") ?? "—")</span></CellTemplate>
+        </PropertyColumn>
+
+        <PropertyColumn T="FinalPrice" TProperty="string" Property="f => f.Event!.Name" Title="Event">
+            <CellTemplate><span class="trunc" title="@context.Item.Event?.Name">@(context.Item.Event?.Name ?? "—")</span></CellTemplate>
+        </PropertyColumn>
+
+        <PropertyColumn T="FinalPrice" TProperty="string" Property="f => f.Event!.Venue!.Name" Title="Venue">
+            <CellTemplate><span class="dim">@(context.Item.Event?.Venue?.Name ?? "—")</span></CellTemplate>
+        </PropertyColumn>
+
+        <PropertyColumn T="FinalPrice" TProperty="string" Property="f => f.Source!.Name" Title="Source">
+            <CellTemplate>
+                @(context.Item.Source?.Name ?? "—")
+                @if (context.Item.Source is { } source)
+                {
+                    <Tag Class="ml-1">@source.Kind</Tag>
+                }
+            </CellTemplate>
+        </PropertyColumn>
+
+        <PropertyColumn T="FinalPrice" TProperty="decimal" Property="f => f.Lowest ?? decimal.MaxValue" Title="Lowest" CellClass="mud-align-right" HeaderClass="mud-align-right">
+            <CellTemplate>@Money(context.Item.Lowest, context.Item.Currency)</CellTemplate>
+        </PropertyColumn>
+
+        <PropertyColumn T="FinalPrice" TProperty="decimal" Property="f => f.Highest ?? decimal.MaxValue" Title="Highest" CellClass="mud-align-right" HeaderClass="mud-align-right">
+            <CellTemplate><span class="quiet">@Money(context.Item.Highest, context.Item.Currency)</span></CellTemplate>
+        </PropertyColumn>
+
+        @* A column, not a convention: a face-value number and an all-in one are never put
+           side by side without saying which is which. *@
+        <PropertyColumn T="FinalPrice" TProperty="bool" Property="f => f.AllIn" Title="Fees">
+            <CellTemplate>
+                @if (context.Item.AllIn)
+                {
+                    <Tag State="DeskState.Info">All-in</Tag>
+                }
+                else
+                {
+                    <Tag>Before fees</Tag>
+                }
+            </CellTemplate>
+        </PropertyColumn>
+
+        <PropertyColumn T="FinalPrice" TProperty="DateTimeOffset" Property="f => f.ObservedAt" Title="Taken" CellClass="mud-align-right" HeaderClass="mud-align-right">
+            <CellTemplate><span class="quiet">@context.Item.ObservedAt.ToLocalTime().ToString("MMM d HH:mm")</span></CellTemplate>
+        </PropertyColumn>
+    </DeskGrid>
+}
+
+@code {
+    private const int Take = 200;
+
+    private HistorySummary _summary = new(0, 0, 0);
+    private IReadOnlyList<FinalPrice> _finals = [];
+
+    private string? Coverage => _summary.PastEvents == 0
+        ? null
+        : $"of {_summary.PastEvents:N0} past";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await WithActivityAsync(async () =>
+        {
+            _summary = await Queries.SummaryAsync();
+            _finals = await Queries.RecentFinalsAsync(Take);
+        },
+        settle: () => _summary.FinalRows > 0 ? PulseState.Healthy : PulseState.Idle,
+        status: () => _summary.FinalRows > 0 ? $"{_summary.EventsWithFinal} events" : "no history");
+    }
+
+    private static string Money(decimal? amount, string currency)
+        => amount is { } a ? $"{a:N0} {currency}" : "—";
+}

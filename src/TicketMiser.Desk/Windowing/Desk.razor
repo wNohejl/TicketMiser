@@ -125,7 +125,17 @@
         {
             _module = await JS.InvokeAsync<IJSObjectReference>("import", "./_content/TicketMiser.Desk/js/windowing.js");
             _self = DotNetObjectReference.Create(this);
-            await _module.InvokeVoidAsync("initialise", _self);
+
+            // Every window that claims a key, handed over once. The browser owns the
+            // listener because a keystroke should open a window without a round trip
+            // deciding whether it was one.
+            var shortcuts = Manager.Catalog.All
+                .Where(d => d.Shortcut is not null && !d.RequiresSubject)
+                .Select(d => new { key = d.Shortcut, windowKey = d.Key })
+                .ToArray();
+
+            await _module.InvokeVoidAsync("initialise", _self, shortcuts);
+            Manager.SetPlatform(await _module.InvokeAsync<bool>("isMac"));
         }
 
         if (_module is null)
@@ -168,6 +178,17 @@
     [JSInvokable]
     public void OnViewportChanged(double width, double height)
         => Manager.SetViewport(width, height);
+
+    /// <summary>
+    /// A window's shortcut was pressed. Opening a singleton that is already open focuses
+    /// it, which is what a second press of ⌘, should do.
+    /// </summary>
+    [JSInvokable]
+    public void OnShortcut(string windowKey)
+    {
+        if (Manager.Catalog.Find(windowKey) is { RequiresSubject: false } definition)
+            Manager.Open(definition);
+    }
 
     /// <summary>
     /// Keyboard equivalent of a divider drag. A pointer-only resize would put column widths

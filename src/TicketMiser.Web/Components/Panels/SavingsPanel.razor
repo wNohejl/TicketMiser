@@ -1,0 +1,202 @@
+@using System.Globalization
+@using TicketMiser.Core.Analytics
+@using TicketMiser.Web.Services
+@inherits DeskPanel
+@inject IPurchaseQueries Queries
+
+@*
+    Paid against day-of prices. LineOps's performance window, with closing-line value become
+    what the operator saved against the price on the night.
+
+    Two fee bases, two sets of totals, never one sum. A saving measured against an all-in day-of
+    price and one measured against a face-value day-of price are different numbers; adding them
+    states a figure nobody paid or saved (legal guidelines, rule 5). So every tile and every
+    table row names its basis, and when both are present the window says it is keeping them
+    apart rather than quietly choosing one.
+
+    Only graded purchases contribute a saving. The ungraded ones are counted beside them, under
+    the reason they are not graded, so the saving is never read as covering more than it does.
+*@
+
+@if (_failed)
+{
+    <EmptyState Kind="EmptyStateKind.Error">
+        <ChildContent>Savings could not be read.</ChildContent>
+        <Action>
+            <DeskButton Emphasis="DeskEmphasis.Plain" OnClick="LoadAsync">Try again</DeskButton>
+        </Action>
+    </EmptyState>
+}
+else if (_summary is null)
+{
+    <EmptyState>Reading the ledger.</EmptyState>
+}
+else if (_summary.Purchases == 0)
+{
+    <EmptyState Kind="EmptyStateKind.New">
+        <ChildContent>
+            Nothing to total yet. Savings adds up the Purchases ledger: log what you paid from a
+            Watchlist row, and each purchase is graded against the day-of price of the same kind
+            once its event has been played.
+        </ChildContent>
+        <Action>
+            <DeskButton Size="DeskKeySize.Small" Emphasis="DeskEmphasis.Tinted"
+                        Icon="@Icons.Material.Filled.Receipt" OnClick="OpenPurchases">
+                Open Purchases
+            </DeskButton>
+        </Action>
+    </EmptyState>
+}
+else
+{
+    var s = _summary;
+
+    <MetricRow Style="margin-bottom:14px">
+        @foreach (var basis in Bases(s))
+        {
+            <Metric Label="@($"Paid, {PurchaseLedger.BasisWord(basis.AllIn)}")" Value="@PurchaseLedger.Amount(basis.Paid)" Numeric="true"
+                    data-metric="@($"paid-{Key(basis)}")"
+                    Note="@($"{basis.Tickets.ToString("N0", Money)} {Plural(basis.Tickets, "ticket")} on {basis.Purchases.ToString("N0", Money)} {Plural(basis.Purchases, "purchase")}")" />
+        }
+
+        @foreach (var basis in Bases(s))
+        {
+            <Metric Label="@($"Saved vs day-of, {PurchaseLedger.BasisWord(basis.AllIn)}")"
+                    Value="@(basis.Graded == 0 ? "—" : Signed(basis.Saved))" Numeric="true"
+                    State="@(basis.Graded == 0 ? DeskState.Neutral : StateOf(basis.Saved))"
+                    data-metric="@($"saved-{Key(basis)}")"
+                    Note="@(basis.Graded == 0 ? "none graded yet" : $"over {basis.Graded.ToString("N0", Money)} graded")" />
+        }
+
+        <Metric Label="Graded" Value="@s.Graded.ToString("N0", Money)" Numeric="true"
+                data-metric="graded"
+                Note="@($"of {s.Purchases.ToString("N0", Money)} {Plural(s.Purchases, "purchase")}")" />
+
+        <Metric Label="Ungraded" Value="@s.Ungraded.ToString("N0", Money)" Numeric="true"
+                State="@(s.NoComparableFinal > 0 ? DeskState.Warning : DeskState.Neutral)"
+                data-metric="ungraded"
+                Note="@UngradedNote(s)" />
+    </MetricRow>
+
+    @if (s.AllIn.Any && s.Face.Any)
+    {
+        <Note Style="margin:0 0 14px" data-kept-apart>
+            All-in and face-value purchases are totalled apart. A saving against a fee-inclusive
+            day-of price and one against a face-value price are different numbers, and are never
+            added together.
+        </Note>
+    }
+
+    <PanelHeader>By source</PanelHeader>
+    @Breakdown(s.BySource, "Source", "by-source")
+
+    <PanelHeader Gap="PanelHeaderGap.Section">By venue</PanelHeader>
+    @Breakdown(s.ByVenue, "Venue", "by-venue")
+}
+
+@code {
+    private static readonly CultureInfo Money = CultureInfo.GetCultureInfo("en-US");
+
+    private SavingsSummary? _summary;
+    private bool _failed;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _failed = false;
+
+        try
+        {
+            await WithActivityAsync(
+                async () => _summary = await Queries.SavingsAsync(),
+                settle: () => _summary is null || _summary.Purchases == 0 ? PulseState.Idle : PulseState.Healthy,
+                status: () => _summary is null || _summary.Purchases == 0 ? "none logged" : $"{_summary.Graded}/{_summary.Purchases} graded");
+        }
+        catch
+        {
+            _failed = true;
+        }
+    }
+
+    /// <summary>One table, a row per group per basis present. A group's two bases are two rows, never one sum.</summary>
+    private RenderFragment Breakdown(IReadOnlyList<SavingsGroup> groups, string label, string id) => __builder =>
+    {
+        <table class="grid grid--tight" data-table="@id">
+            <thead>
+                <tr>
+                    <th>@label</th><th>Fees</th>
+                    <th style="text-align:right">Purchases</th><th style="text-align:right">Tickets</th>
+                    <th style="text-align:right">Paid</th><th style="text-align:right">Graded</th>
+                    <th style="text-align:right">Saved vs day-of</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var g in groups)
+                {
+                    @foreach (var basis in new[] { g.AllIn, g.Face }.Where(b => b.Any))
+                    {
+                        <tr data-group="@g.Name" data-basis="@Key(basis)">
+                            <td>@g.Name</td>
+                            <td>
+                                <Tag State="@(basis.AllIn ? DeskState.Info : DeskState.Neutral)">@PurchaseLedger.BasisWord(basis.AllIn)</Tag>
+                            </td>
+                            <td class="num" style="text-align:right">@basis.Purchases.ToString("N0", Money)</td>
+                            <td class="num" style="text-align:right">@basis.Tickets.ToString("N0", Money)</td>
+                            <td class="num" style="text-align:right">@PurchaseLedger.Amount(basis.Paid)</td>
+                            <td class="num" style="text-align:right">@basis.Graded.ToString("N0", Money)</td>
+                            <td class="num" style="text-align:right">
+                                @if (basis.Graded == 0)
+                                {
+                                    <span class="dim">—</span>
+                                }
+                                else
+                                {
+                                    <span class="@Hue(basis.Saved)">@Signed(basis.Saved)</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    };
+
+    private static IEnumerable<BasisTotals> Bases(SavingsSummary s) => new[] { s.AllIn, s.Face }.Where(b => b.Any);
+
+    private static string Key(BasisTotals basis) => basis.AllIn ? "all-in" : "face";
+
+    private static string UngradedNote(SavingsSummary s)
+    {
+        if (s.Ungraded == 0)
+            return "every purchase graded";
+
+        var parts = new List<string>();
+        if (s.NotYetPlayed > 0)
+            parts.Add($"{s.NotYetPlayed.ToString("N0", Money)} not played yet");
+        if (s.AwaitingGrade > 0)
+            parts.Add($"{s.AwaitingGrade.ToString("N0", Money)} awaiting the next grading");
+        if (s.NoComparableFinal > 0)
+            parts.Add($"{s.NoComparableFinal.ToString("N0", Money)} with no day-of price of the same kind");
+
+        return string.Join(" · ", parts);
+    }
+
+    private static DeskState StateOf(decimal saved)
+        => saved > 0 ? DeskState.Positive : saved < 0 ? DeskState.Negative : DeskState.Neutral;
+
+    private static string Hue(decimal saved) => saved > 0 ? "up" : saved < 0 ? "down" : string.Empty;
+
+    private static string Signed(decimal amount)
+        => amount > 0 ? "+" + PurchaseLedger.Amount(amount)
+            : amount < 0 ? "−" + PurchaseLedger.Amount(-amount)
+            : PurchaseLedger.Amount(0m);
+
+    private static string Plural(int count, string noun) => count == 1 ? noun : noun + "s";
+
+    private void OpenPurchases()
+    {
+        if (WindowCatalog.Find(WindowCatalog.Purchases) is { } definition)
+            Manager.Open(definition);
+    }
+}

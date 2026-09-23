@@ -1,0 +1,320 @@
+@namespace TicketMiser.Web.Components.Prices
+@using System.Globalization
+@using TicketMiser.Core.Analytics
+@using TicketMiser.Core.Entities
+
+@*
+    One event's price history, drawn once for two windows: the Price history window and the
+    Event window's second tab both render this, so the chart a reader compares side by side is
+    the chart the event opens on.
+
+    One chart per market. MudChart has one Y axis, and a primary face price and a resale ask
+    are different products for the same seat: drawing them on one scale is the comparison the
+    board never makes (ADR 0013, legal guidelines rule 5). Within a market, each line is one
+    source on one fee basis, and its legend name carries the basis. A source that changed basis
+    part way is split into two lines and flagged, rather than joined by a step that would read
+    as a price move.
+
+    MudChart cannot draw a vertical rule, so the event's start and each purchase are marked on
+    the time axis itself — the bucket's label reads "Show" or "Bought" — and listed under the
+    charts with the numbers. Every price in the tables is a SourcePrice: a link to the source
+    that published it, with its fee basis beside it.
+*@
+
+@if (History.IsEmpty)
+{
+    <EmptyState Kind="EmptyStateKind.New">
+        No source has priced this event yet. A price is written when a watched event's sources
+        report one and again each time it moves, so the history starts with the first sweep
+        after the watch.
+        @if (History.UnstatedReadings > 0)
+        {
+            <text> @History.UnstatedReadings on-sale @PriceText.Plural(History.UnstatedReadings, "reading") carried a price without saying whether fees were included, and are left off.</text>
+        }
+    </EmptyState>
+    return;
+}
+
+@foreach (var market in _markets)
+{
+    <section class="stack" style="--desk-gap:8px; margin-bottom:18px" data-market="@market.Kind.ToString().ToLowerInvariant()">
+        <PanelHeader Gap="PanelHeaderGap.Section">
+            <Tag State="@PriceText.MarketState(market.Kind)">@PriceText.MarketWord(market.Kind)</Tag>
+            lowest per source
+        </PanelHeader>
+
+        @if (market.Series.Count == 0)
+        {
+            <EmptyState>@EmptyMarket(market.Kind)</EmptyState>
+        }
+        else
+        {
+            @if (market.Axis.Count < 2)
+            {
+                <Note>
+                    One reading so far, so there is nothing to draw yet — a line of one point looks
+                    like a price holding steady rather than one nobody has read twice. The numbers are below.
+                </Note>
+            }
+            else
+            {
+                <DeskChart Series="market.Chart" Labels="market.Labels" Height="220px"
+                           Family="DeskChartFamily.Movement"
+                           Headline="@market.Headline"
+                           Takeaway="@market.Takeaway"
+                           Description="@market.Description" />
+            }
+
+            <table class="grid grid--tight" data-table="series">
+                <thead>
+                    <tr>
+                        <th scope="col">Source</th>
+                        <th scope="col">Latest</th>
+                        <th scope="col">Low</th>
+                        <th scope="col">High</th>
+                        <th scope="col">Since first</th>
+                        <th scope="col">Readings</th>
+                        <th scope="col">Last read</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var s in market.Series)
+                    {
+                        <tr data-series="@s.Source.Key">
+                            <td>
+                                @s.Source.Name
+                                @if (s.BasisChanged)
+                                {
+                                    <Tag State="DeskState.Warning" Class="ml-2" Title="This source reported on two fee bases; each is its own line">basis changed</Tag>
+                                }
+                            </td>
+                            <td><SourcePrice Source="s.Source" Event="History.Event" Amount="s.Latest.Lowest" AllIn="s.AllIn" Currency="@s.Currency" /></td>
+                            <td><SourcePrice Source="s.Source" Event="History.Event" Amount="s.Low" AllIn="s.AllIn" Currency="@s.Currency" ShowMonogram="false" /></td>
+                            <td><SourcePrice Source="s.Source" Event="History.Event" Amount="s.High" AllIn="s.AllIn" Currency="@s.Currency" ShowMonogram="false" /></td>
+                            <td><span class="num">@PriceText.Change(s.Latest.Lowest - s.First.Lowest, s.Currency)</span></td>
+                            <td><span class="num">@s.Points.Count.ToString("N0", PriceText.Money)</span></td>
+                            <td>
+                                <span class="num" title="@s.Latest.At.ToString("u", CultureInfo.InvariantCulture)">@PriceText.When(s.Latest.At, Zone)</span>
+                                @if (s.Latest.Origin == PricePointOrigin.FinalPrice)
+                                {
+                                    <span class="dim" title="The day-of price, promoted when the event started"> final</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </section>
+}
+
+<PanelHeader Gap="PanelHeaderGap.Section">Marked on the charts</PanelHeader>
+
+<table class="grid grid--tight" data-table="marks">
+    <tbody>
+        <tr data-mark="start">
+            <th scope="row">Show</th>
+            <td colspan="3">
+                @(History.Event.StartsAt <= Now ? "Started" : "Starts") @PriceText.When(History.Event.StartsAt, Zone)
+                @if (!_startOnAxis)
+                {
+                    <span class="dim"> · outside the readings, so not on the axis</span>
+                }
+            </td>
+        </tr>
+        @if (History.Purchases.Count == 0)
+        {
+            <tr data-mark="none">
+                <th scope="row">Bought</th>
+                <td colspan="3" class="dim">No purchase is logged against this event.</td>
+            </tr>
+        }
+        @foreach (var mark in History.Purchases)
+        {
+            var p = mark.Purchase;
+
+            <tr data-mark="purchase">
+                <th scope="row">Bought</th>
+                <td><span class="num">@PriceText.When(p.PurchasedAt, Zone)</span></td>
+                <td>
+                    @if (mark.Source is { } source)
+                    {
+                        <SourcePrice Source="source" Event="History.Event" Amount="p.PaidPerTicket" AllIn="p.AllIn" Currency="@p.Currency" />
+                    }
+                    else
+                    {
+                        <span class="num">@PriceText.Amount(p.PaidPerTicket, p.Currency)</span>
+                        <Tag State="@PriceText.AllInState(p.AllIn)" Class="ml-2" Title="@PriceText.AllInTitle(p.AllIn)">@PriceText.AllInWord(p.AllIn)</Tag>
+                    }
+                </td>
+                <td>
+                    @p.Quantity @PriceText.Plural(p.Quantity, "ticket"), per ticket,
+                    @if (mark.Kind is { } kind)
+                    {
+                        <text>at @mark.Source!.Name </text><Tag State="@PriceText.MarketState(kind)">@PriceText.MarketWord(kind)</Tag>
+                    }
+                    else
+                    {
+                        <span class="dim">somewhere the desk does not track; marked on both charts</span>
+                    }
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@if (_switched.Count > 0)
+{
+    <Note State="DeskState.Warning" Style="margin-top:12px">
+        @string.Join(" and ", _switched) reported on two fee bases. Each basis is its own line,
+        because the step between them is a change in what the number means, not a move in price.
+    </Note>
+}
+
+@if (History.UnstatedReadings > 0)
+{
+    <Note Style="margin-top:12px">
+        @History.UnstatedReadings on-sale @PriceText.Plural(History.UnstatedReadings, "reading")
+        carried a price without saying whether fees were included. A number of unknown kind
+        cannot be placed on either basis, so @(History.UnstatedReadings == 1 ? "it is" : "they are") left off.
+    </Note>
+}
+
+@if (PriceText.HasSeatGeek(History.Sources))
+{
+    <p class="empty attribution" style="padding:9px 0 0">@PriceText.SeatGeekAttribution</p>
+}
+
+@code {
+    [Parameter, EditorRequired] public PriceHistory History { get; set; } = null!;
+
+    /// <summary>The instant the "started" wording is read against. Defaults to the wall clock.</summary>
+    [Parameter] public DateTimeOffset? At { get; set; }
+
+    private DateTimeOffset Now => At ?? DateTimeOffset.UtcNow;
+
+    private string? Zone => History.Event.Venue?.Timezone;
+
+    private sealed record Market(
+        SourceKind Kind,
+        IReadOnlyList<PriceSeries> Series,
+        TimeAxis Axis,
+        IReadOnlyList<ChartSeries<double>> Chart,
+        string[] Labels,
+        string Headline,
+        string Takeaway,
+        string Description);
+
+    private PriceHistory? _shaped;
+    private IReadOnlyList<Market> _markets = [];
+    private IReadOnlyList<string> _switched = [];
+    private bool _startOnAxis;
+
+    // Shaped once per history rather than per render: MudChart redraws when its series instance
+    // changes, and the window's pulse re-renders the panel far more often than the data moves.
+    protected override void OnParametersSet()
+    {
+        if (ReferenceEquals(_shaped, History))
+            return;
+
+        _shaped = History;
+
+        _markets = [Shape(SourceKind.Primary, History.Primary), Shape(SourceKind.Resale, History.Resale)];
+        _startOnAxis = _markets.Any(m => m.Axis.Count > 1 && m.Axis.IndexOf(History.Event.StartsAt) >= 0);
+        _switched = History.Primary.Concat(History.Resale)
+            .Where(s => s.BasisChanged)
+            .Select(s => s.Source.Name)
+            .Distinct()
+            .ToList();
+    }
+
+    private Market Shape(SourceKind kind, IReadOnlyList<PriceSeries> series)
+    {
+        var axis = TimeAxis.Over(series, Zone);
+        var chart = series.Select(s => new ChartSeries<double> { Name = s.Name, Data = axis.Sample(s) }).ToList();
+
+        return new Market(kind, series, axis, chart, Labels(kind, axis), Headline(kind, series), Takeaway(axis), Description(kind));
+    }
+
+    /// <summary>
+    /// The axis labels. The first and last buckets and every few in between carry their date;
+    /// the bucket holding the event's start reads "Show" and one holding a purchase "Bought",
+    /// whatever else it would have said, because those are the two things the chart marks.
+    /// </summary>
+    private string[] Labels(SourceKind kind, TimeAxis axis)
+    {
+        var labels = new string[axis.Count];
+        if (axis.Count == 0)
+            return labels;
+
+        var every = Math.Max(1, axis.Count / 6);
+        var hourly = axis.Step < TimeSpan.FromDays(1);
+
+        for (var i = 0; i < axis.Count; i++)
+        {
+            labels[i] = i == 0 || i == axis.Count - 1 || i % every == 0
+                ? axis.Starts[i].ToString(hourly ? "d MMM HH:mm" : "d MMM", CultureInfo.InvariantCulture)
+                : string.Empty;
+        }
+
+        var bought = History.Purchases
+            .Where(m => m.Marks(kind))
+            .Select(m => axis.IndexOf(m.Purchase.PurchasedAt))
+            .Where(i => i >= 0)
+            .ToHashSet();
+
+        foreach (var i in bought)
+            labels[i] = "Bought";
+
+        if (axis.IndexOf(History.Event.StartsAt) is var show and >= 0)
+            labels[show] = bought.Contains(show) ? "Show · bought" : "Show";
+
+        return labels;
+    }
+
+    /// <summary>
+    /// The takeaway for one market. With one line it is that line's move since its first
+    /// reading; with several it names how many sources, and leaves the numbers to the table —
+    /// a headline naming one source's number over another's would be a ranking.
+    /// </summary>
+    private string Headline(SourceKind kind, IReadOnlyList<PriceSeries> series)
+    {
+        var word = PriceText.MarketWord(kind);
+
+        if (series.Count == 0)
+            return $"{word}: no readings";
+
+        if (series.Count == 1)
+        {
+            var s = series[0];
+            var delta = s.Latest.Lowest - s.First.Lowest;
+            var move = delta == 0 ? "unchanged" : delta < 0 ? $"down {PriceText.Amount(-delta, s.Currency)}" : $"up {PriceText.Amount(delta, s.Currency)}";
+
+            return $"{s.Source.Name} {s.Basis} {move} since {PriceText.Day(s.First.At, Zone)}, now {PriceText.Amount(s.Latest.Lowest, s.Currency)}";
+        }
+
+        var sources = series.Select(s => s.Source.Id).Distinct().Count();
+        return $"{word}: {sources} {PriceText.Plural(sources, "source")}, {series.Count} lines";
+    }
+
+    private string Takeaway(TimeAxis axis)
+    {
+        var step = axis.Step < TimeSpan.FromDays(1) ? "hour" : axis.Step < TimeSpan.FromDays(7) ? "day" : "week";
+
+        return $"Lowest price per source and fee basis, one point per {step} in {Zone ?? "UTC"}. "
+               + "Held between readings; a line before its first reading repeats it. Show marks the event's start; Bought marks a purchase.";
+    }
+
+    private static string Description(SourceKind kind)
+        => $"The lowest {PriceText.MarketWord(kind).ToLowerInvariant()} ticket price reported by each source over time, one line per source and fee basis.";
+
+    private string EmptyMarket(SourceKind kind)
+    {
+        if (kind == SourceKind.Resale)
+            return "No resale source has priced this event.";
+
+        return History.Event.Venue?.TicketingProvider?.ToLowerInvariant() is "axs" or "etix"
+            ? $"No primary price: this room is ticketed by {History.Event.Venue!.TicketingProvider}, which has no public primary feed."
+            : "No primary source has priced this event.";
+    }
+}
