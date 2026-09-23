@@ -101,12 +101,18 @@ public record BudgetUsage(
 ///
 /// Nothing is stored — consumption is derived from <c>ingestion_run</c>, the same single source
 /// of truth the rest of the KPIs come from.
+/// <para>
+/// The clock is injected so "the last day" is the scheduler's day, not the machine's: a guard
+/// asked on a fake clock must count the runs that clock wrote. The system clock is the default.
+/// </para>
 /// </summary>
-public class BudgetCalculator(TicketMiserDbContext db)
+public class BudgetCalculator(TicketMiserDbContext db, TimeProvider? clock = null)
 {
+    private readonly TimeProvider _clock = clock ?? TimeProvider.System;
+
     public async Task<BudgetUsage> GetUsageAsync(Source source, CancellationToken ct = default)
     {
-        var now = DateTimeOffset.UtcNow;
+        var now = _clock.GetUtcNow();
         var monthStart = new DateTimeOffset(now.Year, now.Month, 1, 0, 0, 0, TimeSpan.Zero);
 
         var runs = db.IngestionRuns.Where(r => r.SourceId == source.Id);

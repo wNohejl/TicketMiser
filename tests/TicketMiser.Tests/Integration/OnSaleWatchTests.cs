@@ -80,7 +80,7 @@ public class OnSaleWatchTests(PostgresFixture fixture)
         await db.SaveChangesAsync();
 
         var registry = new SourceRegistry([primary, resale], [availability]);
-        var guard = new CreditBudgetGuard(new BudgetCalculator(db), NullLogger<CreditBudgetGuard>.Instance);
+        var guard = new CreditBudgetGuard(new BudgetCalculator(db, clock), NullLogger<CreditBudgetGuard>.Instance);
         var watch = new OnSaleWatchService(db, registry, guard, Options.Create(options), clock, NullLogger<OnSaleWatchService>.Instance);
 
         // Walk the window a minute at a time, as the scheduler's tick would.

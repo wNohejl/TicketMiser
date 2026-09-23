@@ -16,7 +16,7 @@ public class PriceIngestionTests(PostgresFixture fixture)
 
     private static PriceIngestionService Create(TicketMiserDbContext db, FakeClock clock)
         => new(db, new EventResolver(db),
-            new CreditBudgetGuard(new BudgetCalculator(db), NullLogger<CreditBudgetGuard>.Instance),
+            new CreditBudgetGuard(new BudgetCalculator(db, clock), NullLogger<CreditBudgetGuard>.Instance),
             clock, NullLogger<PriceIngestionService>.Instance);
 
     private static async Task<(Source Row, StubPriceSource Stub, Event Event)> SeedAsync(
