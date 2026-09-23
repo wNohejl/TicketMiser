@@ -1,0 +1,168 @@
+@namespace TicketMiser.Web.Components.Prices
+@using TicketMiser.Core.Analytics
+@using TicketMiser.Core.Entities
+@using TicketMiser.Desk.Windowing
+@using TicketMiser.Web.Services
+@using TicketMiser.Web.Windowing
+@inject WindowManager Manager
+
+@*
+    A destination's events: the upcoming ones with where their sale stands and each market's
+    best number now, and the recent past ones with each market's day-of price. Shared by the
+    Performer and Venue windows, which differ only in which name the other column follows.
+
+    Two market columns, never one: the primary best and the resale best are composed apart by
+    MarketBest and never ranked against each other. A market with no number says why. Every
+    number is a SourcePrice — a link to the source, its monogram, its fee basis.
+*@
+
+<PanelHeader Gap="PanelHeaderGap.Section">Upcoming</PanelHeader>
+
+@if (Upcoming.Count == 0)
+{
+    <EmptyState Kind="EmptyStateKind.New">@EmptyUpcoming</EmptyState>
+}
+else
+{
+    <table class="grid grid--tight" data-table="upcoming">
+        <thead>
+            <tr>
+                <th scope="col">Event</th>
+                <th scope="col">@(Other == ListingOther.Venue ? "Venue" : "Performer")</th>
+                <th scope="col">Show</th>
+                <th scope="col">On sale</th>
+                <th scope="col">Primary best</th>
+                <th scope="col">Resale best</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var row in Upcoming)
+            {
+                <tr @key="row.Event.Id" data-event="@row.Event.Id">
+                    <td>
+                        <DeskLink Destination="event" Tooltip="Open event" OnClick="() => Destinations.OpenEvent(Manager, row.Event)">@row.Event.Name</DeskLink>
+                        @if (row.Watched)
+                        {
+                            <Tag State="DeskState.Positive" Class="ml-2">Watching</Tag>
+                        }
+                    </td>
+                    <td>@OtherCell(row.Event)</td>
+                    <td><span class="num">@PriceText.When(row.Event.StartsAt, row.Event.Venue?.Timezone)</span></td>
+                    <td>@OnSaleCell(row)</td>
+                    <td data-market="primary">@MarketCell(row.Event, row.Primary)</td>
+                    <td data-market="resale">@MarketCell(row.Event, row.Resale)</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+<PanelHeader Gap="PanelHeaderGap.Section">How prices ran</PanelHeader>
+
+@if (Past.Count == 0)
+{
+    <EmptyState>
+        No past event here has a day-of price. A final price is kept only for an event that was
+        watched while it was on sale.
+    </EmptyState>
+}
+else
+{
+    <table class="grid grid--tight" data-table="past">
+        <thead>
+            <tr>
+                <th scope="col">Event</th>
+                <th scope="col">Day</th>
+                <th scope="col">Primary day-of</th>
+                <th scope="col">Resale day-of</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var row in Past)
+            {
+                <tr @key="row.Event.Id" data-event="@row.Event.Id">
+                    <td><DeskLink Destination="event" Tooltip="Open event" OnClick="() => Destinations.OpenEvent(Manager, row.Event)">@row.Event.Name</DeskLink></td>
+                    <td><span class="num">@PriceText.Day(row.Event.StartsAt, row.Event.Venue?.Timezone)</span></td>
+                    <td data-market="primary">@MarketCell(row.Event, row.Primary)</td>
+                    <td data-market="resale">@MarketCell(row.Event, row.Resale)</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@if (HasSeatGeek)
+{
+    <p class="empty attribution" style="padding:9px 0 0">@PriceText.SeatGeekAttribution</p>
+}
+
+@code {
+    public enum ListingOther { Venue, Performer }
+
+    [Parameter, EditorRequired] public IReadOnlyList<EventSummary> Upcoming { get; set; } = [];
+
+    [Parameter, EditorRequired] public IReadOnlyList<PastEvent> Past { get; set; } = [];
+
+    /// <summary>Which name the second column shows and follows.</summary>
+    [Parameter] public ListingOther Other { get; set; } = ListingOther.Venue;
+
+    [Parameter] public string EmptyUpcoming { get; set; } = "No upcoming event is on record.";
+
+    private bool HasSeatGeek
+        => Upcoming.SelectMany(r => r.Primary.Rail.Concat(r.Resale.Rail))
+            .Concat(Past.SelectMany(r => r.Primary.Rail.Concat(r.Resale.Rail)))
+            .Any(t => t.Quote.Source.Key == "seatgeek");
+
+    private RenderFragment OtherCell(Event evt) => __builder =>
+    {
+        if (Other == ListingOther.Venue)
+        {
+            if (evt.Venue is { } venue && Destinations.VenueOf(evt) is { } venueId)
+            {
+                <DeskLink Destination="venue" OnClick="() => Destinations.OpenVenue(Manager, venueId, venue.Name)">@venue.Name</DeskLink>
+            }
+            else
+            {
+                <span class="dim">@(evt.Venue?.Name ?? "—")</span>
+            }
+        }
+        else if (evt.Performer is { } performer && Destinations.PerformerOf(evt) is { } performerId)
+        {
+            <DeskLink Destination="performer" OnClick="() => Destinations.OpenPerformer(Manager, performerId, performer.Name)">@performer.Name</DeskLink>
+        }
+        else
+        {
+            <span class="dim">@(evt.Performer?.Name ?? "—")</span>
+        }
+    };
+
+    private static RenderFragment OnSaleCell(EventSummary row) => __builder =>
+    {
+        var evt = row.Event;
+
+        @if (row.OnSaleState == OnSaleState.Upcoming && evt.OnSaleAt is { } at)
+        {
+            <span class="num">@PriceText.When(at, evt.Venue?.Timezone)</span>
+        }
+        else
+        {
+            <Tag State="@PriceText.OnSaleTagState(row.OnSaleState)"
+                 Title="@(evt.OnSaleAt is { } opened ? PriceText.When(opened, evt.Venue?.Timezone) : "No public on-sale time has been named")">
+                @PriceText.OnSaleWord(row.OnSaleState)
+            </Tag>
+        }
+    };
+
+    private static RenderFragment MarketCell(Event evt, MarketBest market) => __builder =>
+    {
+        if (market.Best is { Lowest: { } low } best)
+        {
+            <SourcePrice Source="best.Source" Event="evt" Amount="low" AllIn="best.AllIn" Currency="@best.Currency" />
+        }
+        else
+        {
+            <span class="dim">—</span>
+            <div class="board__gap" title="@market.Reason">@market.Reason</div>
+        }
+    };
+}

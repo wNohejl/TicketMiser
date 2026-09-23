@@ -65,7 +65,7 @@ public static class WindowCatalog
             Title = "Price history",
             Icon = Icons.Material.Filled.ShowChart,
             Group = "Data",
-            ComponentType = typeof(Placeholder),
+            ComponentType = typeof(PriceHistoryPanel),
             Description = "The lowest price per source over time, with the event and any purchase marked.",
             // Two charts side by side is the point of a chart.
             Singleton = false,
@@ -77,7 +77,7 @@ public static class WindowCatalog
             Title = "Performers",
             Icon = Icons.Material.Filled.People,
             Group = "Data",
-            ComponentType = typeof(Placeholder),
+            ComponentType = typeof(PerformersPanel),
             Description = "Artists, teams and productions; open one to see its events."
         },
         new()
@@ -86,7 +86,7 @@ public static class WindowCatalog
             Title = "Purchases",
             Icon = Icons.Material.Filled.Receipt,
             Group = "Analytics",
-            ComponentType = typeof(Placeholder),
+            ComponentType = typeof(PurchasesPanel),
             Description = "What was paid, where, and how it compares with the price on the day."
         },
         new()
@@ -95,7 +95,7 @@ public static class WindowCatalog
             Title = "Savings",
             Icon = Icons.Material.Filled.Savings,
             Group = "Analytics",
-            ComponentType = typeof(Placeholder),
+            ComponentType = typeof(SavingsPanel),
             Description = "Paid against day-of prices, by source and by category."
         },
         new()
@@ -164,11 +164,11 @@ public static class WindowCatalog
         {
             Key = Performer,
             RequiresSubject = true,
-            ReachedBy = "Follow a performer's name from the Watchlist or Performers.",
+            ReachedBy = "Follow a performer's name from the Watchlist, Performers or an Event.",
             Title = "Performer",
             Icon = Icons.Material.Filled.Person,
             Group = "Data",
-            ComponentType = typeof(Placeholder),
+            ComponentType = typeof(PerformerPanel),
             Singleton = false,
             Description = "One performer's upcoming events and how their prices have run."
         },
@@ -176,11 +176,11 @@ public static class WindowCatalog
         {
             Key = Venue,
             RequiresSubject = true,
-            ReachedBy = "Follow a venue's name from an Event.",
+            ReachedBy = "Follow a venue's name from the Watchlist, a Performer or an Event.",
             Title = "Venue",
             Icon = Icons.Material.Filled.Place,
             Group = "Data",
-            ComponentType = typeof(Placeholder),
+            ComponentType = typeof(VenuePanel),
             Singleton = false,
             Description = "One venue's calendar and what its events have cost."
         },
@@ -194,7 +194,7 @@ public static class WindowCatalog
             Title = "All sources",
             Icon = Icons.Material.Filled.ViewList,
             Group = "Data",
-            ComponentType = typeof(Placeholder),
+            ComponentType = typeof(AllSourcesPanel),
             Singleton = false,
             Description = "Every source's number for one event, primary and resale badged apart."
         },
@@ -206,7 +206,7 @@ public static class WindowCatalog
             Title = "Log purchase",
             Icon = Icons.Material.Filled.Bolt,
             Group = "Data",
-            ComponentType = typeof(Placeholder),
+            ComponentType = typeof(LogPurchasePanel),
             Singleton = false,
             Description = "Record what you paid, prefilled from the price shown."
         },
@@ -218,7 +218,7 @@ public static class WindowCatalog
             Title = "Trend",
             Icon = Icons.Material.Filled.TrendingUp,
             Group = "Data",
-            ComponentType = typeof(Placeholder),
+            ComponentType = typeof(TrendPanel),
             Singleton = false,
             Description = "The last weeks of one event's lowest price, at a glance."
         }

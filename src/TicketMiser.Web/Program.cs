@@ -89,6 +89,16 @@ builder.Services.AddSingleton<IHistoryQueries, HistoryQueries>();
 // per market and never across them. A context per call, like the rest.
 builder.Services.AddSingleton<IWatchlistQueries, WatchlistQueries>();
 
+// One event's prices over time — Price history, the Event window's history tab, Trend and All
+// sources — and the Performers, Performer and Venue windows. Per market, never across; the
+// composition is in Core. A context per call.
+builder.Services.AddSingleton<IPriceHistoryQueries, PriceHistoryQueries>();
+builder.Services.AddSingleton<IDestinationQueries, DestinationQueries>();
+
+// The purchase ledger: Purchases, Savings, the Log purchase follow-up and the receipt export.
+// Graded against day-of prices of the same all-in kind only. A context per call.
+builder.Services.AddSingleton<IPurchaseQueries, PurchaseQueries>();
+
 // Persist Data Protection keys outside the container when a path is configured, so a
 // replaced container does not invalidate every live circuit.
 if (builder.Configuration["DataProtection:KeyPath"] is { Length: > 0 } keyPath)
@@ -230,6 +240,27 @@ app.MapGet("/onsales.ics", async (HttpContext http, IOnSaleCalendarService calen
     })
     .AllowAnonymous()
     .CacheOutput(OnSaleCalendarCache);
+
+// The ledger as a dated receipt (legal guidelines, rule 9): one event's on-sale record and the
+// purchases logged against it, as a Markdown file to keep or attach to a complaint. A file, not
+// a page ("exports are files"), so it is served as an attachment and never cached.
+// Mapped beside the desk, which has no sign-in yet. It is NOT meant to be public: the receipt
+// carries the operator's purchases, which are personal. Phase 7 moves it behind sign-in and
+// scopes the purchases to their owner; until then it is as open as the desk it serves.
+app.MapGet("/receipts/{eventId:int}.md", async (int eventId, HttpContext http, IOnSaleRecordService records,
+        IPurchaseQueries purchases, TimeProvider clock, CancellationToken ct) =>
+    {
+        if (await records.GetAsync(eventId, ct) is not { } record)
+            return Results.NotFound();
+
+        var now = clock.GetUtcNow();
+        var lines = await purchases.ForEventAsync(eventId, ct);
+        var markdown = PurchaseReceipt.Write(record, lines, now, $"{http.Request.Scheme}://{http.Request.Host}");
+
+        http.Response.Headers.CacheControl = "no-store";
+        http.Response.Headers.ContentDisposition = $"attachment; filename=\"{PurchaseReceipt.FileName(record.Event, now)}\"";
+        return Results.Text(markdown, PurchaseReceipt.ContentType);
+    });
 
 // Global Interactive Server render mode: MudBlazor does not support static server
 // rendering, so interactivity is declared once at the root rather than per component.

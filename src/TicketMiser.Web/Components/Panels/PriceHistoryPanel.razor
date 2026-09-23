@@ -1,0 +1,144 @@
+@using TicketMiser.Core.Analytics
+@using TicketMiser.Core.Entities
+@using TicketMiser.Web.Components.Prices
+@using TicketMiser.Web.Services
+@inherits DeskPanel
+@inject IPriceHistoryQueries Queries
+
+@*
+    Price history — the LineOps line-movement window, for tickets: the lowest price per source
+    over time, one chart per market, the event's start and any purchase marked.
+
+    Not a singleton: two histories side by side is the point of a chart. Opened about an event
+    (EventId) it shows that one; opened from the strip about nothing, it offers the watched
+    events and starts on the soonest. The chart itself is PriceHistoryView, which the Event
+    window's second tab renders too.
+*@
+
+<div class="row" style="margin-bottom:12px">
+    <DeskSelect TValue="int?" style="max-width:320px" aria-label="Event"
+                disabled="@(_choices.Count == 0 && _history is null)"
+                Value="_eventId" ValueChanged="OnEventChanged">
+        @if (_choices.Count == 0 && _history is null)
+        {
+            <option value="">No watched event</option>
+        }
+        @* An event opened by id need not be watched: it is still the one on the chart. *@
+        @if (_history is { } current && _choices.All(c => c.Id != current.Event.Id))
+        {
+            <option value="@current.Event.Id">@current.Event.Name · @PriceText.Day(current.Event.StartsAt, current.Event.Venue?.Timezone)</option>
+        }
+        @foreach (var e in _choices)
+        {
+            <option value="@e.Id">@e.Name · @PriceText.Day(e.StartsAt, e.Venue?.Timezone)</option>
+        }
+    </DeskSelect>
+
+    @if (_history is { } shown)
+    {
+        <DeskLink Destination="event" Tooltip="Open event" OnClick="() => Destinations.OpenEvent(Manager, shown.Event)">
+            @shown.Event.Name
+        </DeskLink>
+    }
+
+    <span class="ftr__spacer"></span>
+
+    <DeskButton Icon="@Icons.Material.Filled.Refresh" OnClick="LoadAsync" Busy="@_loading">Refresh</DeskButton>
+</div>
+
+@if (_failed)
+{
+    <EmptyState Kind="EmptyStateKind.Error">
+        <ChildContent>The price history could not be read.</ChildContent>
+        <Action>
+            <DeskButton Emphasis="DeskEmphasis.Plain" OnClick="LoadAsync">Try again</DeskButton>
+        </Action>
+    </EmptyState>
+}
+else if (_loading && _history is null)
+{
+    <EmptyState>Reading the price history.</EmptyState>
+}
+else if (_eventId is null)
+{
+    <EmptyState Kind="EmptyStateKind.New">
+        Nothing is watched, so there is no history to draw. A price is only written for a watched
+        event — nothing is fetched without a watch — so add one from the Watchlist and its
+        history starts with the next sweep.
+    </EmptyState>
+}
+else if (_history is null)
+{
+    <EmptyState Kind="EmptyStateKind.Error">No event has id @_eventId. The window was opened about something that is not on record.</EmptyState>
+}
+else
+{
+    <PriceHistoryView History="_history" />
+}
+
+@code {
+    /// <summary>The id parameter the window was opened with, if any. Arrives as <c>EventId</c>.</summary>
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? Parameters { get; set; }
+
+    private IReadOnlyList<Event> _choices = [];
+    private int? _eventId;
+    private int? _subject;
+    private bool _initialised;
+    private PriceHistory? _history;
+    private bool _loading = true;
+    private bool _failed;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var subject = Destinations.IdFrom(Parameters, Destinations.EventId);
+        if (_initialised && subject == _subject)
+            return;
+
+        _initialised = true;
+        _subject = subject;
+
+        try
+        {
+            _choices = await Queries.ChoicesAsync();
+        }
+        catch
+        {
+            _choices = [];
+        }
+
+        // Opened about an event, that one; about nothing, the soonest watched event.
+        _eventId = subject ?? _choices.FirstOrDefault()?.Id;
+        await LoadAsync();
+    }
+
+    private async Task OnEventChanged(int? id)
+    {
+        _eventId = id;
+        _history = null;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _failed = false;
+
+        try
+        {
+            await WithActivityAsync(
+                async () => _history = _eventId is { } id ? await Queries.LoadAsync(id) : null,
+                settle: () => _history is null || _history.IsEmpty ? PulseState.Idle : PulseState.Healthy,
+                status: () => _history is null ? (_eventId is null ? "nothing watched" : "not found")
+                    : _history.IsEmpty ? "no prices yet"
+                    : $"{_history.Primary.Count + _history.Resale.Count} lines");
+        }
+        catch
+        {
+            _failed = true;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

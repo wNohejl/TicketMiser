@@ -1,6 +1,7 @@
 @using System.Globalization
 @using TicketMiser.Core.Analytics
 @using TicketMiser.Core.Entities
+@using TicketMiser.Web.Components.Prices
 @using TicketMiser.Web.Components.Records
 @using TicketMiser.Web.Services
 @inherits DeskPanel
@@ -49,10 +50,7 @@
                     <OnSaleRecordView Record="_record" InDesk="true" />
                     break;
                 case Section.History:
-                    <EmptyState Kind="EmptyStateKind.New">
-                        Price history arrives with the Price history window: the lowest price per source from
-                        the first day to the event, with any purchase marked.
-                    </EmptyState>
+                    <PriceHistorySection EventId="Event.Id" />
                     break;
                 default:
                     @Details
@@ -142,10 +140,32 @@
         <table class="grid grid--tight">
             <tbody>
                 <tr><th scope="row">Event</th><td>@Event.Name</td></tr>
-                <tr><th scope="row">Performer</th><td>@(Event.Performer?.Name ?? "—")</td></tr>
+                <tr>
+                    <th scope="row">Performer</th>
+                    <td>
+                        @if (Event.Performer is { } performer && Destinations.PerformerOf(Event) is { } performerId)
+                        {
+                            <DeskLink Destination="performer" OnClick="() => Destinations.OpenPerformer(Manager, performerId, performer.Name)">@performer.Name</DeskLink>
+                        }
+                        else
+                        {
+                            @(Event.Performer?.Name ?? "—")
+                        }
+                    </td>
+                </tr>
                 <tr>
                     <th scope="row">Venue</th>
-                    <td>@(Event.Venue is { } v ? $"{v.Name}, {v.City}, {v.State}" : "—")</td>
+                    <td>
+                        @if (Event.Venue is { } v && Destinations.VenueOf(Event) is { } venueId)
+                        {
+                            <DeskLink Destination="venue" OnClick="() => Destinations.OpenVenue(Manager, venueId, v.Name)">@v.Name</DeskLink>
+                            <span>, @v.City, @v.State</span>
+                        }
+                        else
+                        {
+                            @(Event.Venue is { } room ? $"{room.Name}, {room.City}, {room.State}" : "—")
+                        }
+                    </td>
                 </tr>
                 <tr><th scope="row">Ticketing provider</th><td>@(Event.Venue?.TicketingProvider ?? "unknown")</td></tr>
                 <tr><th scope="row">Starts</th><td>@Local(Event.StartsAt)</td></tr>

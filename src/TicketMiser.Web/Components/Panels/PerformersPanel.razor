@@ -1,0 +1,142 @@
+@using TicketMiser.Web.Components.Prices
+@using TicketMiser.Web.Services
+@inherits DeskPanel
+@inject IDestinationQueries Queries
+
+@*
+    Performers — the LineOps Players window, for tickets: search and pick. A name is a
+    destination; following it opens the Performer window about that performer, which is where
+    their events and prices are. This window lists and counts and nothing more.
+*@
+
+<div class="row" style="margin-bottom:12px">
+    <DeskField TValue="string" Value="_search" ValueChanged="OnSearchChanged" Immediate="true"
+               placeholder="Artist, team or production" aria-label="Search performers" style="max-width:280px" />
+
+    <span class="ftr__spacer"></span>
+
+    <DeskButton Icon="@Icons.Material.Filled.Refresh" OnClick="LoadAsync" Busy="@_loading">Refresh</DeskButton>
+</div>
+
+@if (_failed)
+{
+    <EmptyState Kind="EmptyStateKind.Error">
+        <ChildContent>Performers could not be read.</ChildContent>
+        <Action>
+            <DeskButton Emphasis="DeskEmphasis.Plain" OnClick="LoadAsync">Try again</DeskButton>
+        </Action>
+    </EmptyState>
+}
+else if (_loading && _rows.Count == 0)
+{
+    <EmptyState>Reading performers.</EmptyState>
+}
+else if (_rows.Count == 0)
+{
+    @if (string.IsNullOrWhiteSpace(_search))
+    {
+        <EmptyState Kind="EmptyStateKind.New">
+            No performer is on record. Performers arrive with the events that name them, from the
+            daily discovery run.
+        </EmptyState>
+    }
+    else
+    {
+        <EmptyState Kind="EmptyStateKind.Filtered">No performer matches “@_search”.</EmptyState>
+    }
+}
+else
+{
+    <DeskGrid T="PerformerSummary" Items="_rows" EmptyText="No performers.">
+        <TemplateColumn T="PerformerSummary" Title="Performer" SortBy="@(r => r.Performer.Name)">
+            <CellTemplate>
+                <DeskLink Destination="performer" OnClick="() => Open(context.Item)">@context.Item.Performer.Name</DeskLink>
+            </CellTemplate>
+        </TemplateColumn>
+
+        <TemplateColumn T="PerformerSummary" Title="Upcoming" SortBy="@(r => r.UpcomingEvents)">
+            <CellTemplate>
+                @if (context.Item.UpcomingEvents > 0)
+                {
+                    <span class="num">@context.Item.UpcomingEvents.ToString("N0", PriceText.Money)</span>
+                    <span class="dim"> @PriceText.Plural(context.Item.UpcomingEvents, "event")</span>
+                }
+                else
+                {
+                    <span class="dim">none ahead</span>
+                }
+            </CellTemplate>
+        </TemplateColumn>
+
+        <TemplateColumn T="PerformerSummary" Title="Next" SortBy="@(r => r.NextEventAt ?? DateTimeOffset.MaxValue)">
+            <CellTemplate>
+                @if (context.Item.NextEventAt is { } next)
+                {
+                    <span class="num" title="@PriceText.When(next, context.Item.NextZone)">@PriceText.Day(next, context.Item.NextZone)</span>
+                }
+                else
+                {
+                    <span class="dim">—</span>
+                }
+            </CellTemplate>
+        </TemplateColumn>
+    </DeskGrid>
+
+    @if (_rows.Count >= PerformerSummary.Limit)
+    {
+        <p class="empty" style="padding:9px 0 0">The first @PerformerSummary.Limit are shown; search to narrow.</p>
+    }
+}
+
+@code {
+    private List<PerformerSummary> _rows = [];
+    private string _search = string.Empty;
+    private bool _loading = true;
+    private bool _failed;
+    private CancellationTokenSource? _debounce;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task OnSearchChanged(string? value)
+    {
+        _search = value ?? string.Empty;
+
+        // A keystroke is not a query: wait for the typing to pause.
+        _debounce?.Cancel();
+        var cts = _debounce = new CancellationTokenSource();
+
+        try
+        {
+            await Task.Delay(250, cts.Token);
+            await LoadAsync();
+        }
+        catch (TaskCanceledException)
+        {
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _failed = false;
+
+        try
+        {
+            await WithActivityAsync(
+                async () => _rows = (await Queries.PerformersAsync(_search)).ToList(),
+                settle: () => _rows.Count == 0 ? PulseState.Idle : PulseState.Healthy,
+                status: () => $"{_rows.Count} shown");
+        }
+        catch
+        {
+            _failed = true;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void Open(PerformerSummary row)
+        => Destinations.OpenPerformer(Manager, row.Performer.Id, row.Performer.Name);
+}

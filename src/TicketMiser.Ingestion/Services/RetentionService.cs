@@ -102,12 +102,11 @@ public class RetentionService(
                 .ToListAsync(ct);
 
             // Grade against the same market the ticket was bought in, when known; otherwise
-            // against the cheapest final of the same all-in kind.
-            var comparable = finals
-                .Where(f => f.AllIn == purchase.AllIn)
-                .Where(f => purchase.Source is null || f.Source!.Kind == purchase.Source.Kind)
-                .OrderBy(f => f.Lowest)
-                .FirstOrDefault();
+            // against the cheapest final of the same all-in kind. The rule is the ledger's, so
+            // the Purchases window shows the final this run graded against. A final with no
+            // price is never the comparison: it would resolve the purchase with no saving.
+            var sources = finals.Where(f => f.Source is not null).Select(f => f.Source!).DistinctBy(s => s.Id).ToDictionary(s => s.Id);
+            var comparable = PurchaseLedger.ComparableFinal(purchase, purchase.Source?.Kind, finals, sources);
 
             if (comparable is null)
                 continue;

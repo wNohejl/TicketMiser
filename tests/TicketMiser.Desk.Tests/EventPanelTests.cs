@@ -43,10 +43,15 @@ public class EventPanelTests : DeskTestContext
             => Task.FromResult(eventId == record?.Event.Id ? record.Event.Slug : null);
     }
 
+    private readonly FakePriceHistoryQueries _histories = new();
+    private WindowManager _manager = default!;
+
     private IRenderedComponent<EventPanel> Open(OnSaleRecord? record, int eventId = 7)
     {
-        Services.AddScoped<WindowManager>();
+        _manager = new WindowManager(new TicketMiser.Web.Windowing.AppWindowCatalog());
+        Services.AddSingleton(_manager);
         Services.AddSingleton<IOnSaleRecordService>(new FakeRecords(record));
+        Services.AddSingleton<IPriceHistoryQueries>(_histories);
 
         return Render<EventPanel>(p => p.AddUnmatched("EventId", eventId));
     }
@@ -199,13 +204,45 @@ public class EventPanelTests : DeskTestContext
     }
 
     [Fact]
-    public void The_price_history_tab_is_a_placeholder_for_the_history_window()
+    public void The_price_history_tab_draws_the_history_one_chart_per_market()
     {
-        var cut = Open(Recorded());
+        var record = Recorded();
+        _histories.Histories[7] = PriceFixtures.History(record.Event);
+
+        var cut = Open(record);
+
+        // The history is read only when the tab is opened.
+        Assert.Empty(_histories.Loaded);
 
         cut.FindAll("[role=tab]")[1].Click();
 
-        Assert.Contains("Price history window", cut.Find(".empty--new").TextContent);
+        Assert.Equal([7], _histories.Loaded);
+        Assert.Contains("Ticketmaster · face value", cut.Find("section[data-market=primary] figure.deskchart").TextContent);
+        Assert.Contains("SeatGeek · all-in", cut.Find("section[data-market=resale] figure.deskchart").TextContent);
+        Assert.NotNull(cut.Find("tr[data-mark=purchase]"));
+    }
+
+    [Fact]
+    public void The_details_tab_follows_the_performer_and_the_venue_to_their_windows()
+    {
+        var record = Recorded();
+        record.Event.PerformerId = 20;
+        record.Event.Performer!.Id = 20;
+        record.Event.VenueId = 30;
+        record.Event.Venue!.Id = 30;
+
+        var cut = Open(record);
+        cut.FindAll("[role=tab]").Last().Click();
+
+        cut.FindAll("button.desklink").Single(l => l.GetAttribute("title") == "Open performer").Click();
+        cut.FindAll("button.desklink").Single(l => l.GetAttribute("title") == "Open venue").Click();
+
+        var performer = Assert.Single(_manager.Windows, w => w.Definition.Key == TicketMiser.Web.Windowing.WindowCatalog.Performer);
+        Assert.Equal(20, performer.Parameters["PerformerId"]);
+        Assert.Equal("Example Performer", performer.Title);
+
+        var venue = Assert.Single(_manager.Windows, w => w.Definition.Key == TicketMiser.Web.Windowing.WindowCatalog.Venue);
+        Assert.Equal(30, venue.Parameters["VenueId"]);
     }
 
     [Fact]

@@ -1,0 +1,354 @@
+@using System.Globalization
+@using TicketMiser.Core.Analytics
+@using TicketMiser.Core.Entities
+@using TicketMiser.Web.Services
+@inherits DeskPanel
+@inject IPurchaseQueries Queries
+@inject DeskToasts Toasts
+@inject TimeProvider Clock
+
+@*
+    Logging what was paid, from the row that showed the price.
+
+    LineOps's wager form, carried over: everything the board already knows — the event, the
+    market's best number, the source holding it — starts filled, so the operator supplies only
+    what the board cannot: how many, and what the receipt said. Retyping the rest is an
+    opportunity to record a purchase that did not happen.
+
+    The one thing never guessed is the fee basis. A price prefilled from a face-value number is
+    not what a buyer paid — the receipt total includes fees — so the all-in question starts
+    unanswered and the form will not save until it is answered. From an all-in number it starts
+    answered, because that number is already the kind a receipt shows. The grade that follows
+    compares like with like only (legal guidelines, rule 5).
+
+    A purchase needs no watch: the fan who bought on the night still wants the record.
+*@
+
+<div class="stack" style="--desk-gap:12px; padding:16px">
+    @if (_loading)
+    {
+        <EmptyState>Reading the event.</EmptyState>
+    }
+    else if (_failed)
+    {
+        <EmptyState Kind="EmptyStateKind.Error">
+            <ChildContent>The event could not be read.</ChildContent>
+            <Action>
+                <DeskButton Emphasis="DeskEmphasis.Plain" OnClick="LoadAsync">Try again</DeskButton>
+            </Action>
+        </EmptyState>
+    }
+    else if (_form is null)
+    {
+        <EmptyState Kind="EmptyStateKind.Error">
+            No event has id @(EventId?.ToString(CultureInfo.InvariantCulture) ?? "(none)"). A purchase is logged against an event on record.
+        </EmptyState>
+    }
+    else
+    {
+        <div>
+            <PanelHeader Tight>@_form.Event.Name</PanelHeader>
+            <div class="dim">
+                @(_form.Event.Venue?.Name ?? "Venue not recorded") · @Local(_form.Event.StartsAt)
+            </div>
+        </div>
+
+        <div class="stack" style="--desk-gap:6px">
+            <div class="field-lbl">Start from the price shown</div>
+            @if (_choices.Count == 0)
+            {
+                <span class="quiet">No source has a price for this event yet. Enter what you paid.</span>
+            }
+            else
+            {
+                <div class="row" data-prefill>
+                    @foreach (var choice in _choices)
+                    {
+                        @* The chosen start is Tinted, not Filled: it reports where the numbers
+                           came from. The Filled key here is the one that logs the purchase. *@
+                        <DeskButton Size="DeskKeySize.Small"
+                                    Emphasis="@(_chosen == choice.Kind ? DeskEmphasis.Tinted : DeskEmphasis.Plain)"
+                                    Title="@($"{choice.Quote.Source.Name}, {LedgerWord(choice.Quote.AllIn)}")"
+                                    OnClick="() => Choose(choice)">
+                            @choice.Label
+                        </DeskButton>
+                    }
+                </div>
+            }
+        </div>
+
+        <div class="row" style="align-items:flex-start">
+            <DeskField TValue="int?" Label="Tickets" Required="true" Mono="true" Error="@ErrorFor("quantity")"
+                       type="number" min="1" step="1" style="max-width:110px"
+                       data-field="quantity" @bind-Value="_quantity" />
+            <DeskField TValue="decimal?" Label="Price per ticket (USD)" Required="true" Mono="true" Error="@ErrorFor("price")"
+                       type="number" min="0.01" step="0.01" style="max-width:190px"
+                       data-field="price" @bind-Value="_price" />
+        </div>
+
+        <div class="field-set">
+            <span class="field-lbl">
+                Fees <span class="field-req" aria-hidden="true">*</span>
+            </span>
+            <DeskSwitch TValue="bool?" Options="FeeOptions" Label="Does the price include fees?"
+                        Value="_allIn" ValueChanged="@((bool? v) => _allIn = v)" data-field="allIn" />
+            @if (ErrorFor("allIn") is { } feeError)
+            {
+                <p class="field-err" role="alert">@feeError</p>
+            }
+            else if (_allIn is null && _chosenQuote?.AllIn == false)
+            {
+                <p class="quiet" style="margin:0">Prefilled from a face-value number. A receipt total includes fees; say which this is.</p>
+            }
+        </div>
+
+        <div class="row" style="align-items:flex-start">
+            <DeskSelect TValue="string" Label="Bought at" style="max-width:240px" data-field="source" @bind-Value="_source">
+                <option value="">Elsewhere (not tracked)</option>
+                @foreach (var s in _form.Sources)
+                {
+                    <option value="@s.Id.ToString(CultureInfo.InvariantCulture)">@s.Name (@PurchaseLedger.MarketWord(s.Kind))</option>
+                }
+            </DeskSelect>
+            <DeskField TValue="string" Label="When (Nashville time)" Error="@ErrorFor("purchasedAt")"
+                       type="datetime-local" style="max-width:220px" data-field="purchasedAt" @bind-Value="_when" />
+        </div>
+
+        <DeskTextArea Label="Note" rows="2" placeholder="Section, row, order number — anything the receipt says"
+                      Error="@ErrorFor("note")" maxlength="@PurchaseLedger.NoteMaxLength" data-field="note" @bind-Value="_note" />
+
+        @if (_error is not null)
+        {
+            <Note State="DeskState.Warning" Style="margin:0">@_error</Note>
+        }
+
+        <div class="row row--end">
+            <DeskButton Emphasis="DeskEmphasis.Filled" Icon="@Icons.Material.Filled.Bolt"
+                        Busy="@_saving" OnClick="SaveAsync">
+                Log purchase
+            </DeskButton>
+        </div>
+
+        <p class="empty" style="padding:0">
+            Graded against the day-of price once the event has been played — and only against a
+            day-of price of the same kind, all-in against all-in, face value against face value.
+        </p>
+    }
+</div>
+
+@code {
+    /// <summary>The id parameter the window was opened with. Arrives as <c>EventId</c>.</summary>
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? Parameters { get; set; }
+
+    private sealed record Choice(SourceKind Kind, SourceQuote Quote, string Label);
+
+    private static readonly IReadOnlyList<DeskSwitchOption<bool?>> FeeOptions =
+    [
+        new(true, "All-in", "The price per ticket includes every fee — what a receipt total shows"),
+        new(false, "Face value", "The price per ticket before fees")
+    ];
+
+    private const string Nashville = PurchaseReceipt.NashvilleZone;
+
+    private PurchaseForm? _form;
+    private List<Choice> _choices = [];
+    private SourceKind? _chosen;
+    private SourceQuote? _chosenQuote;
+
+    private int? _quantity;
+    private decimal? _price;
+    private bool? _allIn;
+    private string _source = string.Empty;
+    private string _when = string.Empty;
+    private string _note = string.Empty;
+
+    private IReadOnlyDictionary<string, string> _errors = new Dictionary<string, string>();
+    private string? _error;
+    private bool _loading = true;
+    private bool _failed;
+    private bool _saving;
+    private int? _loadedId;
+
+    private int? EventId => Parameters?.GetValueOrDefault("EventId") switch
+    {
+        int i => i,
+        long l => (int)l,
+        string s when int.TryParse(s, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed) => parsed,
+        _ => null
+    };
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (EventId == _loadedId && !_loading)
+            return;
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loadedId = EventId;
+        _loading = true;
+        _failed = false;
+
+        try
+        {
+            await WithActivityAsync(
+                async () => _form = EventId is { } id ? await Queries.FormAsync(id) : null,
+                settle: () => _form is null ? PulseState.Warn : PulseState.Healthy,
+                status: () => _form is null ? "not found" : null);
+
+            _choices = BuildChoices();
+            Reset();
+        }
+        catch
+        {
+            _failed = true;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private List<Choice> BuildChoices()
+    {
+        if (_form is null)
+            return [];
+
+        var choices = new List<Choice>();
+
+        foreach (var market in new[] { _form.Primary, _form.Resale })
+        {
+            if (market.Best is { Lowest: { } low } best)
+            {
+                var word = market.Kind == SourceKind.Primary ? "Primary" : "Resale";
+                choices.Add(new Choice(market.Kind, best,
+                    $"{word} · {PurchaseLedger.Amount(low, best.Currency)} {LedgerWord(best.AllIn)} · {SourceMonogram.For(best.Source)}"));
+            }
+        }
+
+        return choices;
+    }
+
+    /// <summary>
+    /// The opening state: the primary best when there is one — the box office is the reference
+    /// price — otherwise the resale best, otherwise nothing but one ticket and the current time.
+    /// </summary>
+    private void Reset()
+    {
+        _quantity = 1;
+        _price = null;
+        _allIn = null;
+        _source = string.Empty;
+        _note = string.Empty;
+        _when = OnSaleCalendar.InZone(Clock.GetUtcNow(), Nashville).ToString("yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture);
+        _errors = new Dictionary<string, string>();
+        _error = null;
+        _chosen = null;
+        _chosenQuote = null;
+
+        if (_choices.FirstOrDefault() is { } first)
+            Choose(first);
+    }
+
+    private void Choose(Choice choice)
+    {
+        _chosen = choice.Kind;
+        _chosenQuote = choice.Quote;
+        _price = choice.Quote.Lowest;
+        _source = choice.Quote.Source.Id.ToString(CultureInfo.InvariantCulture);
+
+        // Only an all-in number answers the fee question. A face-value number, or one whose
+        // basis the source did not state, leaves it for the buyer.
+        _allIn = choice.Quote.AllIn == true ? true : null;
+    }
+
+    private string? ErrorFor(string field) => _errors.GetValueOrDefault(field);
+
+    private PurchaseDraft Draft(out bool whenValid)
+    {
+        whenValid = true;
+        DateTimeOffset? at = null;
+
+        if (!string.IsNullOrWhiteSpace(_when))
+        {
+            if (DateTime.TryParseExact(_when, ["yyyy-MM-ddTHH:mm", "yyyy-MM-ddTHH:mm:ss"], CultureInfo.InvariantCulture,
+                    DateTimeStyles.None, out var local))
+            {
+                at = FromNashville(local);
+            }
+            else
+            {
+                whenValid = false;
+            }
+        }
+
+        int? sourceId = int.TryParse(_source, NumberStyles.Integer, CultureInfo.InvariantCulture, out var sid) ? sid : null;
+
+        return new PurchaseDraft(_form!.Event.Id, _quantity, _price, _allIn, sourceId, at, _note);
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_form is null)
+            return;
+
+        _error = null;
+        var draft = Draft(out var whenValid);
+        var errors = new Dictionary<string, string>(PurchaseLedger.Validate(draft, Clock.GetUtcNow()));
+
+        if (!whenValid)
+            errors["purchasedAt"] = "A date and time, or leave it empty for now.";
+
+        _errors = errors;
+        if (errors.Count > 0)
+            return;
+
+        _saving = true;
+
+        try
+        {
+            var saved = await Queries.LogAsync(draft);
+            var tickets = saved.Quantity == 1 ? "1 ticket" : $"{saved.Quantity} tickets";
+            Toasts.Success($"Logged {tickets} at {PurchaseLedger.Amount(saved.PaidPerTicket, saved.Currency)} {PurchaseLedger.BasisWord(saved.AllIn)} for {_form.Event.Name}.");
+            Reset();
+        }
+        catch (PurchaseValidationException ex)
+        {
+            _errors = ex.Errors;
+        }
+        catch (Exception ex)
+        {
+            _error = $"The purchase was not logged: {ex.Message}";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private static DateTimeOffset FromNashville(DateTime local)
+    {
+        try
+        {
+            var zone = TimeZoneInfo.FindSystemTimeZoneById(Nashville);
+            var unspecified = DateTime.SpecifyKind(local, DateTimeKind.Unspecified);
+            return new DateTimeOffset(unspecified, zone.GetUtcOffset(unspecified));
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            return new DateTimeOffset(DateTime.SpecifyKind(local, DateTimeKind.Utc));
+        }
+    }
+
+    private static string LedgerWord(bool? allIn) => allIn switch
+    {
+        true => "all-in",
+        false => "face value",
+        null => "fees unstated"
+    };
+
+    private string Local(DateTimeOffset instant)
+        => $"{OnSaleCalendar.InZone(instant, _form?.Event.Venue?.Timezone ?? Nashville).ToString("ddd d MMM yyyy HH:mm", CultureInfo.InvariantCulture)}";
+}

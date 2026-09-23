@@ -183,7 +183,16 @@ else
                 </DeskLink>
                 @if (context.Item.Event.Performer is { } performer && performer.Name != context.Item.Event.Name)
                 {
-                    <div class="dim">@performer.Name</div>
+                    <div class="dim">
+                        @if (Destinations.PerformerOf(context.Item.Event) is { } performerId)
+                        {
+                            <DeskLink Destination="performer" OnClick="() => Destinations.OpenPerformer(Manager, performerId, performer.Name)">@performer.Name</DeskLink>
+                        }
+                        else
+                        {
+                            @performer.Name
+                        }
+                    </div>
                 }
                 @if (!context.Item.Reported)
                 {
@@ -198,10 +207,15 @@ else
 
         <TemplateColumn T="WatchlistRow" Title="Venue" SortBy="@(r => r.Event.Venue!.Name)">
             <CellTemplate>
-                @if (context.Item.Event.Venue is { } venue)
+                @if (context.Item.Event.Venue is { } venue && Destinations.VenueOf(context.Item.Event) is { } venueId)
                 {
-                    <span>@venue.Name</span>
+                    <DeskLink Destination="venue" OnClick="() => Destinations.OpenVenue(Manager, venueId, venue.Name)">@venue.Name</DeskLink>
                     <div class="dim">@venue.City</div>
+                }
+                else if (context.Item.Event.Venue is { } room)
+                {
+                    <span>@room.Name</span>
+                    <div class="dim">@room.City</div>
                 }
                 else
                 {
@@ -540,6 +554,13 @@ else
                 Label = "All sources",
                 Icon = Icons.Material.Filled.ViewList,
                 OpenWindow = () => Launch(WindowCatalog.AllSources, id, name, "680px")
+            },
+            new()
+            {
+                Key = "trend",
+                Label = "Trend",
+                Icon = Icons.Material.Filled.TrendingUp,
+                OpenWindow = () => Launch(WindowCatalog.Trend, id, name, "480px")
             },
             new()
             {

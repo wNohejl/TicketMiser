@@ -232,6 +232,40 @@ public class WatchlistPanelTests : DeskTestContext
     }
 
     [Fact]
+    public void Trend_opens_about_the_event_too()
+    {
+        var evt = Bridgestone(7, "Example Tour");
+        var cut = Render(Row(evt, [Quote(Ticketmaster, 59.5m, allIn: true)]));
+
+        cut.Find("tbody .mud-table-row").Click();
+        cut.FindAll(".rowacts__keys button").Single(b => b.TextContent.Trim() == "Trend").Click();
+
+        var window = Assert.Single(_manager.Windows, w => w.Definition.Key == WindowCatalog.Trend);
+        Assert.Equal(7, window.Parameters["EventId"]);
+    }
+
+    [Fact]
+    public void The_performer_and_venue_names_open_their_destinations()
+    {
+        var evt = Bridgestone(7, "Example Tour");
+        evt.PerformerId = 20;
+        evt.Performer!.Id = 20;
+        evt.VenueId = 30;
+        evt.Venue!.Id = 30;
+
+        var cut = Render(Row(evt, []));
+
+        cut.FindAll("button.desklink").Single(l => l.GetAttribute("title") == "Open performer").Click();
+        cut.FindAll("button.desklink").Single(l => l.GetAttribute("title") == "Open venue").Click();
+
+        Assert.Equal(20, Assert.Single(_manager.Windows, w => w.Definition.Key == WindowCatalog.Performer).Parameters["PerformerId"]);
+        Assert.Equal(30, Assert.Single(_manager.Windows, w => w.Definition.Key == WindowCatalog.Venue).Parameters["VenueId"]);
+
+        // Following a name is not opening the row: the actions stay hidden.
+        Assert.Empty(cut.FindAll(".rowacts__keys"));
+    }
+
+    [Fact]
     public void The_metrics_count_watches_sellouts_and_reappearances()
     {
         var soldOut = Row(Bridgestone(1, "Sold out"), [Quote(Ticketmaster, null, null, status: InventoryStatus.NotAvailable)], primaryStatus: InventoryStatus.NotAvailable);

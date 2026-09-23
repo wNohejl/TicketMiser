@@ -1,0 +1,69 @@
+@namespace TicketMiser.Web.Components.Prices
+@using TicketMiser.Core.Analytics
+@using TicketMiser.Web.Services
+@inject IPriceHistoryQueries Queries
+
+@*
+    The history as a section of another window: the Event window's "Price history" tab. It
+    loads its own history by id so the Event window reads nothing it does not show — a reader
+    who never opens the tab never costs the query.
+*@
+
+@if (_loading)
+{
+    <EmptyState>Reading the price history.</EmptyState>
+}
+else if (_failed)
+{
+    <EmptyState Kind="EmptyStateKind.Error">
+        <ChildContent>The price history could not be read.</ChildContent>
+        <Action>
+            <DeskButton Emphasis="DeskEmphasis.Plain" OnClick="LoadAsync">Try again</DeskButton>
+        </Action>
+    </EmptyState>
+}
+else if (_history is null)
+{
+    <EmptyState Kind="EmptyStateKind.Error">No event has id @EventId.</EmptyState>
+}
+else
+{
+    <PriceHistoryView History="_history" />
+}
+
+@code {
+    [Parameter, EditorRequired] public int EventId { get; set; }
+
+    private int? _loadedId;
+    private bool _loading = true;
+    private bool _failed;
+    private PriceHistory? _history;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_loadedId == EventId)
+            return;
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loadedId = EventId;
+        _loading = true;
+        _failed = false;
+
+        try
+        {
+            _history = await Queries.LoadAsync(EventId);
+        }
+        catch
+        {
+            _failed = true;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

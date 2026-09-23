@@ -99,9 +99,9 @@ Gate: `apple-mudblazor` on every window; render tests in the same commit.
       with one tick per source, primary and resale badged.
 - [x] Event window, first tab "Was it really sold out?": primary availability and resale
       listings over the first two hours, on-sale price pinned.
-- [ ] Price history chart; Performers; Event / Performer / Venue destinations; Purchases
+- [x] Price history chart; Performers; Event / Performer / Venue destinations; Purchases
       and Savings; the three follow-ups.
-- [ ] Ledger export as a dated receipt.
+- [x] Ledger export as a dated receipt.
 
 Exit: open a watched Nashville event that went on sale this week and read its on-sale
 record, its history and the cheapest resale beside the primary reference; every price cell

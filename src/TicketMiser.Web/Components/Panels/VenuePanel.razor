@@ -1,0 +1,110 @@
+@using TicketMiser.Web.Components.Prices
+@using TicketMiser.Web.Services
+@inherits DeskPanel
+@inject IDestinationQueries Queries
+
+@*
+    One venue: its calendar, where each sale stands, each market's best number now, and how
+    its recent past events' prices ended. Reached by following a venue's name.
+
+    The room's ticketing provider comes first, because it decides whether the primary column
+    can ever hold a number. An AXS or Etix room has no public primary feed the desk may read,
+    and the window says so in plain words at the top rather than leave a column of dashes to
+    be mistaken for a broken feed — or a resale ask to be mistaken for the face price.
+*@
+
+<div class="stack" style="--desk-gap:12px; padding:4px 0">
+    @if (_loading && _detail is null)
+    {
+        <EmptyState>Reading the venue.</EmptyState>
+    }
+    else if (_failed)
+    {
+        <EmptyState Kind="EmptyStateKind.Error">
+            <ChildContent>The venue could not be read.</ChildContent>
+            <Action>
+                <DeskButton Emphasis="DeskEmphasis.Plain" OnClick="LoadAsync">Try again</DeskButton>
+            </Action>
+        </EmptyState>
+    }
+    else if (_detail is null)
+    {
+        <EmptyState Kind="EmptyStateKind.Error">
+            No venue has id @(VenueId?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "(none)"). The window was opened about something that is not on record.
+        </EmptyState>
+    }
+    else
+    {
+        var venue = _detail.Venue;
+
+        <table class="grid grid--tight" data-table="venue">
+            <tbody>
+                <tr><th scope="row">Venue</th><td>@venue.Name, @venue.City, @venue.State</td></tr>
+                @if (venue.Capacity is { } capacity)
+                {
+                    <tr><th scope="row">Capacity</th><td><span class="num">@capacity.ToString("N0", PriceText.Money)</span></td></tr>
+                }
+                <tr>
+                    <th scope="row">Ticketing provider</th>
+                    <td>
+                        @_detail.Feed.Provider
+                        <Tag State="@(_detail.Feed.HasPrimaryFeed ? DeskState.Positive : DeskState.Warning)" Class="ml-2"
+                             Title="@_detail.Feed.Sentence">
+                            @(_detail.Feed.HasPrimaryFeed ? "primary tracked" : "no primary feed")
+                        </Tag>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+
+        <Note State="@(_detail.Feed.HasPrimaryFeed ? DeskState.Neutral : DeskState.Warning)" data-feed="@(_detail.Feed.HasPrimaryFeed ? "primary" : "none")">
+            @_detail.Feed.Sentence
+        </Note>
+
+        <EventListing Upcoming="_detail.Upcoming" Past="_detail.Past" Other="EventListing.ListingOther.Performer"
+                      EmptyUpcoming="No upcoming event at this venue is on record. Events arrive with the daily discovery run." />
+    }
+</div>
+
+@code {
+    /// <summary>The id parameter the window was opened with. Arrives as <c>VenueId</c>.</summary>
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? Parameters { get; set; }
+
+    private int? VenueId => Destinations.IdFrom(Parameters, Destinations.VenueId);
+
+    private int? _loadedId;
+    private bool _loading = true;
+    private bool _failed;
+    private VenueDetail? _detail;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (VenueId == _loadedId && !_loading)
+            return;
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loadedId = VenueId;
+        _loading = true;
+        _failed = false;
+
+        try
+        {
+            await WithActivityAsync(
+                async () => _detail = VenueId is { } id ? await Queries.VenueAsync(id) : null,
+                settle: () => _detail is null ? PulseState.Warn : PulseState.Healthy,
+                status: () => _detail is null ? "not found" : $"{_detail.Upcoming.Count} upcoming");
+        }
+        catch
+        {
+            _failed = true;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}
