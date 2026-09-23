@@ -16,6 +16,7 @@ using TicketMiser.Reliability.Notifications;
 using TicketMiser.Web.Accounts;
 using TicketMiser.Web.Components;
 using TicketMiser.Web.Components.Pages;
+using TicketMiser.Web.Reports;
 using TicketMiser.Web.Services;
 using TicketMiser.Web.Windowing;
 
@@ -59,14 +60,21 @@ const string EventRecordCache = "event-record";
 // The calendar changes once a day, when discovery runs; a subscription that polls every few
 // hours therefore reads a cached document almost every time.
 const string OnSaleCalendarCache = "onsale-calendar";
+// A report changes only when a commit publishes one, and a deploy starts a new process with an
+// empty cache, so an hour costs nothing in freshness.
+const string ReportsCache = "reports";
 builder.Services.AddOutputCache(options =>
 {
     // Varies by ?subscribed= only, so the subscribe form's "check your inbox" notice is its own
     // cached copy and any other query string reads the one shared document.
     options.AddPolicy(EventRecordCache, policy => policy.Expire(TimeSpan.FromMinutes(5)).SetVaryByQuery("subscribed"));
     options.AddPolicy(OnSaleCalendarCache, policy => policy.Expire(TimeSpan.FromMinutes(15)));
+    options.AddPolicy(ReportsCache, policy => policy.Expire(TimeSpan.FromHours(1)));
 });
 builder.Services.AddSingleton<IOnSaleCalendarService, OnSaleCalendarService>();
+
+// The monthly reports, from docs/reports as copied beside the assembly (or Reports:Path).
+builder.Services.AddSingleton<IReportLibrary>(FileReportLibrary.From(builder.Configuration));
 
 // The subscribe form is the one anonymous write on the site. Ten posts per client address per
 // ten minutes is more than a person needs and less than a flood of confirmation emails.
@@ -256,6 +264,11 @@ app.MapGet("/onsales.ics", async (HttpContext http, IOnSaleCalendarService calen
     })
     .AllowAnonymous()
     .CacheOutput(OnSaleCalendarCache);
+
+// The monthly Nashville reports: the list, and one month's report. Static, anonymous and cached
+// like the calendar. A month is served only when its file says `published: true`; an
+// unpublished or missing month is a 404. Nothing mails a report to subscribers; not built.
+app.MapReports(ReportsCache);
 
 // The ledger as a dated receipt (legal guidelines, rule 9): one event's on-sale record and the
 // purchases logged against it, as a Markdown file to keep or attach to a complaint. A file, not

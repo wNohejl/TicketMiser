@@ -1,5 +1,7 @@
 @using System.Globalization
+@using TicketMiser.Core.Analytics
 @using TicketMiser.Core.Entities
+@using TicketMiser.Web.Accounts
 @using TicketMiser.Web.Services
 @inject DeskBrand Brand
 
@@ -12,8 +14,14 @@
     account, and the verify page says the same thing for a link that is unknown, expired or
     used, so neither can be probed for who has signed in (docs/legal-guidelines.md, rule 8).
 
-    The forms that change a signed-in session (sign out) and the one that starts it (the
-    verify button) carry an antiforgery token. <AntiforgeryToken /> works in a
+    Signed in, the page is the fan's ledger too: each purchase graded the way the desk grades
+    it (PurchaseLedger), the savings with all-in and face value totalled apart and never added,
+    a Log a purchase form per watched event, a delete per row, and a receipt per event. All of
+    it is read as the account and nobody else (IAccountLedger). The forms are plain posts: a
+    refused one is drawn again by the endpoint with what was typed and what was wrong.
+
+    The forms that change a signed-in session (sign out), the one that starts it (the verify
+    button) and the ones that write the ledger carry an antiforgery token. <AntiforgeryToken /> works in a
     RazorComponentResult: the result renders through the same endpoint renderer as a routed
     page, which hands the component the request's antiforgery state and sets the cookie the
     token pairs with before the response starts.
@@ -34,7 +42,7 @@
     <link rel="stylesheet" href="@Assets["_content/TicketMiser.Desk/css/desk.css"]" />
     <link rel="stylesheet" href="@Assets["_content/TicketMiser.Desk/css/mud-bridge.css"]" />
     <style>
-        .record-page { max-width: 640px; margin: 0 auto; padding: var(--space-4) var(--space-3) var(--space-6); }
+        .record-page { max-width: 720px; margin: 0 auto; padding: var(--space-4) var(--space-3) var(--space-6); }
         .record-page__brand { display: flex; align-items: baseline; gap: var(--space-2); margin-bottom: var(--space-4); }
         .record-page__brand a { color: var(--text-secondary); text-decoration: none; font-size: var(--text-footnote); font-weight: var(--weight-semibold); letter-spacing: .08em; }
         .record-page__brand a b { color: var(--text-primary); font-weight: var(--weight-semibold); }
@@ -52,6 +60,27 @@
         .record-page__notice { color: var(--text-primary); font-size: var(--text-body); background: var(--accent-wash); border-radius: var(--radius); padding: var(--space-2) var(--space-3); margin: 0 0 var(--space-3); }
         .record-page__notice--error { background: var(--state-negative-wash); }
         .record-page__fine { color: var(--text-tertiary); font-size: var(--text-footnote); }
+        .record-page ul.account-purchases li { display: block; }
+        .account-purchase__head, .account-purchase__paid { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-2); align-items: baseline; }
+        .account-purchase__paid { margin-top: var(--space-1); }
+        .account-purchase__grade { color: var(--text-secondary); font-size: var(--text-footnote); margin-top: var(--space-1); }
+        .account-purchase__grade .up { color: var(--state-positive); }
+        .account-purchase__grade .down { color: var(--state-negative); }
+        .record-page .account-purchase form { margin: var(--space-1) 0 0; }
+        .account-savings { width: 100%; border-collapse: collapse; font-size: var(--text-body); margin: 0 0 var(--space-2); }
+        .account-savings th, .account-savings td { text-align: right; padding: var(--space-1) var(--space-2); border-bottom: 1px solid var(--separator); white-space: nowrap; }
+        .account-savings th:first-child, .account-savings td:first-child { text-align: left; }
+        .account-savings th { color: var(--text-tertiary); font-size: var(--text-footnote); font-weight: var(--weight-semibold); }
+        .table-scroll { overflow-x: auto; }
+        .account-log details { border-bottom: 1px solid var(--separator); padding: var(--space-2) 0; }
+        .account-log summary { cursor: pointer; font-size: var(--text-body); color: var(--text-primary); }
+        .record-page .account-log form { display: grid; grid-template-columns: repeat(auto-fit, minmax(16ch, 1fr)); gap: var(--space-2) var(--space-3); align-items: start; margin: var(--space-2) 0 0; }
+        .account-log label, .account-log legend { display: block; color: var(--text-secondary); font-size: var(--text-footnote); margin-bottom: var(--space-1); }
+        .account-log input[type=text], .account-log input[type=number], .account-log input[type=datetime-local], .account-log select { width: 100%; box-sizing: border-box; }
+        .account-log fieldset { border: 0; padding: 0; margin: 0; grid-column: 1 / -1; }
+        .account-log fieldset label { display: flex; gap: var(--space-1); align-items: baseline; color: var(--text-primary); font-size: var(--text-body); }
+        .account-log .account-log__wide { grid-column: 1 / -1; }
+        .account-log .field-error { color: var(--state-negative); font-size: var(--text-footnote); margin: var(--space-1) 0 0; }
         .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
     </style>
 </head>
@@ -67,6 +96,19 @@
         @switch (Kind)
         {
             case AccountPageKind.SignedIn when Summary is { } s:
+                @switch (Notice)
+                {
+                    case AccountNotice.PurchaseLogged:
+                        <p class="record-page__notice" role="status">Purchase logged. It is graded against the day-of price once the event has been played.</p>
+                        break;
+                    case AccountNotice.PurchaseDeleted:
+                        <p class="record-page__notice" role="status">Purchase deleted.</p>
+                        break;
+                }
+                @if (Form is { Errors.Count: > 0 })
+                {
+                    <p class="record-page__notice record-page__notice--error" role="alert">The purchase was not logged. The form below says what to change.</p>
+                }
                 <p>Signed in as <strong>@s.Account.Email</strong>.</p>
 
                 <h2>Watching</h2>
@@ -91,22 +133,201 @@
                     </p>
                 }
 
-                <h2>Purchases</h2>
-                @if (s.Purchases.Count == 0)
+                @if (LedgerOrEmpty.Forms.Count > 0)
                 {
-                    <p>No purchases logged.</p>
+                    <h2>Log a purchase</h2>
+                    <div class="account-log">
+                        @foreach (var form in LedgerOrEmpty.Forms)
+                        {
+                            var evtId = form.Event.Id.ToString(CultureInfo.InvariantCulture);
+                            var mine = Form?.Input.EventId == form.Event.Id ? Form : null;
+                            var input = mine?.Input ?? PurchaseFormInput.Blank(form.Event.Id);
+                            <details id="log-@evtId" open="@(mine is not null)">
+                                <summary>@form.Event.Name</summary>
+                                <form method="post" action="/account/purchases">
+                                    <AntiforgeryToken />
+                                    <input type="hidden" name="eventId" value="@evtId" />
+
+                                    <div>
+                                        <label for="quantity-@evtId">Tickets</label>
+                                        <input id="quantity-@evtId" class="field" type="number" name="quantity" min="1" max="100" step="1" required
+                                               value="@input.Quantity" aria-invalid="@Invalid(mine, "quantity")" />
+                                        @FieldError(mine, "quantity")
+                                    </div>
+
+                                    <div>
+                                        <label for="price-@evtId">Price per ticket (USD)</label>
+                                        <input id="price-@evtId" class="field" type="text" inputmode="decimal" name="price" required
+                                               autocomplete="off" placeholder="84.50" value="@input.Price" aria-invalid="@Invalid(mine, "price")" />
+                                        @FieldError(mine, "price")
+                                    </div>
+
+                                    <div>
+                                        <label for="source-@evtId">Bought at</label>
+                                        <select id="source-@evtId" class="field" name="sourceId" aria-invalid="@Invalid(mine, "source")">
+                                            <option value="" selected="@(string.IsNullOrEmpty(input.SourceId))">@PurchaseLedger.Elsewhere</option>
+                                            @foreach (var source in form.Sources)
+                                            {
+                                                var id = source.Id.ToString(CultureInfo.InvariantCulture);
+                                                <option value="@id" selected="@(input.SourceId == id)">@source.Name (@PurchaseLedger.MarketWord(source.Kind))</option>
+                                            }
+                                        </select>
+                                        @FieldError(mine, "source")
+                                    </div>
+
+                                    <div>
+                                        <label for="when-@evtId">When (Nashville time; empty for now)</label>
+                                        <input id="when-@evtId" class="field" type="datetime-local" name="purchasedAt"
+                                               value="@input.PurchasedAt" aria-invalid="@Invalid(mine, "purchasedAt")" />
+                                        @FieldError(mine, "purchasedAt")
+                                    </div>
+
+                                    @* No default, on purpose: a face-value price and a receipt total look the same when typed. *@
+                                    <fieldset aria-invalid="@Invalid(mine, "allIn")">
+                                        <legend>Does that price include fees?</legend>
+                                        <label>
+                                            <input type="radio" name="allIn" value="true" required checked="@(input.AllIn == "true")" />
+                                            Yes — all-in, what the receipt charged per ticket with fees
+                                        </label>
+                                        <label>
+                                            <input type="radio" name="allIn" value="false" checked="@(input.AllIn == "false")" />
+                                            No — face value, before fees
+                                        </label>
+                                        @FieldError(mine, "allIn")
+                                    </fieldset>
+
+                                    <div class="account-log__wide">
+                                        <label for="note-@evtId">Note (optional)</label>
+                                        <input id="note-@evtId" class="field" type="text" name="note" maxlength="@PurchaseLedger.NoteMaxLength"
+                                               autocomplete="off" value="@input.Note" aria-invalid="@Invalid(mine, "note")" />
+                                        @FieldError(mine, "note")
+                                    </div>
+
+                                    <div class="account-log__wide">
+                                        <DeskButton Emphasis="DeskEmphasis.Filled" ButtonType="ButtonType.Submit">Log purchase</DeskButton>
+                                    </div>
+                                </form>
+                            </details>
+                        }
+                    </div>
+                    <p class="record-page__fine">
+                        A purchase is yours alone: nobody else who signs in sees it. It is graded after the
+                        event against the day-of price of the same kind — all-in against all-in, face value
+                        against face value — and not at all otherwise.
+                    </p>
+                }
+
+                <h2 id="purchases">Purchases</h2>
+                @if (LedgerOrEmpty.Lines.Count == 0)
+                {
+                    <p>No purchases logged.@(LedgerOrEmpty.Forms.Count == 0 ? " Watch an event to log what you paid for it." : "")</p>
                 }
                 else
                 {
                     <ul class="account-purchases">
-                        @foreach (var p in s.Purchases)
+                        @foreach (var line in LedgerOrEmpty.Lines)
                         {
-                            <li>
-                                <a href="/receipts/@(p.EventId.ToString(CultureInfo.InvariantCulture)).md">@(p.Event?.Name ?? "Event")</a>
-                                <span>@p.Quantity × @p.PaidPerTicket.ToString("C2", Money) @(p.AllIn ? "all-in" : "face value")</span>
+                            var p = line.Purchase;
+                            <li class="account-purchase" data-purchase="@p.Id.ToString(CultureInfo.InvariantCulture)">
+                                <div class="account-purchase__head">
+                                    <a href="@RecordHref(line.Event)">@line.Event.Name</a>
+                                    <span>
+                                        @if (line.Source is { } source)
+                                        {
+                                            <a href="@SourceLink.For(source, line.Event)" rel="noopener noreferrer" target="_blank" data-cell="source">@source.Name</a>
+                                        }
+                                        else
+                                        {
+                                            <text>@PurchaseLedger.Elsewhere</text>
+                                        }
+                                        · bought @OnSaleRecordLocalZone(p.PurchasedAt, PurchaseReceipt.NashvilleZone)
+                                    </span>
+                                </div>
+                                <div class="account-purchase__paid" data-cell="paid">
+                                    <span>@Tickets(p.Quantity) at @PurchaseLedger.Amount(p.PaidPerTicket, p.Currency) per ticket, @PurchaseLedger.BasisWord(p.AllIn)</span>
+                                    <span>@PurchaseLedger.Amount(line.Total, p.Currency) in all, @PurchaseLedger.BasisWord(p.AllIn)</span>
+                                </div>
+                                <div class="account-purchase__grade" data-cell="grade">
+                                    @if (line.SavedPerTicket is { } per)
+                                    {
+                                        <span class="@(per > 0 ? "up" : per < 0 ? "down" : "")">@SavedWords(line, per)</span>
+                                        @if (line.DayOf is { Lowest: { } low } dayOf && line.DayOfSource is { } dayOfSource)
+                                        {
+                                            <text> — day-of lowest @PurchaseLedger.Amount(low, dayOf.Currency) @PurchaseLedger.BasisWord(dayOf.AllIn) at </text>
+                                            <a href="@SourceLink.For(dayOfSource, line.Event)" rel="noopener noreferrer" target="_blank">@dayOfSource.Name</a>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span>Not graded: @line.Reason</span>
+                                    }
+                                </div>
+                                <form method="post" action="/account/purchases/@p.Id.ToString(CultureInfo.InvariantCulture)/delete">
+                                    <AntiforgeryToken />
+                                    <DeskButton Emphasis="DeskEmphasis.Plain" ButtonType="ButtonType.Submit">Delete</DeskButton>
+                                </form>
                             </li>
                         }
                     </ul>
+                    @if (LedgerOrEmpty.Lines.Any(l => l.DayOfSource?.Key == "seatgeek"))
+                    {
+                        <p class="record-page__fine">Day-of resale prices from <a href="https://seatgeek.com" rel="noopener noreferrer" target="_blank">SeatGeek</a>.</p>
+                    }
+
+                    <h2>Savings</h2>
+                    <div class="table-scroll">
+                        <table class="account-savings">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Fee basis</th>
+                                    <th scope="col">Purchases</th>
+                                    <th scope="col">Tickets</th>
+                                    <th scope="col">Paid</th>
+                                    <th scope="col">Graded</th>
+                                    <th scope="col">Saved</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var basis in new[] { LedgerOrEmpty.Savings.AllIn, LedgerOrEmpty.Savings.Face })
+                                {
+                                    @if (basis.Any)
+                                    {
+                                        <tr data-basis="@(basis.AllIn ? "all-in" : "face")">
+                                            <th scope="row">@(basis.AllIn ? "All-in" : "Face value")</th>
+                                            <td>@basis.Purchases.ToString("N0", Money)</td>
+                                            <td>@basis.Tickets.ToString("N0", Money)</td>
+                                            <td>@PurchaseLedger.Amount(basis.Paid)</td>
+                                            <td>@basis.Graded.ToString("N0", Money)</td>
+                                            <td>@(basis.Graded > 0 ? PurchaseLedger.Amount(basis.Saved) : "none graded")</td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="record-page__fine">
+                        All-in and face-value purchases are totalled apart and never added together: a saving
+                        against a price with fees and one against a price without are not the same number.
+                        @if (LedgerOrEmpty.Savings.Ungraded > 0)
+                        {
+                            <span data-ungraded>@UngradedWords(LedgerOrEmpty.Savings)</span>
+                        }
+                    </p>
+
+                    <h2>Receipts</h2>
+                    <ul class="account-receipts">
+                        @foreach (var evt in LedgerOrEmpty.ReceiptEvents)
+                        {
+                            <li>
+                                <a href="/account/receipts/@(evt.Id.ToString(CultureInfo.InvariantCulture)).md" download>Receipt for @evt.Name</a>
+                                <span>Markdown file</span>
+                            </li>
+                        }
+                    </ul>
+                    <p class="record-page__fine">
+                        A dated record of the event's on-sale ticks and your purchases on it, to keep or attach
+                        to a complaint. It records what was shown and when; it does not say anyone broke a law.
+                    </p>
                 }
 
                 <form method="post" action="/account/sign-out">
@@ -175,6 +396,12 @@
     /// <summary>For <see cref="AccountPageKind.SignedIn"/>: the account's own rows, read through the ownership rule.</summary>
     [Parameter] public AccountSummary? Summary { get; set; }
 
+    /// <summary>For <see cref="AccountPageKind.SignedIn"/>: the account's purchases, savings and forms, read as the account.</summary>
+    [Parameter] public AccountLedger? Ledger { get; set; }
+
+    /// <summary>A Log a purchase post that was refused: drawn again, open, with what was typed and what was wrong.</summary>
+    [Parameter] public PurchaseFormState? Form { get; set; }
+
     /// <summary>The sign-in secret, echoed into the verify form's action; never looked up to draw the page.</summary>
     [Parameter] public string? Token { get; set; }
 
@@ -196,4 +423,55 @@
 
     private static string OnSaleRecordLocal(Event evt)
         => TicketMiser.Web.Components.Records.OnSaleRecordView.Local(evt.StartsAt, evt.Venue?.Timezone);
+
+    private static string OnSaleRecordLocalZone(DateTimeOffset instant, string zone)
+        => TicketMiser.Web.Components.Records.OnSaleRecordView.Local(instant, zone);
+
+    private AccountLedger LedgerOrEmpty => Ledger ?? AccountLedger.Empty;
+
+    private static string Tickets(int quantity) => quantity == 1 ? "1 ticket" : $"{quantity.ToString("N0", Money)} tickets";
+
+    /// <summary>What a graded line saved, per ticket and in all, against the day-of price of its own fee basis.</summary>
+    private static string SavedWords(PurchaseLine line, decimal perTicket)
+    {
+        var basis = PurchaseLedger.BasisWord(line.Purchase.AllIn);
+        var currency = line.Purchase.Currency;
+        var total = PurchaseLedger.Amount(Math.Abs(line.SavedTotal ?? 0m), currency);
+        var per = PurchaseLedger.Amount(Math.Abs(perTicket), currency);
+
+        return perTicket switch
+        {
+            > 0 => $"Saved {per} per ticket ({total} in all) against the day-of {basis} price",
+            < 0 => $"Paid {per} per ticket more ({total} in all) than the day-of {basis} price",
+            _ => $"Paid the day-of {basis} price"
+        };
+    }
+
+    private static string UngradedWords(SavingsSummary savings)
+    {
+        var parts = new List<string>();
+        if (savings.NotYetPlayed > 0)
+            parts.Add($"{savings.NotYetPlayed.ToString("N0", Money)} not played yet");
+        if (savings.AwaitingGrade > 0)
+            parts.Add($"{savings.AwaitingGrade.ToString("N0", Money)} awaiting the next grading run");
+        if (savings.NoComparableFinal > 0)
+            parts.Add($"{savings.NoComparableFinal.ToString("N0", Money)} with no day-of price of the same kind");
+
+        return $"Not graded: {string.Join(", ", parts)}.";
+    }
+
+    private static string? Invalid(PurchaseFormState? state, string field)
+        => state is not null && state.Errors.ContainsKey(field) ? "true" : null;
+
+    private static RenderFragment FieldError(PurchaseFormState? state, string field) => builder =>
+    {
+        if (state is not null && state.Errors.TryGetValue(field, out var message))
+        {
+            builder.OpenElement(0, "p");
+            builder.AddAttribute(1, "class", "field-error");
+            builder.AddAttribute(2, "data-error", field);
+            builder.AddContent(3, message);
+            builder.CloseElement();
+        }
+    };
 }

@@ -16,6 +16,8 @@ COPY docs/runbook.md docs/
 RUN dotnet restore src/TicketMiser.Web/TicketMiser.Web.csproj
 
 COPY src/ src/
+# The published monthly reports, served at /reports; the Web project copies them into its output.
+COPY docs/reports/ docs/reports/
 RUN dotnet publish src/TicketMiser.Web/TicketMiser.Web.csproj -c Release -o /app --no-restore
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime

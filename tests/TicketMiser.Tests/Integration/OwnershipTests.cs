@@ -6,6 +6,7 @@ using TicketMiser.Core.Entities;
 using TicketMiser.Data;
 using TicketMiser.Ingestion.Configuration;
 using TicketMiser.Ingestion.Services;
+using TicketMiser.Web.Accounts;
 using TicketMiser.Web.Services;
 
 namespace TicketMiser.Tests.Integration;
@@ -192,11 +193,76 @@ public class OwnershipTests(PostgresFixture fixture)
         var summary = await accounts.SummaryAsync(w.A.Id);
         Assert.NotNull(summary);
         Assert.Equal([w.Shared.Id], summary.Watching.Select(e => e.Id));
-        Assert.Equal([w.APurchase.Id], summary.Purchases.Select(p => p.Id));
+
+        // The page's purchases, savings and forms: A's own, though the operator bought on Shared too.
+        var ledger = await Ledger().LoadAsync(w.A.Id, summary.Watching);
+        Assert.Equal([w.APurchase.Id], ledger.Lines.Select(l => l.Purchase.Id));
+        Assert.Equal(1, ledger.Savings.Purchases);
+        Assert.Equal([w.Shared.Id], ledger.Forms.Select(f => f.Event.Id));
+        Assert.Equal([w.Shared.Id], ledger.ReceiptEvents.Select(e => e.Id));
 
         Assert.True(await accounts.IsWatchingAsync(w.A.Id, w.Shared.Id));
         Assert.False(await accounts.IsWatchingAsync(w.A.Id, w.OnlyB.Id));
         Assert.Null(await accounts.SummaryAsync(int.MaxValue));
+    }
+
+    private AccountLedgerService Ledger() => new(new Factory(fixture), new FakeClock(Now));
+
+    [Fact]
+    public async Task An_account_cannot_read_delete_or_receipt_another_account_s_purchase()
+    {
+        var w = await SeedAsync();
+        var ledger = Ledger();
+
+        // Read: B's purchase is not in A's list, and A's receipt read for B's event is empty,
+        // which is what makes /account/receipts/{OnlyB}.md a 404 for A.
+        Assert.DoesNotContain((await ledger.LoadAsync(w.A.Id, [])).Lines, l => l.Purchase.Id == w.BPurchase.Id);
+        Assert.Empty(await ledger.ForEventAsync(w.A.Id, w.OnlyB.Id));
+
+        // A's receipt for Shared carries A's purchase and not the operator's on the same event.
+        Assert.Equal([w.APurchase.Id], (await ledger.ForEventAsync(w.A.Id, w.Shared.Id)).Select(l => l.Purchase.Id));
+
+        // Delete: A naming B's id deletes nothing and says so; A's own goes.
+        Assert.False(await ledger.DeleteAsync(w.A.Id, w.BPurchase.Id));
+        Assert.False(await ledger.DeleteAsync(w.A.Id, w.OperatorPurchase.Id));
+        Assert.True(await ledger.DeleteAsync(w.A.Id, w.APurchase.Id));
+
+        await using var db = fixture.CreateContext();
+        Assert.True(await db.Purchases.AnyAsync(p => p.Id == w.BPurchase.Id));
+        Assert.True(await db.Purchases.AnyAsync(p => p.Id == w.OperatorPurchase.Id));
+        Assert.False(await db.Purchases.AnyAsync(p => p.Id == w.APurchase.Id));
+
+        // The operator still reads every purchase that is left, B's included, and its receipt
+        // for Shared still carries its own.
+        var all = (await Purchases(OwnerScope.Operator).LoadAsync()).Select(l => l.Purchase.Id).ToHashSet();
+        Assert.Superset(new HashSet<long> { w.BPurchase.Id, w.OperatorPurchase.Id }, all);
+        Assert.Equal([w.OperatorPurchase.Id], (await Purchases(OwnerScope.Operator).ForEventAsync(w.Shared.Id)).Select(l => l.Purchase.Id));
+    }
+
+    [Fact]
+    public async Task An_account_logs_its_own_purchase_only_once_the_fee_basis_is_answered()
+    {
+        var w = await SeedAsync();
+        var ledger = Ledger();
+
+        var unanswered = await Assert.ThrowsAsync<PurchaseValidationException>(() =>
+            ledger.LogAsync(w.A.Id, new PurchaseDraft(w.Shared.Id, 2, 75m, null, null, Now.AddHours(-1), null)));
+        Assert.Equal(["allIn"], unanswered.Errors.Keys);
+
+        var future = await Assert.ThrowsAsync<PurchaseValidationException>(() =>
+            ledger.LogAsync(w.A.Id, new PurchaseDraft(w.Shared.Id, 0, 75m, true, null, Now.AddDays(1), null)));
+        Assert.Equal(["purchasedAt", "quantity"], future.Errors.Keys.Order(StringComparer.Ordinal));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            ledger.LogAsync(w.A.Id, new PurchaseDraft(int.MaxValue, 1, 75m, true, null, Now.AddHours(-1), null)));
+
+        var logged = await ledger.LogAsync(w.A.Id, new PurchaseDraft(w.Shared.Id, 2, 75m, false, null, Now.AddHours(-1), "floor"));
+
+        await using var db = fixture.CreateContext();
+        var row = await db.Purchases.AsNoTracking().SingleAsync(p => p.Id == logged.Id);
+        Assert.Equal(w.A.Id, row.OwnerId);
+        Assert.False(row.AllIn);
+        Assert.DoesNotContain((await ledger.LoadAsync(w.B.Id, [])).Lines, l => l.Purchase.Id == logged.Id);
     }
 
     [Fact]

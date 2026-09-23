@@ -168,7 +168,7 @@ union of owners' watches.
 - [ ] Watchlist board and Price history from Phase 4, live once one resale source returns
       prices; until then the board shows availability and face value only and says so in
       the empty state.
-- [ ] Purchases, Savings and the receipt export from Phase 4, per owner.
+- [x] Purchases, Savings and the receipt export from Phase 4, per owner.
 - [ ] Written clarification from Ticketmaster on the scheduled poller and on retaining
       tick summaries, filed as `docs/terms/ticketmaster-<yyyy-mm-dd>.md`, before any paid tier.
 

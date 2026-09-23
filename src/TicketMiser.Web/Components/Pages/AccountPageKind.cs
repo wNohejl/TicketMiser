@@ -6,7 +6,7 @@ public enum AccountPageKind
     /// <summary>GET /account with no cookie: the sign-in form.</summary>
     SignedOut,
 
-    /// <summary>GET /account with a cookie: the address, its watches and purchases, and sign-out.</summary>
+    /// <summary>GET /account with a cookie: the address, its watches, its purchases and savings, and sign-out.</summary>
     SignedIn,
 
     /// <summary>GET of a sign-in link: one button, because a link scanner's GET must not spend the link.</summary>
@@ -16,7 +16,7 @@ public enum AccountPageKind
     VerifyUnknown
 }
 
-/// <summary>The one-line notice above the sign-in form, from the query string after a redirect.</summary>
+/// <summary>The one-line notice above the page's form, from the query string after a redirect.</summary>
 public enum AccountNotice
 {
     None,
@@ -27,5 +27,11 @@ public enum AccountNotice
     /// <summary>The post was not an address; nothing was sent.</summary>
     InvalidAddress,
 
-    SignedOut
+    SignedOut,
+
+    /// <summary>Signed in, after the Log a purchase form's 303.</summary>
+    PurchaseLogged,
+
+    /// <summary>Signed in, after a purchase's Delete.</summary>
+    PurchaseDeleted
 }

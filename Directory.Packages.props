@@ -20,6 +20,8 @@
     <!-- The email provider's typed client. No resilience handler on it: a retried POST is a second email. -->
     <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.10" />
     <PackageVersion Include="MudBlazor" Version="9.7.0" />
+    <!-- The monthly reports at /reports/{yyyy-mm}: Markdown to HTML, with raw HTML disabled. -->
+    <PackageVersion Include="Markdig" Version="1.4.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.4" />

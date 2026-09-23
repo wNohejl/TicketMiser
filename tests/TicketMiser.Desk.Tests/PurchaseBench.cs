@@ -105,11 +105,12 @@ public sealed class FakePurchaseQueries(IReadOnlyList<PurchaseLine>? lines = nul
         return Task.FromResult(PurchaseLedger.ToPurchase(draft, DateTimeOffset.UtcNow));
     }
 
-    public Task DeleteAsync(long purchaseId, CancellationToken ct = default)
+    public Task<bool> DeleteAsync(long purchaseId, CancellationToken ct = default)
     {
         Deleted.Add(purchaseId);
+        var had = _lines.Any(l => l.Purchase.Id == purchaseId);
         _lines = _lines.Where(l => l.Purchase.Id != purchaseId).ToList();
-        return Task.CompletedTask;
+        return Task.FromResult(had);
     }
 }
 

@@ -29,11 +29,13 @@ and stops.
    psql -h localhost -U ticketmiser -d ticketmiser -v month='2026-09' -f .claude/skills/monthly-report/queries/sellout-vs-resale.sql
    ```
 
-3. **Render** `docs/reports/<yyyy-mm>-nashville.md` in the fixed shape: a one-paragraph
+3. **Render** `docs/reports/<yyyy-mm>-nashville.md`, opening with front matter that reads
+   `---` / `published: false` / `---`, then the fixed shape: a one-paragraph
    summary with no adjectives, the three tables, a "how this was measured" section naming
    the sources, the cadence and the all-in rule, and a "what we could not see" section
    listing AXS venues, which are resale-only in our data.
 4. **Stop.** Do not publish, post, or push the report. Say it is ready to read.
+   To publish, a person sets `published: true` in the file's front matter (the skill writes `published: false`) and commits; the next deploy serves it at `/reports/<yyyy-mm>`, and nothing mails it.
 
 ## Rules
 

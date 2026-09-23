@@ -11,6 +11,15 @@
 
   <ItemGroup>
     <PackageReference Include="MudBlazor" />
+    <PackageReference Include="Markdig" />
+  </ItemGroup>
+
+  <!-- The published monthly reports travel with the host, which serves them at /reports.
+       Copied beside the assembly (reports/) on build and publish; the Dockerfile copies
+       docs/reports into the build context so the container has them too. -->
+  <ItemGroup>
+    <Content Include="..\..\docs\reports\*.md" Link="reports\%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <PropertyGroup>

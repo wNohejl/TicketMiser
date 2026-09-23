@@ -52,8 +52,12 @@ public interface IPurchaseQueries
     /// </summary>
     Task<Purchase> LogAsync(PurchaseDraft draft, CancellationToken ct = default);
 
-    /// <summary>Removes a purchase. It is the operator's own record; there is nothing to keep it for.</summary>
-    Task DeleteAsync(long purchaseId, CancellationToken ct = default);
+    /// <summary>
+    /// Removes a purchase the reader may see: an account its own, the operator any. It is the
+    /// reader's own record; there is nothing to keep it for. False when no such row was the
+    /// reader's to remove — another account's id deletes nothing.
+    /// </summary>
+    Task<bool> DeleteAsync(long purchaseId, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -163,11 +167,11 @@ public sealed class PurchaseQueries(IDbContextFactory<TicketMiserDbContext> fact
         return purchase;
     }
 
-    public async Task DeleteAsync(long purchaseId, CancellationToken ct = default)
+    public async Task<bool> DeleteAsync(long purchaseId, CancellationToken ct = default)
     {
         var owner = await owners.GetAsync(ct);
         await using var db = await factory.CreateDbContextAsync(ct);
-        await db.Purchases.VisibleTo(owner).Where(p => p.Id == purchaseId).ExecuteDeleteAsync(ct);
+        return await db.Purchases.VisibleTo(owner).Where(p => p.Id == purchaseId).ExecuteDeleteAsync(ct) > 0;
     }
 
     private async Task<IReadOnlyList<PurchaseLine>> ReadAsync(int? eventId, CancellationToken ct)

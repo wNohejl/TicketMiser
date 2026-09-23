@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
+using TicketMiser.Core.Analytics;
 using TicketMiser.Core.Entities;
 using TicketMiser.Reliability.Accounts;
 using TicketMiser.Web.Components.Pages;
@@ -21,10 +22,16 @@ namespace TicketMiser.Web.Accounts;
 /// <para>
 /// Every page here is a static document (<see cref="AccountPage"/>) rendered by a
 /// RazorComponentResult with no circuit, and none is cached. The two posts that change a
-/// session (following a link, signing out) and the one that writes on the account's behalf
-/// (watching an event) check an antiforgery token; the sign-in post does not, for the reason
-/// the subscribe form does not: a forged post can only send a link to the address's owner.
-/// The rate limit is what stops that ask being repeated at volume.
+/// session (following a link, signing out) and the ones that write on the account's behalf
+/// (watching an event, logging or deleting a purchase) check an antiforgery token; the sign-in
+/// post does not, for the reason the subscribe form does not: a forged post can only send a
+/// link to the address's owner. The rate limit is what stops that ask being repeated at volume.
+/// </para>
+///
+/// <para>
+/// A fan's purchases are read and written through <see cref="IAccountLedger"/>, which is fixed
+/// to the account the cookie names: the page, the log, the delete and the receipt under
+/// /account never read as the operator. The operator's receipt stays at /receipts/{id}.md.
 /// </para>
 /// </summary>
 public static class AccountEndpoints
@@ -62,6 +69,7 @@ public static class AccountEndpoints
         services.AddHttpContextAccessor();
         services.AddScoped<IOwnerContext, HttpOwnerContext>();
         services.AddSingleton<IAccountQueries, AccountQueries>();
+        services.AddSingleton<IAccountLedger, AccountLedgerService>();
         return services;
     }
 
@@ -84,6 +92,13 @@ public static class AccountEndpoints
 
         app.MapPost("/account/watches/{eventId:int}", WatchAsync).AllowAnonymous().DisableAntiforgery();
 
+        app.MapPost("/account/purchases", LogPurchaseAsync).AllowAnonymous().DisableAntiforgery();
+        app.MapPost("/account/purchases/{purchaseId:long}/delete", DeletePurchaseAsync).AllowAnonymous().DisableAntiforgery();
+
+        // The fan's own receipt: the account's purchases on the event and nobody else's. A file,
+        // like the operator's at /receipts/{id}.md, so an attachment and never cached.
+        app.MapGet("/account/receipts/{eventId:int}.md", ReceiptAsync).AllowAnonymous();
+
         return app;
     }
 
@@ -91,14 +106,30 @@ public static class AccountEndpoints
     // binding: none of them binds a form field, so the framework would not check it for them.
     // DisableAntiforgery only turns off the middleware's automatic pass, not these checks.
 
-    private static async Task<IResult> AccountAsync(HttpContext http, IAccountQueries accounts, string? sent, string? signedout, CancellationToken ct)
+    private static async Task<IResult> AccountAsync(HttpContext http, IAccountQueries accounts, IAccountLedger ledger,
+        string? sent, string? signedout, string? purchase, CancellationToken ct)
     {
         http.Response.Headers.CacheControl = "no-store";
 
         if (OwnerScope.From(http.User).AccountId is { } id)
         {
             if (await accounts.SummaryAsync(id, ct) is { } summary)
-                return new RazorComponentResult<AccountPage>(new { Kind = AccountPageKind.SignedIn, Summary = summary });
+            {
+                var signedInNotice = purchase switch
+                {
+                    "logged" => AccountNotice.PurchaseLogged,
+                    "deleted" => AccountNotice.PurchaseDeleted,
+                    _ => AccountNotice.None
+                };
+
+                return new RazorComponentResult<AccountPage>(new
+                {
+                    Kind = AccountPageKind.SignedIn,
+                    Summary = summary,
+                    Ledger = await ledger.LoadAsync(id, summary.Watching, ct),
+                    Notice = signedInNotice
+                });
+            }
 
             // A cookie for an account that no longer exists signs nobody in.
             await http.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
@@ -181,6 +212,103 @@ public static class AccountEndpoints
             return Results.NotFound();
 
         return SeeOther(http, $"/e/{Uri.EscapeDataString(watched.Slug ?? watched.EventId.ToString(CultureInfo.InvariantCulture))}");
+    }
+
+    /// <summary>
+    /// "Log a purchase" on /account, for an event the account watches. A refused draft draws the
+    /// page again with what was typed and what was wrong (422), so nothing typed is lost and no
+    /// script is needed; an accepted one is a 303 back to the list. The fee basis must be
+    /// answered: there is no default.
+    /// </summary>
+    private static async Task<IResult> LogPurchaseAsync(HttpContext http, IAntiforgery antiforgery, IAccountQueries accounts,
+        IAccountLedger ledger, TimeProvider clock, CancellationToken ct)
+    {
+        if (OwnerScope.From(http.User).AccountId is not { } accountId)
+            return SeeOther(http, "/account");
+
+        if (!await antiforgery.IsRequestValidAsync(http))
+            return Results.BadRequest();
+
+        if (await accounts.SummaryAsync(accountId, ct) is not { } summary)
+        {
+            await http.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            return SeeOther(http, "/account");
+        }
+
+        // The page offers a form per watched event and no other, and a refused post is drawn
+        // again inside the form it came from; an event the account does not watch has neither.
+        var input = PurchaseFormInput.From(await http.Request.ReadFormAsync(ct));
+        if (!summary.Watching.Any(e => e.Id == input.EventId)
+            || await ledger.FormAsync(accountId, input.EventId, ct) is not { } form)
+            return Results.NotFound();
+
+        var (draft, errors) = AccountPurchaseForm.Read(input, form.Sources.Select(s => s.Id).ToList(), clock.GetUtcNow());
+
+        if (errors.Count == 0)
+        {
+            try
+            {
+                await ledger.LogAsync(accountId, draft, ct);
+                return SeeOther(http, "/account?purchase=logged#purchases");
+            }
+            catch (PurchaseValidationException ex)
+            {
+                errors = ex.Errors;
+            }
+            catch (InvalidOperationException)
+            {
+                errors = new Dictionary<string, string> { ["source"] = AccountPurchaseForm.UnknownSource };
+            }
+        }
+
+        http.Response.Headers.CacheControl = "no-store";
+        return new RazorComponentResult<AccountPage>(new
+        {
+            Kind = AccountPageKind.SignedIn,
+            Summary = summary,
+            Ledger = await ledger.LoadAsync(accountId, summary.Watching, ct),
+            Form = new PurchaseFormState(input, errors)
+        })
+        { StatusCode = StatusCodes.Status422UnprocessableEntity };
+    }
+
+    /// <summary>Delete, from /account. Only the account's own row: another's id is a 404 and deletes nothing.</summary>
+    private static async Task<IResult> DeletePurchaseAsync(long purchaseId, HttpContext http, IAntiforgery antiforgery,
+        IAccountLedger ledger, CancellationToken ct)
+    {
+        if (OwnerScope.From(http.User).AccountId is not { } accountId)
+            return SeeOther(http, "/account");
+
+        if (!await antiforgery.IsRequestValidAsync(http))
+            return Results.BadRequest();
+
+        return await ledger.DeleteAsync(accountId, purchaseId, ct)
+            ? SeeOther(http, "/account?purchase=deleted#purchases")
+            : Results.NotFound();
+    }
+
+    /// <summary>
+    /// The receipt for one event, with the account's purchases on it and no one else's. A 404
+    /// when the account logged nothing there, so the address can neither read the operator's
+    /// receipt nor tell whether another account bought.
+    /// </summary>
+    private static async Task<IResult> ReceiptAsync(int eventId, HttpContext http, IAccountLedger ledger,
+        IOnSaleRecordService records, TimeProvider clock, CancellationToken ct)
+    {
+        http.Response.Headers.CacheControl = "no-store";
+
+        if (OwnerScope.From(http.User).AccountId is not { } accountId)
+            return SeeOther(http, "/account");
+
+        var lines = await ledger.ForEventAsync(accountId, eventId, ct);
+        if (lines.Count == 0 || await records.GetAsync(eventId, ct) is not { } record)
+            return Results.NotFound();
+
+        var now = clock.GetUtcNow();
+        var markdown = PurchaseReceipt.Write(record, lines, now, $"{http.Request.Scheme}://{http.Request.Host}");
+
+        http.Response.Headers.ContentDisposition = $"attachment; filename=\"{PurchaseReceipt.FileName(record.Event, now)}\"";
+        return Results.Text(markdown, PurchaseReceipt.ContentType);
     }
 
     private static IResult SeeOther(HttpContext http, string location)

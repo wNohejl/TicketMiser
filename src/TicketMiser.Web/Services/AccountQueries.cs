@@ -4,10 +4,13 @@ using TicketMiser.Data;
 
 namespace TicketMiser.Web.Services;
 
-/// <summary>What the /account page shows a signed-in fan: the address, what it watches, and what it logged.</summary>
+/// <summary>
+/// Who is signed in to /account and what it watches. What it logged is the ledger's
+/// (<see cref="Accounts.IAccountLedger"/>), read through the same <see cref="PurchaseQueries"/>
+/// the desk grades with, so the page and the desk cannot disagree about a purchase.
+/// </summary>
 /// <param name="Watching">Events the account has an enabled watch on, soonest first.</param>
-/// <param name="Purchases">The account's own purchases, newest first, each with its event.</param>
-public sealed record AccountSummary(Account Account, IReadOnlyList<Event> Watching, IReadOnlyList<Purchase> Purchases);
+public sealed record AccountSummary(Account Account, IReadOnlyList<Event> Watching);
 
 /// <summary>The account's own reads for the static pages. An interface so a render test can hand a page its answer.</summary>
 public interface IAccountQueries
@@ -46,15 +49,7 @@ public sealed class AccountQueries(IDbContextFactory<TicketMiserDbContext> facto
             .Select(w => w.Event!)
             .ToList();
 
-        var purchases = await db.Purchases
-            .AsNoTracking()
-            .VisibleTo(owner)
-            .Include(p => p.Event)
-            .OrderByDescending(p => p.PurchasedAt)
-            .ThenByDescending(p => p.Id)
-            .ToListAsync(ct);
-
-        return new AccountSummary(account, watching, purchases);
+        return new AccountSummary(account, watching);
     }
 
     public async Task<bool> IsWatchingAsync(int accountId, int eventId, CancellationToken ct = default)

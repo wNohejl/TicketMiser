@@ -1,0 +1,156 @@
+@using TicketMiser.Web.Reports
+@inject IReportLibrary Reports
+@inject DeskBrand Brand
+
+@*
+    The monthly Nashville reports: /reports, and /reports/{yyyy-mm} for one.
+
+    A report is the file the monthly-report skill writes to docs/reports/{yyyy-mm}-nashville.md
+    — a summary, three tables, how it was measured and what we could not see. The skill stops
+    short of publishing; a person reads the file, sets `published: true` in its front matter
+    and commits. Only then does it appear here. An unpublished or missing month is a 404.
+
+    Rendered the way EventRecord is: a whole static document, no circuit, no script, mapped
+    from Program.cs and output-cached. The report's Markdown is turned into HTML with raw
+    HTML disabled (ReportMarkdown), so the one MarkupString on this page is markup Markdig
+    wrote, never markup the file carried.
+*@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
+    <base href="/" />
+    <title>@Heading — @Brand.Wordmark@Brand.Emphasis</title>
+    @if (Month is not null && _report is null)
+    {
+        <meta name="robots" content="noindex" />
+    }
+    else
+    {
+        <meta name="description" content="@Description" />
+    }
+    <link rel="stylesheet" href="_content/MudBlazor/MudBlazor.min.css" />
+    <link rel="stylesheet" href="@Assets["_content/TicketMiser.Desk/css/desk.css"]" />
+    <link rel="stylesheet" href="@Assets["_content/TicketMiser.Desk/css/mud-bridge.css"]" />
+    <style>
+        .record-page { max-width: 960px; margin: 0 auto; padding: var(--space-4) var(--space-3) var(--space-6); }
+        .record-page__brand { display: flex; align-items: baseline; gap: var(--space-2); margin-bottom: var(--space-4); }
+        .record-page__brand a { color: var(--text-secondary); text-decoration: none; font-size: var(--text-footnote); font-weight: var(--weight-semibold); letter-spacing: .08em; }
+        .record-page__brand a b { color: var(--text-primary); font-weight: var(--weight-semibold); }
+        .record-page__brand span { color: var(--text-tertiary); font-size: var(--text-footnote); }
+        .record-page h1 { font-size: var(--text-largetitle); font-weight: var(--weight-semibold); margin: 0 0 var(--space-1); line-height: 1.2; }
+        .record-page__where { color: var(--text-secondary); font-size: var(--text-body); margin: 0 0 var(--space-4); max-width: 72ch; line-height: 1.5; }
+        .record-page a { color: var(--accent); text-decoration: none; }
+        .record-page a:hover { text-decoration: underline; }
+        .record-page footer { margin-top: var(--space-6); padding-top: var(--space-3); border-top: 1px solid var(--separator); color: var(--text-tertiary); font-size: var(--text-footnote); }
+        .reports { list-style: none; padding: 0; margin: 0 0 var(--space-4); }
+        .reports li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-2); padding: var(--space-2) 0; border-top: 1px solid var(--separator); font-size: var(--text-body); }
+        .reports li span { color: var(--text-tertiary); font-size: var(--text-footnote); }
+        .report-body { color: var(--text-secondary); font-size: var(--text-body); line-height: 1.5; }
+        .report-body > h1:first-child { display: none; }
+        .report-body h2 { color: var(--text-primary); font-size: var(--text-title3); font-weight: var(--weight-semibold); margin: var(--space-5) 0 var(--space-2); }
+        .report-body h3 { color: var(--text-primary); font-size: var(--text-headline); font-weight: var(--weight-semibold); margin: var(--space-4) 0 var(--space-2); }
+        .report-body p, .report-body ul, .report-body ol { max-width: 72ch; margin: 0 0 var(--space-2); }
+        .report-body code { font-size: var(--text-footnote); background: var(--surface-2); padding: 1px 4px; border-radius: var(--radius-sm); }
+        .report-body table { border-collapse: collapse; font-size: var(--text-subheadline); }
+        .report-body th, .report-body td { padding: var(--space-1) var(--space-2); border-bottom: 1px solid var(--separator); white-space: nowrap; text-align: left; }
+        .report-body th { color: var(--text-tertiary); font-size: var(--text-footnote); font-weight: var(--weight-semibold); }
+        .report-body td { color: var(--text-primary); }
+        .report-body table { display: block; overflow-x: auto; max-width: 100%; }
+    </style>
+</head>
+<body>
+    <main class="record-page">
+        <header class="record-page__brand">
+            <a href="/"><b>@Brand.Wordmark</b>@Brand.Emphasis</a>
+            <span>@Brand.Tagline</span>
+        </header>
+
+        @if (Month is null)
+        {
+            <h1>Nashville on-sale reports</h1>
+            <p class="record-page__where">
+                Once a month: how long primary tickets lasted at each on-sale we watched, what the
+                resale market was listing at that minute, the fee gap by venue, and which sales came
+                back. Every number is from the on-sale records on this site.
+            </p>
+
+            @if (_published.Count == 0)
+            {
+                <EmptyState Kind="EmptyStateKind.New">
+                    No report has been published yet. The first report follows the first full month of
+                    on-sale records.
+                </EmptyState>
+            }
+            else
+            {
+                <ul class="reports">
+                    @foreach (var report in _published)
+                    {
+                        <li>
+                            <a href="/reports/@report.Month">@report.Title</a>
+                            <span>@report.MonthName</span>
+                        </li>
+                    }
+                </ul>
+            }
+
+            <p><a href="/onsales">Upcoming Nashville on-sales</a></p>
+        }
+        else if (_report is null)
+        {
+            <h1>No report for this month</h1>
+            <p class="record-page__where">
+                Nothing is published at <span class="num">/reports/@Month</span>. A month's report
+                appears after the month has ended and the report has been read and published.
+            </p>
+            <p><a href="/reports">Every published report</a></p>
+        }
+        else
+        {
+            <h1>@_report.Title</h1>
+            <p class="record-page__where">@_report.MonthName · Nashville</p>
+
+            <article class="report-body">
+                @((MarkupString)_report.Html)
+            </article>
+
+            <footer>
+                <a href="/reports">Every published report</a> · Address <span class="num">/reports/@_report.Month</span>
+            </footer>
+        }
+    </main>
+</body>
+</html>
+
+@code {
+    /// <summary><c>yyyy-mm</c> from GET /reports/{month}; null for the list at GET /reports.</summary>
+    [Parameter] public string? Month { get; set; }
+
+    private IReadOnlyList<ReportSummary> _published = [];
+
+    private ReportDocument? _report;
+
+    private string Heading => Month is null
+        ? "Nashville on-sale reports"
+        : _report?.Title ?? "No report";
+
+    private string Description => _report is null
+        ? "Monthly reports on Nashville concert on-sales: minutes to primary sellout, resale listings at that minute, and fees by venue."
+        : $"{_report.Title}: the month's Nashville on-sales, measured from the on-sale records.";
+
+    protected override void OnInitialized()
+    {
+        if (Month is null)
+        {
+            _published = Reports.Published();
+            return;
+        }
+
+        // The endpoint has already made a miss a 404; this draws the page that goes with it.
+        _report = Reports.Get(Month);
+    }
+}
