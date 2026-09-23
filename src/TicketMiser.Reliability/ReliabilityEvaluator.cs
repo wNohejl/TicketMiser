@@ -1,5 +1,6 @@
 using TicketMiser.Core.Entities;
 using TicketMiser.Data;
+using TicketMiser.Reliability.Notifications;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -58,11 +59,29 @@ public class ReliabilityEvaluator(
 
             await kpi.RollupDailyAsync(ct);
             await alerts.EvaluateAsync(ct);
+            await DeliverSafelyAsync(scope.ServiceProvider, ct);
             await AutoOpenIncidentsAsync(scope.ServiceProvider, ct);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Reliability evaluation failed; will retry next interval");
+        }
+    }
+
+    /// <summary>
+    /// Emails the alerts just reconciled to the people who subscribed to them. Guarded on its
+    /// own: a provider outage is a reason to try again next interval, never a reason for the
+    /// evaluator to stop opening incidents.
+    /// </summary>
+    private async Task DeliverSafelyAsync(IServiceProvider provider, CancellationToken ct)
+    {
+        try
+        {
+            await provider.GetRequiredService<AlertDeliveryService>().DeliverAsync(ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+        {
+            logger.LogError(ex, "Alert delivery failed; undelivered alerts are retried next interval");
         }
     }
 

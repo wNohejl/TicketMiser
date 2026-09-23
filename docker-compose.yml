@@ -65,6 +65,14 @@ services:
       Ingestion__SeatGeek__Enabled: ${SEATGEEK_ENABLED:-false}
       Ingestion__SeatGeek__ClientId: ${SEATGEEK_CLIENT_ID:-}
       Ingestion__SeatGeek__ClientSecret: ${SEATGEEK_CLIENT_SECRET:-}
+
+      # Email, from .env. The default provider writes .eml files to /tmp/outbox (tmpfs; the root
+      # filesystem is read-only) and sends nothing; Postmark only with a server token.
+      Notifications__Provider: ${NOTIFICATIONS_PROVIDER:-pickup}
+      Notifications__PostmarkServerToken: ${POSTMARK_SERVER_TOKEN:-}
+      Notifications__From: ${NOTIFICATIONS_FROM:-TicketMiser <alerts@ticketmiser.invalid>}
+      Notifications__PublicBaseUrl: ${NOTIFICATIONS_PUBLIC_BASE_URL:-https://localhost:8443}
+      Notifications__PickupDirectory: /tmp/outbox
     ports:
       - "127.0.0.1:${HTTPS_PORT:-8443}:8443"
     volumes:
@@ -104,6 +112,11 @@ services:
       Ingestion__SeatGeek__Enabled: ${SEATGEEK_ENABLED:-false}
       Ingestion__SeatGeek__ClientId: ${SEATGEEK_CLIENT_ID:-}
       Ingestion__SeatGeek__ClientSecret: ${SEATGEEK_CLIENT_SECRET:-}
+      Notifications__Provider: ${NOTIFICATIONS_PROVIDER:-pickup}
+      Notifications__PostmarkServerToken: ${POSTMARK_SERVER_TOKEN:-}
+      Notifications__From: ${NOTIFICATIONS_FROM:-TicketMiser <alerts@ticketmiser.invalid>}
+      Notifications__PublicBaseUrl: ${NOTIFICATIONS_PUBLIC_BASE_URL:-https://localhost:8443}
+      Notifications__PickupDirectory: /tmp/outbox
     security_opt:
       - no-new-privileges:true
     cap_drop: [ALL]

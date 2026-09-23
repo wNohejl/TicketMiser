@@ -10,6 +10,28 @@ The rules come in two families. The platform rules are about a source and are th
 LineOps runs on. The watch rules are about an event a person is tracking, and they are the
 product: they say what the marketplaces would rather nobody noticed.
 
+## Email delivery
+
+`primary_reappeared` is emailed to everyone who subscribed on the event's public record page
+and confirmed. The evaluator sends right after it reconciles alerts; one `AlertDeliveries`
+row per alert per subscriber means a second evaluation never resends, and a failed send
+leaves no row, so it is retried on the next interval. A delivery failure is logged and never
+stops evaluation.
+
+- **Development:** nothing is sent. Every email, confirmations included, is written as an
+  `.eml` file to `Notifications:PickupDirectory`, by default `data/outbox/` under the
+  content root (`src/TicketMiser.Web/data/outbox/` for a host run; gitignored). Open one in
+  any mail client to read exactly what would have gone out. In compose it is `/tmp/outbox`
+  inside the container.
+- **Switching to Postmark:** set `NOTIFICATIONS_PROVIDER=postmark`, `POSTMARK_SERVER_TOKEN`
+  and `NOTIFICATIONS_FROM` (a confirmed sender signature) in `.env`, or
+  `Notifications:Provider` and `Notifications:PostmarkServerToken` in user-secrets for a host
+  run, and restart. Without a token the pickup directory stays in use.
+- **Links:** every link in an email is built from `Notifications:PublicBaseUrl`. Wrong there
+  means every confirm and unsubscribe link is broken.
+- **Personal data:** subscriber addresses never leave the machine. `publish-data.ps1` dumps
+  the `Subscriptions` and `AlertDeliveries` tables without their rows.
+
 ---
 
 ## `freshness` — Critical
@@ -144,6 +166,8 @@ platform, none.
 2. If a purchase was made on the resale market between the sellout and the reappearance,
    note it on the purchase; it is the case the monthly report counts.
 3. Resolve when read. The record keeps the evidence whether or not the alert is open.
+4. Confirmed subscribers to the event are emailed once per alert while it is open; see
+   **Email delivery** at the top of this runbook if one did not arrive.
 
 ---
 

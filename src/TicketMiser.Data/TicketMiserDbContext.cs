@@ -26,6 +26,10 @@ public class TicketMiserDbContext(DbContextOptions<TicketMiserDbContext> options
     public DbSet<Alert> Alerts => Set<Alert>();
     public DbSet<Incident> Incidents => Set<Incident>();
 
+    // Personal data (legal-guidelines rule 8): excluded from every published snapshot.
+    public DbSet<Subscription> Subscriptions => Set<Subscription>();
+    public DbSet<AlertDelivery> AlertDeliveries => Set<AlertDelivery>();
+
     protected override void OnModelCreating(ModelBuilder b)
     {
         var jsonOptions = JsonSerializerOptions.Default;
@@ -199,6 +203,34 @@ public class TicketMiserDbContext(DbContextOptions<TicketMiserDbContext> options
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(16);
             e.Property(x => x.Timeline).HasColumnType("jsonb");
             e.Ignore(x => x.TimeToResolve);
+        });
+
+        b.Entity<Subscription>(e =>
+        {
+            e.Property(x => x.Email).HasMaxLength(Subscription.EmailMaxLength).IsRequired();
+            e.Property(x => x.ConfirmToken).HasMaxLength(Subscription.TokenMaxLength).IsRequired();
+            e.Property(x => x.UnsubscribeToken).HasMaxLength(Subscription.TokenMaxLength).IsRequired();
+            e.Ignore(x => x.IsActive);
+
+            // One row per person per event; a second subscribe reuses it.
+            e.HasIndex(x => new { x.Email, x.EventId }).IsUnique();
+            e.HasIndex(x => x.ConfirmToken).IsUnique();
+            e.HasIndex(x => x.UnsubscribeToken).IsUnique();
+            // "Who is waiting on this event": the delivery service's read.
+            e.HasIndex(x => x.EventId);
+
+            e.HasOne(x => x.Event).WithMany().HasForeignKey(x => x.EventId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<AlertDelivery>(e =>
+        {
+            e.Property(x => x.ProviderMessageId).HasMaxLength(128);
+
+            // The idempotency guarantee: one alert reaches one subscriber once.
+            e.HasIndex(x => new { x.AlertId, x.SubscriptionId }).IsUnique().HasDatabaseName("ux_alert_delivery");
+
+            e.HasOne(x => x.Alert).WithMany().HasForeignKey(x => x.AlertId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Subscription).WithMany().HasForeignKey(x => x.SubscriptionId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

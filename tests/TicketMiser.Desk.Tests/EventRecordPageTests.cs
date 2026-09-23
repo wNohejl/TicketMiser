@@ -205,6 +205,67 @@ public class EventRecordPageTests : DeskTestContext
         Assert.DoesNotContain("broke the law", page, StringComparison.OrdinalIgnoreCase);
     }
 
+    private IRenderedComponent<EventRecord> OpenWithFlag(string? subscribed)
+    {
+        Services.AddSingleton<IOnSaleRecordService>(new FakeRecords(Recorded()));
+
+        return RenderComponent<EventRecord>(p => p.Add(x => x.Slug, Address).Add(x => x.Subscribed, subscribed));
+    }
+
+    [Fact]
+    public void The_subscribe_form_posts_an_email_to_the_events_own_address_with_one_tinted_button()
+    {
+        var cut = OpenWithFlag(null);
+
+        var form = cut.Find(".record-page__subscribe form");
+        Assert.Equal("post", form.GetAttribute("method"));
+        Assert.Equal($"/e/{Address}/subscribe", form.GetAttribute("action"));
+
+        var input = form.QuerySelector("input[name=email]")!;
+        Assert.Equal("email", input.GetAttribute("type"));
+        Assert.NotNull(input.GetAttribute("required"));
+        Assert.Equal("254", input.GetAttribute("maxlength"));
+
+        var button = Assert.Single(form.QuerySelectorAll("button"));
+        Assert.Equal("submit", button.GetAttribute("type"));
+        Assert.Contains("desk-btn--tinted", button.ClassName);
+
+        // Rule 8, said where the address is typed.
+        var fine = cut.Find(".record-page__fine").TextContent;
+        Assert.Contains("used only for this alert", fine);
+        Assert.Contains("one-click unsubscribe", fine);
+
+        // No notice until the form has been used.
+        Assert.Empty(cut.FindAll(".record-page__notice"));
+    }
+
+    [Fact]
+    public void After_subscribing_the_page_says_to_check_the_inbox()
+    {
+        var cut = OpenWithFlag("pending");
+
+        var notice = cut.Find(".record-page__subscribe .record-page__notice");
+        Assert.Equal("status", notice.GetAttribute("role"));
+        Assert.Contains("Check your inbox to confirm", notice.TextContent);
+    }
+
+    [Fact]
+    public void An_invalid_address_is_said_to_be_one_and_an_unknown_flag_says_nothing()
+    {
+        Assert.Contains("does not look like an email address", OpenWithFlag("invalid").Find(".record-page__notice").TextContent);
+
+        DisposeComponents();
+        Assert.Empty(RenderComponent<EventRecord>(p => p.Add(x => x.Slug, Address).Add(x => x.Subscribed, "<script>")).FindAll(".record-page__notice"));
+    }
+
+    [Fact]
+    public void A_miss_has_no_subscribe_form()
+    {
+        var cut = Open(Recorded(), slug: "nope");
+
+        Assert.Empty(cut.FindAll(".record-page__subscribe"));
+    }
+
     [Fact]
     public void The_footer_dates_the_record_by_its_last_tick_and_names_its_address()
     {

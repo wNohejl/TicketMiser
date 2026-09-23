@@ -132,11 +132,11 @@ is switched from `Manual` to `Scheduled`. Roadmap: `docs/superpowers/specs/2026-
 - [x] `Components/Pages/OnSales.razor` at `/onsales` and `GET /onsales.ics` from the feed's
       on-sale and presale times; `OnSaleCalendarTests` proves a subscribed calendar shows a
       presale and a public on-sale for one event, in Nashville local time.
-- [ ] `INotifier` in `TicketMiser.Reliability` with one transactional email provider
+- [x] `INotifier` in `TicketMiser.Reliability` with one transactional email provider
       behind `HttpClient`; `primary_reappeared` is the first rule delivered;
       `AlertDeliveryTests` proves one alert row becomes one send and a second evaluation
       does not resend.
-- [ ] `Subscription` entity (email, event, confirmed, unsubscribe token); a per-event
+- [x] `Subscription` entity (email, event, confirmed, unsubscribe token); a per-event
       subscribe form on `/e/{slug}` with double opt-in and a one-click unsubscribe route.
 - [ ] Affiliate accounts: Ticketmaster and SeatGeek on Impact; `SourceLink` builds the
       tagged URL and `SourceLinkTests` proves an untagged link never renders on a price cell.

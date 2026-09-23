@@ -7,6 +7,8 @@
     The desk's data lives in a Docker Postgres on this machine. The database is published as
     a compressed pg_dump under data/snapshots/ and committed alongside the code. The on-sale
     record is in it, always: those rows are never pruned and are the point of the product.
+    Subscriber addresses are not: the Subscriptions and AlertDeliveries tables are dumped
+    without their rows.
 
 .PARAMETER Commit
     Also commit the snapshot (your git identity, no trailer) and push to origin.
@@ -36,7 +38,12 @@ $envText = Get-Content (Join-Path $root ".env") -Raw
 if ($envText -notmatch '(?m)^POSTGRES_PASSWORD=(.+)$') { throw ".env has no POSTGRES_PASSWORD. Run .\scripts\setup.ps1 first." }
 $pgEnv = "PGPASSWORD=$($Matches[1].Trim())"
 
-Invoke-Native { cmd /c "docker exec -e $pgEnv $Container pg_dump -U $User -Fc -Z 6 $Database > `"$dump`"" }
+# Subscriber addresses and the record of what was sent to them are personal data, and a
+# snapshot leaves the machine (legal-guidelines rule 8). Their tables travel as schema only,
+# so a restore has them empty. The \" survives cmd and reaches pg_dump as a quoted,
+# case-sensitive table name.
+$personalTables = @("Subscriptions", "AlertDeliveries") | ForEach-Object { "--exclude-table-data=public.\`"$_\`"" }
+Invoke-Native { cmd /c "docker exec -e $pgEnv $Container pg_dump -U $User -Fc -Z 6 $($personalTables -join ' ') $Database > `"$dump`"" }
 if ($LASTEXITCODE -ne 0 -or -not (Test-Path $dump) -or (Get-Item $dump).Length -lt 1024) { throw "pg_dump failed" }
 
 $sql = @"

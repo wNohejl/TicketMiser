@@ -66,6 +66,14 @@
         .record-page .cite { border-bottom: 1px solid var(--separator); }
         .record-page footer { margin-top: var(--space-6); padding-top: var(--space-3); border-top: 1px solid var(--separator); color: var(--text-tertiary); font-size: var(--text-footnote); }
         .record-page .grid th, .record-page .grid td { white-space: nowrap; }
+        .record-page__subscribe { margin-top: var(--space-6); padding: var(--space-4); background: var(--surface-2); border-radius: var(--radius); max-width: 72ch; }
+        .record-page__subscribe h2 { font-size: var(--text-title3); font-weight: var(--weight-semibold); margin: 0 0 var(--space-2); }
+        .record-page__subscribe form { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
+        .record-page__subscribe .field { flex: 1 1 24ch; min-width: 0; }
+        .record-page__fine { color: var(--text-tertiary); font-size: var(--text-footnote); margin: var(--space-2) 0 0; }
+        .record-page__notice { color: var(--text-primary); font-size: var(--text-body); background: var(--accent-wash); border-radius: var(--radius); padding: var(--space-2) var(--space-3); margin: 0 0 var(--space-3); }
+        .record-page__notice--error { background: var(--state-negative-wash); }
+        .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
     </style>
 </head>
 <body>
@@ -108,6 +116,33 @@
             <div class="stack" style="--desk-gap:16px">
                 <OnSaleRecordView Record="_record" InDesk="false" />
             </div>
+
+            @if (Event.Slug is { Length: > 0 } slug)
+            {
+                @* A plain form posting to a minimal endpoint, so the page stays scriptless. Not a
+                   <section>: the two sections below are the page's account of itself. *@
+                <aside class="record-page__subscribe" aria-labelledby="subscribe-heading">
+                    <h2 id="subscribe-heading">Tell me if face value comes back</h2>
+                    @if (Subscribed == "pending")
+                    {
+                        <p class="record-page__notice" role="status">Check your inbox to confirm. Nothing is sent until the link in that email is opened.</p>
+                    }
+                    else if (Subscribed == "invalid")
+                    {
+                        <p class="record-page__notice record-page__notice--error" role="alert">That does not look like an email address. Nothing was saved.</p>
+                    }
+                    <form method="post" action="/e/@Uri.EscapeDataString(slug)/subscribe">
+                        <label class="sr-only" for="subscribe-email">Email address</label>
+                        <input id="subscribe-email" class="field" type="email" name="email" required
+                               maxlength="@Subscription.EmailMaxLength" autocomplete="email" placeholder="you@example.com" />
+                        <DeskButton Emphasis="DeskEmphasis.Tinted" ButtonType="ButtonType.Submit">Email me</DeskButton>
+                    </form>
+                    <p class="record-page__fine">
+                        One email if Ticketmaster shows tickets available again after not available. The address
+                        is used only for this alert, and each email has a one-click unsubscribe.
+                    </p>
+                </aside>
+            }
 
             <section>
                 <PanelHeader>How this was collected</PanelHeader>
@@ -167,6 +202,12 @@
     /// to the slug instead of rendering here.
     /// </summary>
     [Parameter] public int? EventId { get; set; }
+
+    /// <summary>
+    /// <c>?subscribed=</c> after the subscribe form's 303: <c>pending</c> or <c>invalid</c>. The
+    /// output cache varies on this key alone, so each notice is its own cached document.
+    /// </summary>
+    [Parameter] public string? Subscribed { get; set; }
 
     /// <summary>Null under a render test; the endpoint supplies it so a miss can be a 404.</summary>
     [CascadingParameter] public HttpContext? HttpContext { get; set; }

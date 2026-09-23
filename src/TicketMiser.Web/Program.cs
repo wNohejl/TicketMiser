@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
 using MudBlazor;
 using MudBlazor.Services;
 using TicketMiser.Core.Analytics;
@@ -9,6 +11,7 @@ using TicketMiser.Desk;
 using TicketMiser.Ingestion;
 using TicketMiser.Observability;
 using TicketMiser.Reliability;
+using TicketMiser.Reliability.Notifications;
 using TicketMiser.Web.Components;
 using TicketMiser.Web.Components.Pages;
 using TicketMiser.Web.Services;
@@ -56,10 +59,23 @@ const string EventRecordCache = "event-record";
 const string OnSaleCalendarCache = "onsale-calendar";
 builder.Services.AddOutputCache(options =>
 {
-    options.AddPolicy(EventRecordCache, policy => policy.Expire(TimeSpan.FromMinutes(5)));
+    // Varies by ?subscribed= only, so the subscribe form's "check your inbox" notice is its own
+    // cached copy and any other query string reads the one shared document.
+    options.AddPolicy(EventRecordCache, policy => policy.Expire(TimeSpan.FromMinutes(5)).SetVaryByQuery("subscribed"));
     options.AddPolicy(OnSaleCalendarCache, policy => policy.Expire(TimeSpan.FromMinutes(15)));
 });
 builder.Services.AddSingleton<IOnSaleCalendarService, OnSaleCalendarService>();
+
+// The subscribe form is the one anonymous write on the site. Ten posts per client address per
+// ten minutes is more than a person needs and less than a flood of confirmation emails.
+const string SubscribeLimit = "subscribe";
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy(SubscribeLimit, http => RateLimitPartition.GetFixedWindowLimiter(
+        http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(10), QueueLimit = 0 }));
+});
 
 // What the operations windows read. Each is an interface over the reliability layer and the
 // database so a panel holds no EF query of its own and a render test can hand it a snapshot.
@@ -112,6 +128,7 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseAntiforgery();
+app.UseRateLimiter();
 app.UseOutputCache();
 
 // Liveness answers for the process only; readiness is what compose gates on.
@@ -134,9 +151,67 @@ app.MapGet("/e/{id:int}", async (int id, IOnSaleRecordService records, Cancellat
             : new RazorComponentResult<EventRecord>(new { EventId = id }))
     .AllowAnonymous();
 
-app.MapGet("/e/{slug}", (string slug) => new RazorComponentResult<EventRecord>(new { Slug = slug }))
+app.MapGet("/e/{slug}", (string slug, string? subscribed) =>
+        new RazorComponentResult<EventRecord>(new { Slug = slug, Subscribed = subscribed }))
     .AllowAnonymous()
     .CacheOutput(EventRecordCache);
+
+// "Tell me if face value comes back": double opt-in, per event (legal-guidelines rule 8).
+// The post stores an unconfirmed address and sends one confirmation, at most hourly; nothing
+// else reaches the address until its link is followed. Every accepted post gets the same 303,
+// whether the address was new, pending or confirmed, so the form reveals nobody's subscription.
+// No antiforgery token: the page is a cached static document with no cookie to pair one with,
+// and double opt-in makes a forged post harmless — it can only ask the owner of the address.
+// The rate limit is what stops that ask from being repeated at volume.
+app.MapPost("/e/{slug}/subscribe", async (string slug, [FromForm] string? email, HttpContext http,
+        SubscriptionService subscriptions, CancellationToken ct) =>
+    {
+        var result = await subscriptions.SubscribeAsync(slug, email, ct);
+        if (result.Outcome == SubscribeOutcome.EventNotFound)
+            return Results.NotFound();
+
+        var flag = result.Outcome == SubscribeOutcome.InvalidAddress ? "invalid" : "pending";
+        http.Response.Headers.Location = $"/e/{Uri.EscapeDataString(result.Slug!)}?subscribed={flag}";
+        return Results.StatusCode(StatusCodes.Status303SeeOther);
+    })
+    .AllowAnonymous()
+    .DisableAntiforgery()
+    .RequireRateLimiting(SubscribeLimit);
+
+// The links in the emails. Tokens are 32 random bytes; the pages are static, uncached and
+// unindexed. Unsubscribe is RFC 8058 one-click: GET shows a button (a link scanner must not
+// unsubscribe anyone), POST unsubscribes — from that button or a mail client's own — without
+// antiforgery, because the token is the credential. Unknown tokens get the same page.
+app.MapGet("/s/confirm/{token}", async (string token, HttpContext http, SubscriptionService subscriptions, CancellationToken ct) =>
+    {
+        var confirmed = await subscriptions.ConfirmAsync(token, ct);
+        http.Response.Headers.CacheControl = "no-store";
+
+        return new RazorComponentResult<SubscriptionPage>(new
+        {
+            Kind = confirmed is null ? SubscriptionPageKind.ConfirmUnknown : SubscriptionPageKind.Confirmed,
+            EventName = confirmed?.EventName,
+            Slug = confirmed?.Slug
+        })
+        { StatusCode = confirmed is null ? StatusCodes.Status404NotFound : StatusCodes.Status200OK };
+    })
+    .AllowAnonymous();
+
+app.MapGet("/s/unsubscribe/{token}", (string token, HttpContext http) =>
+    {
+        http.Response.Headers.CacheControl = "no-store";
+        return new RazorComponentResult<SubscriptionPage>(new { Kind = SubscriptionPageKind.UnsubscribePrompt, Token = token });
+    })
+    .AllowAnonymous();
+
+app.MapPost("/s/unsubscribe/{token}", async (string token, HttpContext http, SubscriptionService subscriptions, CancellationToken ct) =>
+    {
+        await subscriptions.UnsubscribeAsync(token, ct);
+        http.Response.Headers.CacheControl = "no-store";
+        return new RazorComponentResult<SubscriptionPage>(new { Kind = SubscriptionPageKind.Unsubscribed });
+    })
+    .AllowAnonymous()
+    .DisableAntiforgery();
 
 // The on-sale calendar: the page, and the same entries as an iCalendar feed a client
 // subscribes to once. Both anonymous and cached; the feed costs no quota to build because
