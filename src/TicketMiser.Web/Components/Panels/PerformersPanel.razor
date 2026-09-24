@@ -2,6 +2,7 @@
 @using TicketMiser.Web.Services
 @inherits DeskPanel
 @inject IDestinationQueries Queries
+@inject TimeProvider Clock
 
 @*
     Performers — the LineOps Players window, for tickets: search and pick. A name is a
@@ -101,13 +102,14 @@ else
     {
         _search = value ?? string.Empty;
 
-        // A keystroke is not a query: wait for the typing to pause.
+        // A keystroke is not a query: wait for the typing to pause. The pause is on the
+        // injected clock, so a test gives it rather than racing a real timer for it.
         _debounce?.Cancel();
         var cts = _debounce = new CancellationTokenSource();
 
         try
         {
-            await Task.Delay(250, cts.Token);
+            await Task.Delay(TimeSpan.FromMilliseconds(250), Clock, cts.Token);
             await LoadAsync();
         }
         catch (TaskCanceledException)

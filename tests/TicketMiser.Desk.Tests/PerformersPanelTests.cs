@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Time.Testing;
 using TicketMiser.Desk.Windowing;
 using TicketMiser.Web.Components.Panels;
 using TicketMiser.Web.Services;
@@ -14,6 +15,7 @@ namespace TicketMiser.Desk.Tests;
 public class PerformersPanelTests : DeskTestContext
 {
     private readonly FakeDestinationQueries _fake = new();
+    private readonly FakeTimeProvider _clock = new(Now);
     private WindowManager _manager = default!;
 
     private IRenderedComponent<PerformersPanel> Open()
@@ -21,6 +23,7 @@ public class PerformersPanelTests : DeskTestContext
         _manager = new WindowManager(new AppWindowCatalog());
         Services.AddSingleton(_manager);
         Services.AddSingleton<IDestinationQueries>(_fake);
+        Services.AddSingleton<TimeProvider>(_clock);
 
         return Render<PerformersPanel>();
     }
@@ -54,6 +57,10 @@ public class PerformersPanelTests : DeskTestContext
 
         var cut = Open();
         cut.Find("input").Input("nobody");
+
+        // The query waits for the typing to pause, and the pause is the test's to give.
+        Assert.DoesNotContain("nobody", _fake.Searches);
+        _clock.Advance(TimeSpan.FromMilliseconds(250));
 
         cut.WaitForAssertion(() => Assert.Contains("No performer matches", cut.Find(".empty--filtered").TextContent));
         Assert.Contains("nobody", _fake.Searches);
