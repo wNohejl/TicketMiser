@@ -77,6 +77,10 @@ else
 }
 
 @code {
+    protected override IReadOnlySet<string> Watches { get; } = new HashSet<string> { DataTopics.Events, DataTopics.Prices };
+
+    protected override Task RefreshAsync() => LoadAsync();
+
     /// <summary>The id parameter the window was opened with, if any. Arrives as <c>EventId</c>.</summary>
     [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? Parameters { get; set; }
 

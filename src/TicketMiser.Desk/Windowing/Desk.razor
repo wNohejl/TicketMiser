@@ -119,6 +119,12 @@
 
     protected override void OnInitialized() => Manager.Changed += OnManagerChanged;
 
+    /// <summary>Per product, so two desks served from one origin in development never share a row.</summary>
+    private string LayoutKey => $"{Brand.Wordmark}{Brand.Emphasis}.desk".ToLowerInvariant();
+
+    private string? _savedLayout;
+    private bool _saveQueued;
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
@@ -133,6 +139,12 @@
                 .Where(d => d.Shortcut is not null && !d.RequiresSubject)
                 .Select(d => new { key = d.Shortcut, windowKey = d.Key })
                 .ToArray();
+
+            // Before initialise: the first viewport report sets a default window ceiling unless
+            // the operator chose one, and a restored layout carries that choice.
+            _savedLayout = await _module.InvokeAsync<string?>("loadLayout", LayoutKey);
+            if (DeskLayout.Parse(_savedLayout) is { } layout && Manager.Windows.Count == 0)
+                Manager.Restore(layout);
 
             await _module.InvokeVoidAsync("initialise", _self, shortcuts);
             Manager.SetPlatform(await _module.InvokeAsync<bool>("isMac"));
@@ -222,7 +234,41 @@
             Manager.Open(Primary);
     }
 
-    private void OnManagerChanged() => InvokeAsync(StateHasChanged);
+    private void OnManagerChanged()
+    {
+        InvokeAsync(StateHasChanged);
+
+        // Changed also fires for every pulse and status line, so saving is deferred and only
+        // written when the layout itself differs from what the browser already holds.
+        if (_module is null || _saveQueued)
+            return;
+
+        _saveQueued = true;
+        _ = SaveLayoutSoonAsync();
+    }
+
+    private async Task SaveLayoutSoonAsync()
+    {
+        await Task.Delay(500);
+        _saveQueued = false;
+
+        await InvokeAsync(async () =>
+        {
+            var json = Manager.Capture().Serialise();
+            if (json == _savedLayout || _module is null)
+                return;
+
+            try
+            {
+                await _module.InvokeVoidAsync("saveLayout", LayoutKey, json);
+                _savedLayout = json;
+            }
+            catch (JSDisconnectedException)
+            {
+                // The browser has gone; the last saved layout stands.
+            }
+        });
+    }
 
     public async ValueTask DisposeAsync()
     {

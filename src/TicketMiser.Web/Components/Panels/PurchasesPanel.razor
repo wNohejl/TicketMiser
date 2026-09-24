@@ -169,6 +169,10 @@ else
 }
 
 @code {
+    protected override IReadOnlySet<string> Watches { get; } = new HashSet<string> { DataTopics.Purchases, DataTopics.Prices };
+
+    protected override Task RefreshAsync() => LoadAsync();
+
     private enum Filter { All, Graded, Ungraded }
 
     private static readonly CultureInfo Money = CultureInfo.GetCultureInfo("en-US");

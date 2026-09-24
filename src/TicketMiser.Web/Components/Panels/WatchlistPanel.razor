@@ -302,6 +302,10 @@ else
 }
 
 @code {
+    protected override IReadOnlySet<string> Watches { get; } = new HashSet<string> { DataTopics.Events, DataTopics.Prices, DataTopics.Watches };
+
+    protected override Task RefreshAsync() => LoadAsync();
+
     /// <summary>Which market the board is being read for.</summary>
     private enum Market { All, Primary, Resale }
 

@@ -22,7 +22,7 @@
 *@
 
 <div class="stack" style="--desk-gap:16px; padding:16px">
-    @if (_loading)
+    @if (_loading && _record is null)
     {
         <EmptyState>Reading the on-sale record.</EmptyState>
     }
@@ -61,6 +61,10 @@
 </div>
 
 @code {
+    protected override IReadOnlySet<string> Watches { get; } = new HashSet<string> { DataTopics.Events, DataTopics.Prices };
+
+    protected override Task RefreshAsync() => LoadAsync();
+
     /// <summary>The id parameter the window was opened with. Arrives as <c>EventId</c>.</summary>
     [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? Parameters { get; set; }
 
@@ -104,6 +108,11 @@
 
     private async Task LoadAsync()
     {
+        // Another event's record is not shown while this one is read; the same event's stays up
+        // while a refresh replaces it.
+        if (EventId != _loadedId)
+            _record = null;
+
         _loadedId = EventId;
         _loading = true;
         _failed = false;

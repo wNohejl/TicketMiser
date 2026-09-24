@@ -97,6 +97,10 @@ else
 }
 
 @code {
+    protected override IReadOnlySet<string> Watches { get; } = new HashSet<string> { DataTopics.Prices };
+
+    protected override Task RefreshAsync() => LoadAsync();
+
     private const int Take = 200;
 
     private HistorySummary _summary = new(0, 0, 0);
@@ -106,7 +110,9 @@ else
         ? null
         : $"of {_summary.PastEvents:N0} past";
 
-    protected override async Task OnInitializedAsync()
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
     {
         await WithActivityAsync(async () =>
         {

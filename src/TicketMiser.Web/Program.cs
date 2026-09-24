@@ -125,6 +125,10 @@ builder.Services.AddScoped<IDestinationQueries, DestinationQueries>();
 // Graded against day-of prices of the same all-in kind only. A context per call.
 builder.Services.AddScoped<IPurchaseQueries, PurchaseQueries>();
 
+// Open windows refresh when the data under them changes, whichever process wrote it: every save
+// is announced on a Postgres channel (Data/Changes), and one connection here hears it for all.
+builder.Services.AddHostedService<DataChangeListener>();
+
 // Persist Data Protection keys outside the container when a path is configured, so a
 // replaced container does not invalidate every live circuit.
 if (builder.Configuration["DataProtection:KeyPath"] is { Length: > 0 } keyPath)

@@ -2,6 +2,7 @@ using TicketMiser.Desk.Primitives;
 using TicketMiser.Desk.Theming;
 using TicketMiser.Desk.Windowing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace TicketMiser.Desk;
 
@@ -49,6 +50,8 @@ public static class DeskServiceCollectionExtensions
     {
         services.AddSingleton(brand);
         services.AddScoped<WindowManager>();
+        services.AddSingleton<DeskSignals>();
+        services.TryAddSingleton(TimeProvider.System);
         services.AddScoped<DeskToasts>();
         services.AddScoped<IDeskAlerts, DeskAlerts>();
         services.AddScoped<ThemeService>();

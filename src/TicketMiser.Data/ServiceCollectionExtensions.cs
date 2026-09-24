@@ -21,8 +21,13 @@ public static class ServiceCollectionExtensions
         // Blazor Server components outlive a request, so they take a factory and own the
         // context lifetime per operation. Background services and the ingestion pipeline still
         // want a scoped context, so one is resolved from the same factory.
-        services.AddDbContextFactory<TicketMiserDbContext>(options =>
-            options.UseNpgsql(connectionString, npgsql => npgsql.EnableRetryOnFailure(3)));
+        //
+        // Every context announces its saves (Changes/ChangeNotifier), so an open window hears
+        // about new rows whichever process wrote them.
+        services.AddSingleton<Changes.ChangeNotifier>();
+        services.AddDbContextFactory<TicketMiserDbContext>((sp, options) =>
+            options.UseNpgsql(connectionString, npgsql => npgsql.EnableRetryOnFailure(3))
+                .AddInterceptors(sp.GetRequiredService<Changes.ChangeNotifier>()));
 
         services.AddScoped<TicketMiserDbContext>(sp =>
             sp.GetRequiredService<IDbContextFactory<TicketMiserDbContext>>().CreateDbContext());

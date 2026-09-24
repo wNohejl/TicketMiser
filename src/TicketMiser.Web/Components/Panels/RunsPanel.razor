@@ -105,6 +105,10 @@
 </DeskGrid>
 
 @code {
+    protected override IReadOnlySet<string> Watches { get; } = new HashSet<string> { DataTopics.Runs };
+
+    protected override Task RefreshAsync() => LoadAsync();
+
     private const int Take = 200;
 
     /// <summary>Set when opened from a source's name elsewhere on the desk.</summary>

@@ -90,6 +90,10 @@ else
 }
 
 @code {
+    protected override IReadOnlySet<string> Watches { get; } = new HashSet<string> { DataTopics.Events };
+
+    protected override Task RefreshAsync() => LoadAsync();
+
     private List<PerformerSummary> _rows = [];
     private string _search = string.Empty;
     private bool _loading = true;

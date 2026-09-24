@@ -42,6 +42,11 @@ public abstract class DeskTestContext : BunitContext, IAsyncLifetime
         Services.AddSingleton(new TicketMiser.Desk.DeskBrand("TICKET", "MISER", "test desk"));
         Services.AddSingleton<TicketMiser.Desk.IWindowCatalog, TicketMiser.Web.Windowing.AppWindowCatalog>();
 
+        // Every panel listens for change notices, and the palette opens through the manager. A
+        // test that drives a manager of its own registers it after this one.
+        Services.AddSingleton<TicketMiser.Desk.Windowing.DeskSignals>();
+        Services.AddScoped<TicketMiser.Desk.Windowing.WindowManager>();
+
         // Price cells read the affiliate programmes (SourceLink.Tagged); unconfigured by default,
         // as a fresh deployment is, so every link is the canonical page unless a test says so.
         Services.AddOptions();

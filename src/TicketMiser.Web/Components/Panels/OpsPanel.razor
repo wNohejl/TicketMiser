@@ -285,6 +285,10 @@ else if (S.Health.Count > 0)
 </DeskGrid>
 
 @code {
+    protected override IReadOnlySet<string> Watches { get; } = new HashSet<string> { DataTopics.Runs, DataTopics.Alerts, DataTopics.Watches };
+
+    protected override Task RefreshAsync() => LoadAsync();
+
     private OpsSnapshot S { get; set; } = OpsSnapshot.Empty;
 
     private int _healthy;
