@@ -18,7 +18,12 @@ RUN dotnet restore src/TicketMiser.Web/TicketMiser.Web.csproj
 COPY src/ src/
 # The published monthly reports, served at /reports; the Web project copies them into its output.
 COPY docs/reports/ docs/reports/
-RUN dotnet publish src/TicketMiser.Web/TicketMiser.Web.csproj -c Release -o /app --no-restore
+# Publish restores again, now that the source is here. The restore above only sees project
+# files, and the SDK adds Blazor's framework scripts (_framework/blazor.web.js, from
+# Microsoft.AspNetCore.App.Internal.Assets) only for a project it can see Razor components
+# in — so a --no-restore publish ships a page whose script 404s and whose circuit never
+# starts. The packages are already in the layer above; this pass only adds that one.
+RUN dotnet publish src/TicketMiser.Web/TicketMiser.Web.csproj -c Release -o /app
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
