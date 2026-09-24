@@ -16,8 +16,10 @@ public record TimelineNote(DateTimeOffset At, string Note);
 /// closed without a root cause and a corrective action, so the history that accumulates is
 /// a real RCA log rather than a list of things that broke.
 /// </summary>
-public class IncidentService(TicketMiserDbContext db, ILogger<IncidentService> logger)
+public class IncidentService(TicketMiserDbContext db, ILogger<IncidentService> logger, TimeProvider? clock = null)
 {
+    private readonly TimeProvider _clock = clock ?? TimeProvider.System;
+
     public async Task<Incident> PromoteAsync(long alertId, string? title = null, CancellationToken ct = default)
     {
         var alert = await db.Alerts
@@ -33,9 +35,9 @@ public class IncidentService(TicketMiserDbContext db, ILogger<IncidentService> l
             Title = title ?? alert.Message,
             Severity = alert.Severity,
             Status = IncidentStatus.Open,
-            OpenedAt = DateTimeOffset.UtcNow,
+            OpenedAt = _clock.GetUtcNow(),
             Timeline = Serialise([
-                new TimelineNote(DateTimeOffset.UtcNow,
+                new TimelineNote(_clock.GetUtcNow(),
                     $"Incident opened from alert [{alert.RuleKey}]: {alert.Message}")
             ])
         };
@@ -56,7 +58,7 @@ public class IncidentService(TicketMiserDbContext db, ILogger<IncidentService> l
             ?? throw new InvalidOperationException($"Incident {incidentId} not found.");
 
         var timeline = Deserialise(incident.Timeline).ToList();
-        timeline.Add(new TimelineNote(DateTimeOffset.UtcNow, note));
+        timeline.Add(new TimelineNote(_clock.GetUtcNow(), note));
         incident.Timeline = Serialise(timeline);
 
         await db.SaveChangesAsync(ct);
@@ -82,10 +84,10 @@ public class IncidentService(TicketMiserDbContext db, ILogger<IncidentService> l
         incident.RootCause = rootCause;
         incident.CorrectiveActions = correctiveActions;
         incident.Status = IncidentStatus.Resolved;
-        incident.ResolvedAt = DateTimeOffset.UtcNow;
+        incident.ResolvedAt = _clock.GetUtcNow();
 
         var timeline = Deserialise(incident.Timeline).ToList();
-        timeline.Add(new TimelineNote(DateTimeOffset.UtcNow, "Resolved. Root cause and corrective actions recorded."));
+        timeline.Add(new TimelineNote(_clock.GetUtcNow(), "Resolved. Root cause and corrective actions recorded."));
         incident.Timeline = Serialise(timeline);
 
         await db.SaveChangesAsync(ct);
@@ -100,7 +102,7 @@ public class IncidentService(TicketMiserDbContext db, ILogger<IncidentService> l
         incident.Status = status;
 
         var timeline = Deserialise(incident.Timeline).ToList();
-        timeline.Add(new TimelineNote(DateTimeOffset.UtcNow, $"Status changed to {status}."));
+        timeline.Add(new TimelineNote(_clock.GetUtcNow(), $"Status changed to {status}."));
         incident.Timeline = Serialise(timeline);
 
         await db.SaveChangesAsync(ct);

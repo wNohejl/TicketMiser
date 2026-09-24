@@ -126,8 +126,8 @@ public class OnSaleWatchTests(PostgresFixture fixture)
         Assert.All(marketplaceTicks, t => Assert.Null(t.AllIn));
 
         // And the alert engine reads it as the one alert nobody else sends.
-        var engine = new AlertEngine(db, new KpiCalculator(db), new BudgetCalculator(db),
-            Options.Create(new ReliabilityOptions()), NullLogger<AlertEngine>.Instance);
+        var engine = new AlertEngine(db, new KpiCalculator(db, clock), new BudgetCalculator(db, clock),
+            Options.Create(new ReliabilityOptions()), NullLogger<AlertEngine>.Instance, clock);
         clock.Set(T + TimeSpan.FromHours(2));
 
         var candidates = await engine.EvaluateWatchesAsync(await db.Sources.ToListAsync(), default);

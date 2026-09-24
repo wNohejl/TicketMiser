@@ -29,9 +29,16 @@ public record SourceHealth(
 /// Everything here is derived, never stored twice: the run table is the single source of
 /// truth, and <see cref="RollupDailyAsync"/> only materialises what would otherwise be an
 /// expensive repeat aggregation.
+/// <para>
+/// The clock is injected for the same reason as <see cref="BudgetCalculator"/>'s: "today" and
+/// "the last hour" are the scheduler's, so a KPI asked on a fake clock reads the runs that
+/// clock wrote. The system clock is the default.
+/// </para>
 /// </summary>
-public class KpiCalculator(TicketMiserDbContext db)
+public class KpiCalculator(TicketMiserDbContext db, TimeProvider? clock = null)
 {
+    private readonly TimeProvider _clock = clock ?? TimeProvider.System;
+
     /// <summary>Freshness: minutes since this source last produced rows successfully.</summary>
     public async Task<double?> GetFreshnessMinutesAsync(int sourceId, CancellationToken ct = default)
     {
@@ -43,14 +50,14 @@ public class KpiCalculator(TicketMiserDbContext db)
 
         return lastSuccess is null
             ? null
-            : (DateTimeOffset.UtcNow - lastSuccess.Value).TotalMinutes;
+            : (_clock.GetUtcNow() - lastSuccess.Value).TotalMinutes;
     }
 
     /// <summary>Successful runs as a fraction of all completed runs in the window.</summary>
     public async Task<(double Rate, int Count)> GetSuccessRateAsync(
         int sourceId, TimeSpan window, CancellationToken ct = default)
     {
-        var since = DateTimeOffset.UtcNow - window;
+        var since = _clock.GetUtcNow() - window;
 
         var runs = await db.IngestionRuns
             .Where(r => r.SourceId == sourceId && r.StartedAt >= since && r.Status != RunStatus.Running)
@@ -73,8 +80,9 @@ public class KpiCalculator(TicketMiserDbContext db)
     public async Task<double?> GetVolumeRatioAsync(
         int sourceId, int baselineDays, CancellationToken ct = default)
     {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        var since = DateTimeOffset.UtcNow.AddDays(-baselineDays - 1);
+        var now = _clock.GetUtcNow();
+        var today = DateOnly.FromDateTime(now.UtcDateTime);
+        var since = now.AddDays(-baselineDays - 1);
 
         var runs = await db.IngestionRuns
             .Where(r => r.SourceId == sourceId && r.StartedAt >= since)
@@ -144,10 +152,10 @@ public class KpiCalculator(TicketMiserDbContext db)
             .Select(r => new { r.Status, r.Error })
             .FirstOrDefaultAsync(ct);
 
-        // Must carry an explicit zero offset: DateTimeOffset.UtcNow.Date drops to a
-        // DateTime, which Npgsql then binds using the machine's local offset and rejects
-        // against a `timestamptz` column.
-        var dayStart = new DateTimeOffset(DateTime.UtcNow.Date, TimeSpan.Zero);
+        // Must carry an explicit zero offset: DateTimeOffset.Date drops to a DateTime, which
+        // Npgsql then binds using the machine's local offset and rejects against a
+        // `timestamptz` column.
+        var dayStart = new DateTimeOffset(_clock.GetUtcNow().UtcDateTime.Date, TimeSpan.Zero);
         var rowsToday = await db.IngestionRuns
             .Where(r => r.SourceId == source.Id && r.StartedAt >= dayStart)
             .SumAsync(r => (int?)r.RowsIngested, ct) ?? 0;
@@ -163,7 +171,7 @@ public class KpiCalculator(TicketMiserDbContext db)
     /// </summary>
     public async Task RollupDailyAsync(CancellationToken ct = default)
     {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = DateOnly.FromDateTime(_clock.GetUtcNow().UtcDateTime);
         var days = new[] { today.AddDays(-1), today };
         var sources = await db.Sources.ToListAsync(ct);
 

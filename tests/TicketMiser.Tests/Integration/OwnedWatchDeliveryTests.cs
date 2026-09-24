@@ -145,8 +145,7 @@ public class OwnedWatchDeliveryTests(PostgresFixture fixture)
     [Fact]
     public async Task Two_owners_on_one_event_raise_one_reappearance_alert()
     {
-        // The engine reads the wall clock, so this one is seeded against it.
-        var now = DateTimeOffset.UtcNow;
+        var now = Now;
         await using var db = fixture.CreateContext();
         var seeded = await SeedAsync(db, now);
         var other = new Account { Email = $"other-{Guid.NewGuid():N}@example.com", CreatedAt = now };
@@ -157,7 +156,8 @@ public class OwnedWatchDeliveryTests(PostgresFixture fixture)
             new Watch { EventId = seeded.Event.Id, OwnerId = null, CreatedAt = now });
         await db.SaveChangesAsync();
 
-        var engine = new AlertEngine(db, null!, null!, Options.Create(new ReliabilityOptions()), NullLogger<AlertEngine>.Instance);
+        var engine = new AlertEngine(db, null!, null!, Options.Create(new ReliabilityOptions()),
+            NullLogger<AlertEngine>.Instance, new FakeClock(Now));
         var candidates = await engine.EvaluateWatchesAsync([seeded.Source]);
 
         Assert.Single(candidates, c => c.EventId == seeded.Event.Id && c.RuleKey == AlertRules.PrimaryReappeared);

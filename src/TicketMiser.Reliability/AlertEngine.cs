@@ -35,9 +35,11 @@ public class AlertEngine(
     KpiCalculator kpi,
     BudgetCalculator budget,
     IOptions<ReliabilityOptions> options,
-    ILogger<AlertEngine> logger)
+    ILogger<AlertEngine> logger,
+    TimeProvider? clock = null)
 {
     private readonly ReliabilityOptions _options = options.Value;
+    private readonly TimeProvider _clock = clock ?? TimeProvider.System;
 
     public async Task<IReadOnlyList<AlertCandidate>> EvaluateAsync(CancellationToken ct = default)
     {
@@ -96,7 +98,7 @@ public class AlertEngine(
     public async Task<IReadOnlyList<AlertCandidate>> EvaluateWatchesAsync(
         IReadOnlyList<Source> sources, CancellationToken ct = default)
     {
-        var now = DateTimeOffset.UtcNow;
+        var now = _clock.GetUtcNow();
         var kinds = sources.ToDictionary(s => s.Id, s => s);
         var candidates = new List<AlertCandidate>();
 
@@ -226,7 +228,7 @@ public class AlertEngine(
     private async Task ReconcileAsync(IReadOnlyList<AlertCandidate> candidates, CancellationToken ct)
     {
         var open = await db.Alerts.Where(a => a.ResolvedAt == null).ToListAsync(ct);
-        var now = DateTimeOffset.UtcNow;
+        var now = _clock.GetUtcNow();
 
         static bool Same(Alert a, AlertCandidate c)
             => a.RuleKey == c.RuleKey && a.SourceId == c.SourceId && a.EventId == c.EventId;
