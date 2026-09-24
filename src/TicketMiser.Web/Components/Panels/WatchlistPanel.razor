@@ -8,6 +8,7 @@
 @inject IJSRuntime JS
 @inject IOptions<AffiliateOptions> Affiliates
 @inject IDeskAlerts Alerts
+@inject TimeProvider Clock
 
 @*
     The board — every watched event, and where the best number is right now.
@@ -608,13 +609,14 @@ else
     {
         _pickSearch = value ?? string.Empty;
 
-        // A keystroke is not a query: wait for the typing to pause.
+        // A keystroke is not a query: wait for the typing to pause. The pause is on the
+        // injected clock, so a test gives it rather than racing a real timer for it.
         _pickDebounce?.Cancel();
         var cts = _pickDebounce = new CancellationTokenSource();
 
         try
         {
-            await Task.Delay(250, cts.Token);
+            await Task.Delay(TimeSpan.FromMilliseconds(250), Clock, cts.Token);
             await LoadCandidatesAsync();
         }
         catch (TaskCanceledException)

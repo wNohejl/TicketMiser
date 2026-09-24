@@ -1,5 +1,6 @@
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Time.Testing;
 using TicketMiser.Core.Analytics;
 using TicketMiser.Core.Entities;
 using TicketMiser.Desk.Windowing;
@@ -55,6 +56,8 @@ public class WatchlistPanelTests : DeskTestContext
 
     private WindowManager _manager = default!;
 
+    private readonly FakeTimeProvider _clock = new(Now);
+
     private IRenderedComponent<WatchlistPanel> Render(params WatchlistRow[] rows) => RenderWith(rows, null);
 
     private IRenderedComponent<WatchlistPanel> RenderWith(IReadOnlyList<WatchlistRow> rows, IReadOnlyList<WatchCandidate>? candidates)
@@ -63,6 +66,7 @@ public class WatchlistPanelTests : DeskTestContext
         _fake = new FakeWatchlist(rows, candidates);
         Services.AddSingleton(_manager);
         Services.AddSingleton<IWatchlistQueries>(_fake);
+        Services.AddSingleton<TimeProvider>(_clock);
 
         return Render<WatchlistPanel>();
     }
@@ -361,6 +365,22 @@ public class WatchlistPanelTests : DeskTestContext
         cut.FindAll("button").Single(b => b.TextContent.Contains("Add watches")).Click();
 
         Assert.Contains("daily discovery run", cut.Find(".watch-picker .empty").TextContent);
+    }
+
+    [Fact]
+    public void A_picker_search_waits_for_the_typing_to_pause_and_says_when_nothing_matches()
+    {
+        var cut = RenderWith([], []);
+        cut.FindAll("button").Single(b => b.TextContent.Contains("Add watches")).Click();
+
+        cut.Find(".watch-picker input").Input("nobody");
+
+        // The query waits for the typing to pause, and the pause is the test's to give.
+        Assert.DoesNotContain("nobody", _fake.Searches);
+        _clock.Advance(TimeSpan.FromMilliseconds(250));
+
+        cut.WaitForAssertion(() => Assert.Contains("No upcoming event matches", cut.Find(".watch-picker .empty").TextContent));
+        Assert.Contains("nobody", _fake.Searches);
     }
 
     [Fact]

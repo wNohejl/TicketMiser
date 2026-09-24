@@ -51,6 +51,10 @@ public abstract class DeskTestContext : BunitContext, IAsyncLifetime
         // registers a fake after this one.
         Services.AddScoped<TicketMiser.Desk.Primitives.IDeskAlerts, TicketMiser.Desk.Primitives.DeskAlerts>();
 
+        // A search box waits for the typing to pause on the host's clock. The system clock is
+        // what the host registers; a test that gives the pause itself registers a fake after it.
+        Services.AddSingleton(TimeProvider.System);
+
         JSInterop.Mode = JSRuntimeMode.Loose;
     }
 }
