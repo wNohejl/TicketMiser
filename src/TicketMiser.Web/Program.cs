@@ -53,6 +53,10 @@ builder.Services.AddSingleton<IWindowCatalog, AppWindowCatalog>();
 // so a circuit never holds a context open between renders.
 builder.Services.AddScoped<IOnSaleRecordService, OnSaleRecordService>();
 
+// Affiliate deep links for price cells (SourceLink.Tagged). Empty by default, so every link is
+// the canonical event page until a programme's ids are configured.
+builder.Services.Configure<AffiliateOptions>(builder.Configuration.GetSection(AffiliateOptions.SectionName));
+
 // The public record page is rendered once and served from memory for five minutes: a shared
 // link that lands a few hundred readers in a minute costs one query, and a tick written in
 // between reaches them on the next render. Only GET /e/{slug} opts in; nothing else is cached.
@@ -69,12 +73,15 @@ builder.Services.AddOutputCache(options =>
     // cached copy and any other query string reads the one shared document.
     options.AddPolicy(EventRecordCache, policy => policy.Expire(TimeSpan.FromMinutes(5)).SetVaryByQuery("subscribed"));
     options.AddPolicy(OnSaleCalendarCache, policy => policy.Expire(TimeSpan.FromMinutes(15)));
-    options.AddPolicy(ReportsCache, policy => policy.Expire(TimeSpan.FromHours(1)));
+    // Varies by ?subscribed= for the report form's notice, as the record page does for its own.
+    options.AddPolicy(ReportsCache, policy => policy.Expire(TimeSpan.FromHours(1)).SetVaryByQuery("subscribed"));
 });
 builder.Services.AddSingleton<IOnSaleCalendarService, OnSaleCalendarService>();
 
 // The monthly reports, from docs/reports as copied beside the assembly (or Reports:Path).
 builder.Services.AddSingleton<IReportLibrary>(FileReportLibrary.From(builder.Configuration));
+// Mails a published month to the report list; only the send-report command below runs it.
+builder.Services.AddScoped<ReportMailingService>();
 
 // The subscribe form is the one anonymous write on the site. Ten posts per client address per
 // ten minutes is more than a person needs and less than a flood of confirmation emails.
@@ -148,6 +155,14 @@ await using (var scope = app.Services.CreateAsyncScope())
 {
     var initialiser = scope.ServiceProvider.GetRequiredService<DatabaseInitializer>();
     await initialiser.InitialiseAsync();
+}
+
+// `send-report <yyyy-mm>`: the operator mails a published month's report to the report list,
+// then the process exits. The host never starts, so no scheduler, evaluator or server runs.
+if (SendReportCommand.Parse(args) is { } sendReport)
+{
+    Environment.ExitCode = await SendReportCommand.RunAsync(app.Services, sendReport, Console.Out);
+    return;
 }
 
 if (!app.Environment.IsDevelopment())
@@ -267,8 +282,9 @@ app.MapGet("/onsales.ics", async (HttpContext http, IOnSaleCalendarService calen
 
 // The monthly Nashville reports: the list, and one month's report. Static, anonymous and cached
 // like the calendar. A month is served only when its file says `published: true`; an
-// unpublished or missing month is a 404. Nothing mails a report to subscribers; not built.
-app.MapReports(ReportsCache);
+// unpublished or missing month is a 404. The report list's form and email links are mapped with
+// them, rate-limited like /e/{slug}/subscribe; mailing a month is the send-report command above.
+app.MapReports(ReportsCache, SubscribeLimit);
 
 // The ledger as a dated receipt (legal guidelines, rule 9): one event's on-sale record and the
 // purchases logged against it, as a Markdown file to keep or attach to a complaint. A file, not

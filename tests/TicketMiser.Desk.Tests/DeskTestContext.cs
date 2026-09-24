@@ -42,6 +42,15 @@ public abstract class DeskTestContext : BunitContext, IAsyncLifetime
         Services.AddSingleton(new TicketMiser.Desk.DeskBrand("TICKET", "MISER", "test desk"));
         Services.AddSingleton<TicketMiser.Desk.IWindowCatalog, TicketMiser.Web.Windowing.AppWindowCatalog>();
 
+        // Price cells read the affiliate programmes (SourceLink.Tagged); unconfigured by default,
+        // as a fresh deployment is, so every link is the canonical page unless a test says so.
+        Services.AddOptions();
+
+        // A panel that confirms before it acts asks through the desk's alert service, which
+        // MudBlazor's dialog service stands behind. A test that answers for the operator
+        // registers a fake after this one.
+        Services.AddScoped<TicketMiser.Desk.Primitives.IDeskAlerts, TicketMiser.Desk.Primitives.DeskAlerts>();
+
         JSInterop.Mode = JSRuntimeMode.Loose;
     }
 }

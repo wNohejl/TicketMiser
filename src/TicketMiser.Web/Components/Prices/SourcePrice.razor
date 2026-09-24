@@ -1,11 +1,14 @@
 @namespace TicketMiser.Web.Components.Prices
 @using TicketMiser.Core.Analytics
 @using TicketMiser.Core.Entities
+@using Microsoft.Extensions.Options
 @inject IJSRuntime JS
+@inject IOptions<AffiliateOptions> Affiliates
 
 @*
     A price wearing its citation: the number is a link to the event on the source that
-    published it (SourceLink.For), the source's monogram stands beside it, and its fee basis is
+    published it (SourceLink.Tagged: the affiliate deep link when that source's programme is
+    configured, the canonical page when not), the source's monogram stands beside it, and its fee basis is
     a tag rather than a convention. Every price cell in the history, trend, all-sources and
     destination windows is one of these, so none of them can forget the link or the tag
     (legal guidelines rules 3 and 5).
@@ -42,7 +45,7 @@
 
     private async Task OpenAsync()
     {
-        var url = SourceLink.For(Source, Event);
+        var url = SourceLink.Tagged(Source, Event, Affiliates.Value);
 
         if (url.Length > 0)
             await JS.InvokeVoidAsync("open", url, "_blank", "noopener,noreferrer");

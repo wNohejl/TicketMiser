@@ -27,6 +27,15 @@ public static class AlertSubscriptions
     };
 
     /// <summary>
+    /// Whether the row stands for an account's watch rather than for a record-page opt-in: no
+    /// confirmation email was ever sent for it. A record-page subscription can only be confirmed
+    /// by the link in that email, so its <see cref="Subscription.ConfirmationSentAt"/> is set; a
+    /// row made by <see cref="ForAccount"/>, or pending or unsubscribed until Watch activated it,
+    /// has it cleared. Stop watching unsubscribes the first kind and leaves the second.
+    /// </summary>
+    public static bool MadeByWatch(Subscription sub) => sub.ConfirmationSentAt is null;
+
+    /// <summary>
     /// Before an alert on <paramref name="eventId"/> is delivered: every enabled owned watch on
     /// the event whose address has no subscription row there gets one. An address with a row
     /// keeps it as it is — an unsubscribe is honoured, never undone here — so this only fills

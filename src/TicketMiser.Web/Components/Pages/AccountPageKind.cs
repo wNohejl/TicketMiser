@@ -33,5 +33,8 @@ public enum AccountNotice
     PurchaseLogged,
 
     /// <summary>Signed in, after a purchase's Delete.</summary>
-    PurchaseDeleted
+    PurchaseDeleted,
+
+    /// <summary>Signed in, after Stop watching beside a watch.</summary>
+    StoppedWatching
 }

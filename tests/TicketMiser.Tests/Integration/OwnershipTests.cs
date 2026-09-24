@@ -124,6 +124,12 @@ public class OwnershipTests(PostgresFixture fixture)
         Assert.Null(rows[1].Watch.OwnerId);
         // Shared has only fans' watches; the operator still sees it, because it is polled.
         Assert.NotNull(rows[0].Watch.OwnerId);
+
+        // And the board counts the fans its Stop watching would switch off too.
+        Assert.Equal([2, 1], rows.Select(r => r.FanWatchers));
+
+        // An account reads no count: other owners' watches are not its business.
+        Assert.All(await Watchlist(OwnerScope.ForAccount(w.B.Id)).LoadAsync(), r => Assert.Equal(0, r.FanWatchers));
     }
 
     [Fact]

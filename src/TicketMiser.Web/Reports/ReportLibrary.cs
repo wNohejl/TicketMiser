@@ -17,7 +17,8 @@ public sealed record ReportSummary(string Month, string Title)
 
 /// <summary>A published report, rendered.</summary>
 /// <param name="Html">The report's body as HTML. Raw HTML in the file was escaped, not passed through.</param>
-public sealed record ReportDocument(string Month, string Title, string Html)
+/// <param name="Summary">The report's first paragraph as plain text: the one-paragraph summary the skill writes, and what the report email carries.</param>
+public sealed record ReportDocument(string Month, string Title, string Html, string Summary = "")
 {
     public string MonthName => ReportMarkdown.MonthName(Month);
 }
@@ -89,12 +90,12 @@ public sealed class FileReportLibrary(string directory) : IReportLibrary
             return null;
 
         var report = ReportMarkdown.Parse(month, File.ReadAllText(path));
-        return report.Published ? new ReportDocument(month, report.Title, report.Html) : null;
+        return report.Published ? new ReportDocument(month, report.Title, report.Html, report.Summary) : null;
     }
 }
 
-/// <summary>One report file, read: whether it is published, its title and its body as HTML.</summary>
-public sealed record ParsedReport(bool Published, string Title, string Html);
+/// <summary>One report file, read: whether it is published, its title, its body as HTML and its summary paragraph as plain text.</summary>
+public sealed record ParsedReport(bool Published, string Title, string Html, string Summary = "");
 
 /// <summary>
 /// Markdown to HTML for the reports, with raw HTML disabled: a <c>&lt;script&gt;</c> or an
@@ -156,13 +157,19 @@ public static partial class ReportMarkdown
 
         var published = front.TryGetValue("published", out var flag) && string.Equals(flag, "true", StringComparison.OrdinalIgnoreCase);
 
+        // The skill's fixed shape opens with a one-paragraph summary: the first paragraph at the
+        // top level, after the front matter and the title.
+        var summary = document.OfType<ParagraphBlock>().FirstOrDefault() is { Inline: { } first }
+            ? PlainText(first)
+            : string.Empty;
+
         using var writer = new StringWriter(Invariant);
         var renderer = new HtmlRenderer(writer);
         Pipeline.Setup(renderer);
         renderer.Render(document);
         writer.Flush();
 
-        return new ParsedReport(published, title, writer.ToString());
+        return new ParsedReport(published, title, writer.ToString(), summary);
     }
 
     /// <summary>
@@ -226,6 +233,9 @@ public static partial class ReportMarkdown
                     break;
                 case CodeInline code:
                     parts.Add(code.Content);
+                    break;
+                case LineBreakInline:
+                    parts.Add(" ");
                     break;
             }
         }

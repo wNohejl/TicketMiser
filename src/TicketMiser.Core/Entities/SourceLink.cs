@@ -7,7 +7,15 @@ namespace TicketMiser.Core.Entities;
 /// <para>
 /// A <see cref="Source.BaseUrl"/> is an API root and no place to send a person, so the link is
 /// built from the event's id on the source's consumer site instead, and falls back to that site
-/// when the event has no id there. The affiliate tagging Phase 6 adds lands here.
+/// when the event has no id there.
+/// </para>
+///
+/// <para>
+/// Two links, on purpose. <see cref="For"/> is the canonical page and is what a receipt and an
+/// alert email cite: a receipt is evidence, not a sale, and a citation must not carry a tracking
+/// hop. <see cref="Tagged"/> is what a price cell links to: the same page wrapped in the source's
+/// affiliate deep link when that programme is configured (<see cref="AffiliateOptions"/>), and
+/// the canonical page otherwise.
 /// </para>
 ///
 /// <para>
@@ -29,6 +37,23 @@ public static class SourceLink
             ? site.Event(Uri.EscapeDataString(id))
             : site.Root;
     }
+
+    /// <summary>
+    /// The link a price cell uses: <see cref="For"/> wrapped in the source's affiliate deep link
+    /// when that programme is configured, and <see cref="For"/> unchanged when it is not.
+    /// </summary>
+    public static string Tagged(Source source, Event evt, AffiliateOptions? affiliates)
+    {
+        var canonical = For(source, evt);
+
+        return canonical.Length > 0 && affiliates?.For(source)?.Tag(canonical) is { } tagged
+            ? tagged
+            : canonical;
+    }
+
+    /// <summary>Whether <see cref="Tagged"/> would tag this source's link: the page's cue to disclose (rule 7).</summary>
+    public static bool IsTagged(Source source, AffiliateOptions? affiliates)
+        => affiliates?.For(source)?.IsConfigured == true;
 
     private static (string Root, Func<string, string> Event)? SiteFor(Source source)
         => source.Key switch

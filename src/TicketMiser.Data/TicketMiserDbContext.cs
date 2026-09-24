@@ -31,6 +31,8 @@ public class TicketMiserDbContext(DbContextOptions<TicketMiserDbContext> options
     public DbSet<AlertDelivery> AlertDeliveries => Set<AlertDelivery>();
     public DbSet<Account> Accounts => Set<Account>();
     public DbSet<SignInToken> SignInTokens => Set<SignInToken>();
+    public DbSet<ReportSubscription> ReportSubscriptions => Set<ReportSubscription>();
+    public DbSet<ReportDelivery> ReportDeliveries => Set<ReportDelivery>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -242,6 +244,34 @@ public class TicketMiserDbContext(DbContextOptions<TicketMiserDbContext> options
 
             e.HasOne(x => x.Alert).WithMany().HasForeignKey(x => x.AlertId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Subscription).WithMany().HasForeignKey(x => x.SubscriptionId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // The monthly report's own list (rule 8): not the event alerts' list, and never mixed with it.
+        b.Entity<ReportSubscription>(e =>
+        {
+            e.Property(x => x.Email).HasMaxLength(Subscription.EmailMaxLength).IsRequired();
+            e.Property(x => x.ConfirmToken).HasMaxLength(Subscription.TokenMaxLength).IsRequired();
+            e.Property(x => x.UnsubscribeToken).HasMaxLength(Subscription.TokenMaxLength).IsRequired();
+            e.Ignore(x => x.IsActive);
+
+            // One row per address; a second subscribe reuses it.
+            e.HasIndex(x => x.Email).IsUnique();
+            e.HasIndex(x => x.ConfirmToken).IsUnique();
+            e.HasIndex(x => x.UnsubscribeToken).IsUnique();
+
+            // An account's deletion takes its place on the list with it.
+            e.HasOne(x => x.Account).WithMany().HasForeignKey(x => x.AccountId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<ReportDelivery>(e =>
+        {
+            e.Property(x => x.Month).HasMaxLength(ReportDelivery.MonthLength).IsFixedLength().IsRequired();
+            e.Property(x => x.ProviderMessageId).HasMaxLength(128);
+
+            // The idempotency guarantee: one month's report reaches one subscriber once.
+            e.HasIndex(x => new { x.ReportSubscriptionId, x.Month }).IsUnique().HasDatabaseName("ux_report_delivery");
+
+            e.HasOne(x => x.ReportSubscription).WithMany().HasForeignKey(x => x.ReportSubscriptionId).OnDelete(DeleteBehavior.Cascade);
         });
 
         b.Entity<Account>(e =>

@@ -23,7 +23,7 @@ namespace TicketMiser.Web.Accounts;
 /// Every page here is a static document (<see cref="AccountPage"/>) rendered by a
 /// RazorComponentResult with no circuit, and none is cached. The two posts that change a
 /// session (following a link, signing out) and the ones that write on the account's behalf
-/// (watching an event, logging or deleting a purchase) check an antiforgery token; the sign-in
+/// (watching or no longer watching an event, logging or deleting a purchase) check an antiforgery token; the sign-in
 /// post does not, for the reason the subscribe form does not: a forged post can only send a
 /// link to the address's owner. The rate limit is what stops that ask being repeated at volume.
 /// </para>
@@ -91,6 +91,7 @@ public static class AccountEndpoints
         app.MapPost("/account/sign-out", SignOutAsync).AllowAnonymous().DisableAntiforgery();
 
         app.MapPost("/account/watches/{eventId:int}", WatchAsync).AllowAnonymous().DisableAntiforgery();
+        app.MapPost("/account/watches/{eventId:int}/stop", StopWatchingAsync).AllowAnonymous().DisableAntiforgery();
 
         app.MapPost("/account/purchases", LogPurchaseAsync).AllowAnonymous().DisableAntiforgery();
         app.MapPost("/account/purchases/{purchaseId:long}/delete", DeletePurchaseAsync).AllowAnonymous().DisableAntiforgery();
@@ -107,7 +108,7 @@ public static class AccountEndpoints
     // DisableAntiforgery only turns off the middleware's automatic pass, not these checks.
 
     private static async Task<IResult> AccountAsync(HttpContext http, IAccountQueries accounts, IAccountLedger ledger,
-        string? sent, string? signedout, string? purchase, CancellationToken ct)
+        string? sent, string? signedout, string? purchase, string? watch, CancellationToken ct)
     {
         http.Response.Headers.CacheControl = "no-store";
 
@@ -119,7 +120,7 @@ public static class AccountEndpoints
                 {
                     "logged" => AccountNotice.PurchaseLogged,
                     "deleted" => AccountNotice.PurchaseDeleted,
-                    _ => AccountNotice.None
+                    _ => watch == "stopped" ? AccountNotice.StoppedWatching : AccountNotice.None
                 };
 
                 return new RazorComponentResult<AccountPage>(new
@@ -212,6 +213,35 @@ public static class AccountEndpoints
             return Results.NotFound();
 
         return SeeOther(http, $"/e/{Uri.EscapeDataString(watched.Slug ?? watched.EventId.ToString(CultureInfo.InvariantCulture))}");
+    }
+
+    /// <summary>
+    /// "Stop watching", on the record page and beside each watch on /account: the account's own
+    /// watch is switched off, and the alert email that came with it (AccountService.UnwatchAsync).
+    /// Back to the page it came from — /account when the form says so, the record page otherwise;
+    /// the field is matched, never followed, so it cannot redirect anywhere else.
+    /// </summary>
+    private static async Task<IResult> StopWatchingAsync(int eventId, HttpContext http, IAntiforgery antiforgery, AccountService accounts, CancellationToken ct)
+    {
+        if (OwnerScope.From(http.User).AccountId is not { } accountId)
+            return SeeOther(http, "/account");
+
+        if (!await antiforgery.IsRequestValidAsync(http))
+            return Results.BadRequest();
+
+        if (await accounts.GetAsync(accountId, ct) is null)
+        {
+            await http.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            return SeeOther(http, "/account");
+        }
+
+        if (await accounts.UnwatchAsync(accountId, eventId, ct) is not { } stopped)
+            return Results.NotFound();
+
+        var fromAccount = http.Request.HasFormContentType && http.Request.Form["from"] == "account";
+        return SeeOther(http, fromAccount
+            ? "/account?watch=stopped"
+            : $"/e/{Uri.EscapeDataString(stopped.Slug ?? stopped.EventId.ToString(CultureInfo.InvariantCulture))}");
     }
 
     /// <summary>

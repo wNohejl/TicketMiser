@@ -153,6 +153,67 @@ public class AccountPageTests : DeskTestContext
     }
 
     [Fact]
+    public void Each_watch_has_a_protected_stop_of_its_own_that_returns_to_the_account()
+    {
+        var cut = SignedIn();
+
+        var watch = Assert.Single(cut.FindAll(".account-watches li"));
+        Assert.Equal("7", watch.GetAttribute("data-watch"));
+
+        var form = watch.QuerySelector("form")!;
+        Assert.Equal("post", form.GetAttribute("method"));
+        Assert.Equal("/account/watches/7/stop", form.GetAttribute("action"));
+        Assert.Equal(FakeAntiforgery.Value, form.QuerySelector("input[name=__RequestVerificationToken]")!.GetAttribute("value"));
+        Assert.Equal("account", form.QuerySelector("input[name=from]")!.GetAttribute("value"));
+        Assert.Contains("Stop watching", form.QuerySelector("button")!.TextContent);
+    }
+
+    [Fact]
+    public void After_stopping_the_notice_says_the_email_stops_with_the_watch()
+    {
+        var cut = SignedIn(notice: AccountNotice.StoppedWatching);
+
+        var notice = string.Join(' ', cut.Find("[role=status]").TextContent.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        Assert.Contains("No longer watching", notice);
+        Assert.Contains("alert email stops with the watch", notice);
+        Assert.Contains("unless you asked for that email on the record page", notice);
+    }
+
+    [Fact]
+    public void With_an_affiliate_configured_the_day_of_price_is_tagged_and_disclosed_and_where_it_was_bought_is_not()
+    {
+        Services.Configure<AffiliateOptions>(o => o.SeatGeek = new AffiliateProgram
+        {
+            Enabled = true,
+            Template = "https://seatgeek.pxf.io/c/{publisherId}/{adId}/{programId}?u={url}",
+            PublisherId = "1111111",
+            AdId = "333333",
+            ProgramId = "5555"
+        });
+
+        var cut = SignedIn();
+        var graded = cut.FindAll(".account-purchase")[1];
+
+        // Where the fan bought is evidence, like the receipt: the canonical page.
+        Assert.Equal("https://seatgeek.com/e/events/sg-8", graded.QuerySelector("[data-cell=source]")!.GetAttribute("href"));
+
+        // The day-of lowest is a price on offer: tagged, marked, and disclosed.
+        var dayOf = graded.QuerySelector("[data-cell=day-of]")!;
+        Assert.Equal("https://seatgeek.pxf.io/c/1111111/333333/5555?u=https%3A%2F%2Fseatgeek.com%2Fe%2Fevents%2Fsg-8", dayOf.GetAttribute("href"));
+        Assert.Contains("sponsored", dayOf.GetAttribute("rel"));
+        Assert.Contains("may earn TicketMiser a commission", cut.Find("[data-disclosure=affiliate]").TextContent);
+    }
+
+    [Fact]
+    public void With_no_affiliate_the_day_of_price_is_the_canonical_page_and_nothing_is_disclosed()
+    {
+        var cut = SignedIn();
+
+        Assert.Equal("https://seatgeek.com/e/events/sg-8", cut.Find("[data-cell=day-of]").GetAttribute("href"));
+        Assert.Empty(cut.FindAll("[data-disclosure]"));
+    }
+
+    [Fact]
     public void Each_purchase_links_its_event_and_source_and_says_its_fee_basis()
     {
         var cut = SignedIn();

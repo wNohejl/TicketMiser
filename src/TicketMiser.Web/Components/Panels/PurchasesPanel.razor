@@ -320,6 +320,8 @@ else
             Manager.Open(definition, new() { ["EventId"] = evt.Id }, evt.Name);
     }
 
+    // Where a purchase was made, not a price on offer: the canonical page, never tagged. A logged
+    // purchase is the fan's evidence, like the receipt it goes into, and not a sale to earn on.
     private async Task OpenSourceAsync(Source source, Event evt)
     {
         var url = SourceLink.For(source, evt);

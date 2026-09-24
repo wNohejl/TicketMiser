@@ -30,7 +30,8 @@
     it shows the timeline and says where a reader can take it.
 
     A signed-in fan sees "Watch this event" in place of the subscribe form: a post, with an
-    antiforgery token, that keeps an owned watch and the email that goes with it. That copy
+    antiforgery token, that keeps an owned watch and the email that goes with it, and "Stop
+    watching" once it is kept, which switches off that account's watch and its email. That copy
     of the page is never cached — the output cache neither stores nor serves a response for
     an authenticated request — so the shared five-minute document is always the signed-out one.
 *@
@@ -135,7 +136,14 @@
                             This event is on your watchlist. You will get one email if Ticketmaster shows
                             tickets available again after not available.
                         </p>
-                        <p class="record-page__fine"><a href="/account">Your watchlist</a></p>
+                        <form method="post" action="/account/watches/@Event.Id.ToString(CultureInfo.InvariantCulture)/stop">
+                            <AntiforgeryToken />
+                            <DeskButton Emphasis="DeskEmphasis.Plain" ButtonType="ButtonType.Submit">Stop watching</DeskButton>
+                        </form>
+                        <p class="record-page__fine">
+                            Stopping ends the polling for you and the alert email that came with the watch.
+                            <a href="/account">Your watchlist</a>
+                        </p>
                     }
                     else
                     {

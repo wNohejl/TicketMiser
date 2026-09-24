@@ -113,12 +113,22 @@ public class AlertDeliveryService(
 
             var reappearedAt = await ReappearedAtAsync(alert, ct);
 
+            // Addresses that reach this event through a watch their account keeps: their email
+            // says so and points at /account, rather than at a form they may never have used.
+            var eventId = alert.EventId!.Value;
+            var watching = (await db.Watches
+                    .AsNoTracking()
+                    .Where(w => w.EventId == eventId && w.Enabled && w.OwnerId != null)
+                    .Select(w => w.Owner!.Email)
+                    .ToListAsync(ct))
+                .ToHashSet(StringComparer.Ordinal);
+
             foreach (var sub in owed)
             {
                 string? providerId;
                 try
                 {
-                    providerId = await notifier.SendAsync(AlertMessage(alert, sub, reappearedAt), ct);
+                    providerId = await notifier.SendAsync(AlertMessage(alert, sub, reappearedAt, watching.Contains(sub.Email)), ct);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
@@ -180,8 +190,13 @@ public class AlertDeliveryService(
         return back?.ObservedAt ?? alert.TriggeredAt;
     }
 
-    /// <summary>The alert email: what the source reported, when, where to check it, and how to stop.</summary>
-    public MailMessage AlertMessage(Alert alert, Subscription sub, DateTimeOffset reappearedAt)
+    /// <summary>
+    /// The alert email: what the source reported, when, where to check it, and how to stop.
+    /// <paramref name="viaWatch"/> is true when the address's account keeps an enabled watch on
+    /// the event: the email then says it comes from that watch and links /account to manage it.
+    /// Either way it keeps the one-click unsubscribe.
+    /// </summary>
+    public MailMessage AlertMessage(Alert alert, Subscription sub, DateTimeOffset reappearedAt, bool viaWatch = false)
     {
         var evt = alert.Event!;
         var venue = evt.Venue?.Name ?? "the venue";
@@ -192,6 +207,8 @@ public class AlertDeliveryService(
 
         var when = Local(reappearedAt, evt.Venue?.Timezone);
         var record = _options.Link($"/e/{evt.Slug ?? evt.Id.ToString(CultureInfo.InvariantCulture)}");
+        // The canonical page, never the affiliate-tagged one: the email cites the source the way
+        // the receipt does, for a person who asked for a fact rather than a sales link.
         var sourcePage = source is null ? null : SourceLink.For(source, evt);
         var unsubscribe = _options.Link($"/s/unsubscribe/{sub.UnsubscribeToken}");
 
@@ -204,8 +221,13 @@ public class AlertDeliveryService(
         if (sourcePage is not null)
             text.Append("The event on ").Append(sourceName).Append(":\n").Append(sourcePage).Append("\n\n");
 
-        text.Append("You asked for this email on the record page. The address is used only for this alert.\n")
-            .Append("Unsubscribe with one click:\n").Append(unsubscribe).Append('\n');
+        if (viaWatch)
+            text.Append("You are getting this email because you watch this event from your TicketMiser account. The address is used only for your account and its alerts.\n")
+                .Append("Manage your watches:\n").Append(_options.Link("/account")).Append("\n\n");
+        else
+            text.Append("You asked for this email on the record page. The address is used only for this alert.\n");
+
+        text.Append("Unsubscribe from this alert with one click:\n").Append(unsubscribe).Append('\n');
 
         return new MailMessage(
             sub.Email,

@@ -3,7 +3,9 @@
 @using TicketMiser.Core.Entities
 @using TicketMiser.Web.Accounts
 @using TicketMiser.Web.Services
+@using Microsoft.Extensions.Options
 @inject DeskBrand Brand
+@inject IOptions<AffiliateOptions> Affiliates
 
 @*
     The account pages: /account and /account/verify/{token}.
@@ -25,6 +27,11 @@
     RazorComponentResult: the result renders through the same endpoint renderer as a routed
     page, which hands the component the request's antiforgery state and sets the cookie the
     token pairs with before the response starts.
+
+    Links, and which are tagged: a purchase's own source link is where the fan bought, which is
+    evidence and not a sale, so it is the canonical page (SourceLink.For). The day-of lowest is a
+    price on offer, so it is a price cell and goes through SourceLink.Tagged, with the rule 7
+    disclosure under the list whenever one of those renders tagged.
 *@
 
 <!DOCTYPE html>
@@ -67,6 +74,8 @@
         .account-purchase__grade .up { color: var(--state-positive); }
         .account-purchase__grade .down { color: var(--state-negative); }
         .record-page .account-purchase form { margin: var(--space-1) 0 0; }
+        .record-page .account-watches li { align-items: center; }
+        .record-page .account-watch__stop { margin: 0; }
         .account-savings { width: 100%; border-collapse: collapse; font-size: var(--text-body); margin: 0 0 var(--space-2); }
         .account-savings th, .account-savings td { text-align: right; padding: var(--space-1) var(--space-2); border-bottom: 1px solid var(--separator); white-space: nowrap; }
         .account-savings th:first-child, .account-savings td:first-child { text-align: left; }
@@ -104,6 +113,13 @@
                     case AccountNotice.PurchaseDeleted:
                         <p class="record-page__notice" role="status">Purchase deleted.</p>
                         break;
+                    case AccountNotice.StoppedWatching:
+                        <p class="record-page__notice" role="status">
+                            No longer watching. The event is not polled for you and its alert email stops with the
+                            watch — unless you asked for that email on the record page before you signed in; its own
+                            unsubscribe link stops it.
+                        </p>
+                        break;
                 }
                 @if (Form is { Errors.Count: > 0 })
                 {
@@ -121,9 +137,14 @@
                     <ul class="account-watches">
                         @foreach (var evt in s.Watching)
                         {
-                            <li>
+                            <li data-watch="@evt.Id.ToString(CultureInfo.InvariantCulture)">
                                 <a href="@RecordHref(evt)">@evt.Name</a>
                                 <span>@Where(evt)</span>
+                                <form method="post" action="/account/watches/@(evt.Id.ToString(CultureInfo.InvariantCulture))/stop" class="account-watch__stop">
+                                    <AntiforgeryToken />
+                                    <input type="hidden" name="from" value="account" />
+                                    <DeskButton Emphasis="DeskEmphasis.Plain" ButtonType="ButtonType.Submit">Stop watching</DeskButton>
+                                </form>
                             </li>
                         }
                     </ul>
@@ -234,6 +255,7 @@
                                     <span>
                                         @if (line.Source is { } source)
                                         {
+                                            @* Where it was bought: evidence, never tagged. *@
                                             <a href="@SourceLink.For(source, line.Event)" rel="noopener noreferrer" target="_blank" data-cell="source">@source.Name</a>
                                         }
                                         else
@@ -254,7 +276,7 @@
                                         @if (line.DayOf is { Lowest: { } low } dayOf && line.DayOfSource is { } dayOfSource)
                                         {
                                             <text> — day-of lowest @PurchaseLedger.Amount(low, dayOf.Currency) @PurchaseLedger.BasisWord(dayOf.AllIn) at </text>
-                                            <a href="@SourceLink.For(dayOfSource, line.Event)" rel="noopener noreferrer" target="_blank">@dayOfSource.Name</a>
+                                            <a href="@SourceLink.Tagged(dayOfSource, line.Event, Affiliates.Value)" rel="@(SourceLink.IsTagged(dayOfSource, Affiliates.Value) ? "sponsored nofollow noopener noreferrer" : "noopener noreferrer")" target="_blank" data-cell="day-of">@dayOfSource.Name</a>
                                         }
                                     }
                                     else
@@ -272,6 +294,10 @@
                     @if (LedgerOrEmpty.Lines.Any(l => l.DayOfSource?.Key == "seatgeek"))
                     {
                         <p class="record-page__fine">Day-of resale prices from <a href="https://seatgeek.com" rel="noopener noreferrer" target="_blank">SeatGeek</a>.</p>
+                    }
+                    @if (LedgerOrEmpty.Lines.Any(l => l.SavedPerTicket is not null && l.DayOf?.Lowest is not null && l.DayOfSource is { } d && SourceLink.IsTagged(d, Affiliates.Value)))
+                    {
+                        <p class="record-page__fine" data-disclosure="affiliate">@AffiliateOptions.Disclosure</p>
                     }
 
                     <h2>Savings</h2>

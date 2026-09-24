@@ -374,4 +374,50 @@ public class WatchlistPanelTests : DeskTestContext
 
         Assert.Equal([7], _fake.Unwatched);
     }
+
+    [Fact]
+    public void Stop_watching_says_how_many_fans_also_watch_and_asks_before_switching_theirs_off()
+    {
+        var alerts = new FakeAlerts { Answer = false };
+        Services.AddSingleton<TicketMiser.Desk.Primitives.IDeskAlerts>(alerts);
+        var evt = Bridgestone(7, "Example Tour");
+        var cut = Render(Row(evt, [Quote(Ticketmaster, 59.5m, allIn: true)]) with { FanWatchers = 3 });
+
+        cut.Find("tbody tr").Click();
+        var stop = cut.FindAll(".rowacts__keys button").Single(b => b.TextContent.Contains("Stop watching"));
+        Assert.Equal("Stop watching (3 fans also watch)", stop.TextContent.Trim());
+
+        // Kept: the operator said no, so nothing is switched off.
+        stop.Click();
+        var asked = Assert.Single(alerts.Asked);
+        Assert.Equal("Stop watching Example Tour for everyone?", asked.Heading);
+        Assert.Contains("3 fans watch this event from their own accounts", asked.Message);
+        Assert.Equal("Stop for everyone", asked.ConfirmLabel);
+        Assert.Equal("Keep watching", asked.CancelLabel);
+        Assert.True(asked.Destructive);
+        Assert.Empty(_fake.Unwatched);
+
+        // Confirmed: every watch on the event goes off, as the label said.
+        alerts.Answer = true;
+        cut.FindAll(".rowacts__keys button").Single(b => b.TextContent.Contains("Stop watching")).Click();
+        Assert.Equal(2, alerts.Asked.Count);
+        Assert.Equal([7], _fake.Unwatched);
+    }
+
+    [Fact]
+    public void Stop_watching_an_event_no_fan_watches_asks_nothing()
+    {
+        var alerts = new FakeAlerts { Answer = false };
+        Services.AddSingleton<TicketMiser.Desk.Primitives.IDeskAlerts>(alerts);
+        var evt = Bridgestone(7, "Example Tour");
+        var cut = Render(Row(evt, [Quote(Ticketmaster, 59.5m, allIn: true)]));
+
+        cut.Find("tbody tr").Click();
+        var stop = cut.FindAll(".rowacts__keys button").Single(b => b.TextContent.Contains("Stop watching"));
+        Assert.Equal("Stop watching", stop.TextContent.Trim());
+        stop.Click();
+
+        Assert.Empty(alerts.Asked);
+        Assert.Equal([7], _fake.Unwatched);
+    }
 }

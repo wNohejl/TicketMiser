@@ -62,6 +62,9 @@ public static class ReliabilityServiceCollectionExtensions
         services.AddScoped<SubscriptionService>();
         services.AddScoped<AlertDeliveryService>();
 
+        // The monthly report's own list (rule 8): its own opt-in, never the alert list's addresses.
+        services.AddScoped<ReportSubscriptionService>();
+
         // Magic-link sign-in sends through the same notifier: the link is an email like any other.
         services.AddScoped<AccountService>();
 

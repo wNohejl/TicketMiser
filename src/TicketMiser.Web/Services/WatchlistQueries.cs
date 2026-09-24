@@ -30,6 +30,11 @@ public enum OnSaleState
 /// <param name="Resale">Built from resale quotes only. The two are never compared.</param>
 /// <param name="PrimaryStatus">The latest primary tick's inventory status, as the source spelled it. Null when no primary tick exists.</param>
 /// <param name="PrimaryReappeared">Primary reported tickets again after having reported none.</param>
+/// <param name="FanWatchers">
+/// For the operator: how many signed-in fans keep an enabled watch of their own on the event, whom
+/// the operator's Stop watching would switch off too. Zero for an account, which never reads
+/// another owner's watches.
+/// </param>
 public sealed record WatchlistRow(
     Watch Watch,
     Event Event,
@@ -38,7 +43,8 @@ public sealed record WatchlistRow(
     MarketBest Resale,
     string? PrimaryStatus,
     DateTimeOffset? PrimaryStatusAt,
-    bool PrimaryReappeared)
+    bool PrimaryReappeared,
+    int FanWatchers = 0)
 {
     public decimal? TargetPrice => Watch.TargetPrice;
 
@@ -252,14 +258,30 @@ public sealed class WatchlistQueries(IDbContextFactory<TicketMiserDbContext> fac
         var observationsByEvent = observations.ToLookup(o => o.EventId);
         var ticksByEvent = ticks.ToLookup(t => t.EventId);
 
+        // Fans who watch each event from their own accounts: the operator's Stop watching switches
+        // their watches off too, and the board says so before it does. An account reads no count.
+        var fans = owner.IsOperator
+            ? await db.Watches
+                .AsNoTracking()
+                .Where(w => eventIds.Contains(w.EventId) && w.Enabled && w.OwnerId != null)
+                .GroupBy(w => w.EventId)
+                .Select(g => new { EventId = g.Key, Count = g.Select(w => w.OwnerId).Distinct().Count() })
+                .ToDictionaryAsync(x => x.EventId, x => x.Count, ct)
+            : [];
+
         return watches
-            .Select(w => Compose(
-                w,
-                observationsByEvent[w.EventId],
-                ticksByEvent[w.EventId],
-                lastSoldOut.GetValueOrDefault(w.EventId),
-                sources,
-                now))
+            .Select(w =>
+            {
+                var row = Compose(
+                    w,
+                    observationsByEvent[w.EventId],
+                    ticksByEvent[w.EventId],
+                    lastSoldOut.GetValueOrDefault(w.EventId),
+                    sources,
+                    now);
+
+                return row with { FanWatchers = fans.GetValueOrDefault(w.EventId) };
+            })
             .ToList();
     }
 

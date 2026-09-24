@@ -35,7 +35,22 @@ and stops.
    the sources, the cadence and the all-in rule, and a "what we could not see" section
    listing AXS venues, which are resale-only in our data.
 4. **Stop.** Do not publish, post, or push the report. Say it is ready to read.
-   To publish, a person sets `published: true` in the file's front matter (the skill writes `published: false`) and commits; the next deploy serves it at `/reports/<yyyy-mm>`, and nothing mails it.
+   To publish, a person sets `published: true` in the file's front matter (the skill writes `published: false`) and commits; the next deploy serves it at `/reports/<yyyy-mm>`. Nothing mails it on its own.
+5. **After publishing: publish, deploy, then send-report.** Once the deployed site serves
+   `/reports/<yyyy-mm>`, the operator mails it to the report list, from the machine whose
+   database holds the list:
+
+   ```powershell
+   dotnet run --project src/TicketMiser.Web -- send-report 2026-10
+   ```
+
+   It migrates, sends one email per confirmed report subscriber who has not had that month
+   (the report's summary paragraph and a link to the page, with a one-click unsubscribe),
+   prints `sent / failed / already sent`, and exits without starting the host. An
+   unpublished or missing month is refused and nothing is sent. Running it twice sends
+   nothing the second time; a failed send has no delivery row, so running it again retries
+   only those. It mails the report list (`ReportSubscriptions`) only — never the event
+   alerts' subscribers (legal-guidelines rule 8). Not the skill's to run: a person runs it.
 
 ## Rules
 

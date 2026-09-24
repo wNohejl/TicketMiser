@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using TicketMiser.Reliability.Notifications;
 using TicketMiser.Web.Components.Pages;
 using TicketMiser.Web.Reports;
 
@@ -62,9 +63,12 @@ public class ReportPageTests : DeskTestContext
         """;
 
     private IRenderedComponent<ReportPage> Open(string? month, params (string, string)[] files)
+        => Open(month, null, files);
+
+    private IRenderedComponent<ReportPage> Open(string? month, string? subscribed, params (string, string)[] files)
     {
         Services.AddSingleton<IReportLibrary>(new FakeReports(files));
-        return Render<ReportPage>(p => p.Add(x => x.Month, month));
+        return Render<ReportPage>(p => p.Add(x => x.Month, month).Add(x => x.Subscribed, subscribed));
     }
 
     [Fact]
@@ -126,4 +130,54 @@ public class ReportPageTests : DeskTestContext
     [Fact]
     public void A_published_month_is_a_200()
         => Assert.Equal(StatusCodes.Status200OK, ReportEndpoints.Month("2026-10", new FakeReports(("2026-10", October))).StatusCode);
+
+    [Fact]
+    public void The_list_offers_the_report_by_email_posting_to_its_own_list()
+    {
+        var cut = Open(null, ("2026-10", October));
+
+        var aside = cut.Find("aside#report-subscribe");
+        Assert.Equal("Get the monthly Nashville report by email", aside.QuerySelector("h2")!.TextContent);
+
+        var form = aside.QuerySelector("form")!;
+        Assert.Equal("post", form.GetAttribute("method"));
+        Assert.Equal("/reports/subscribe", form.GetAttribute("action"));
+        Assert.Equal("email", form.QuerySelector("input[name=email]")!.GetAttribute("type"));
+        Assert.Null(form.QuerySelector("input[name=month]"));
+        Assert.Contains("never for event alerts", aside.TextContent);
+        Assert.Contains("one-click unsubscribe", aside.TextContent);
+    }
+
+    [Fact]
+    public void A_published_report_carries_the_form_with_its_month_so_the_303_returns_to_it()
+    {
+        var cut = Open("2026-10", ("2026-10", October));
+
+        var form = cut.Find("aside#report-subscribe form");
+        Assert.Equal("/reports/subscribe", form.GetAttribute("action"));
+        Assert.Equal("2026-10", form.QuerySelector("input[name=month]")!.GetAttribute("value"));
+    }
+
+    [Fact]
+    public void A_month_with_no_report_offers_no_form()
+        => Assert.Empty(Open("2026-12", ("2026-12", December)).FindAll("aside#report-subscribe"));
+
+    [Theory]
+    [InlineData("pending", "Check your inbox to confirm.")]
+    [InlineData("invalid", "That does not look like an email address.")]
+    public void After_the_post_the_page_says_what_happened(string subscribed, string notice)
+    {
+        var cut = Open(null, subscribed, ("2026-10", October));
+
+        Assert.Contains(notice, cut.Find("aside#report-subscribe .record-page__notice").TextContent);
+    }
+
+    [Theory]
+    [InlineData("2026-10", ReportSubscribeOutcome.Accepted, "/reports/2026-10?subscribed=pending#report-subscribe")]
+    [InlineData(null, ReportSubscribeOutcome.Accepted, "/reports?subscribed=pending#report-subscribe")]
+    [InlineData("2026-10", ReportSubscribeOutcome.InvalidAddress, "/reports/2026-10?subscribed=invalid#report-subscribe")]
+    [InlineData("//evil.example", ReportSubscribeOutcome.Accepted, "/reports?subscribed=pending#report-subscribe")]
+    [InlineData("2026-10/../../x", ReportSubscribeOutcome.Accepted, "/reports?subscribed=pending#report-subscribe")]
+    public void The_form_returns_only_to_a_report_page(string? month, ReportSubscribeOutcome outcome, string location)
+        => Assert.Equal(location, ReportEndpoints.AfterSubscribe(month, outcome));
 }

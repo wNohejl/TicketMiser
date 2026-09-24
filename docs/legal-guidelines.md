@@ -39,7 +39,13 @@ and §3) records where each rule comes from; this file is the checklist. Written
 8. **The record is public and permanent, the personal data is not.** `OnSaleTick` rows
    are never pruned and are in every snapshot. Subscriber addresses, accounts, and the
    watches and purchases an account owns are stored only for the purpose given, with
-   one-click unsubscribe, and are never in a snapshot that leaves the machine.
+   one-click unsubscribe, and are never in a snapshot that leaves the machine. There are
+   two lists and they do not mix: an event's "face value is back" alert (`Subscriptions`)
+   and the monthly Nashville report (`ReportSubscriptions`), each with its own double
+   opt-in and its own unsubscribe. An address given for an event alert is never mailed the
+   report, and an address on the report list is mailed nothing but the report; an address
+   on both gave its consent twice. Neither list, nor the record of what was sent to it
+   (`AlertDeliveries`, `ReportDeliveries`), is in a snapshot.
 9. **Complaints are the consumer's.** The export is a dated receipt of what was shown
    when. The product never files a complaint, never claims a violation occurred, and
    never names a seller as having broken a law. It shows the timeline and links the

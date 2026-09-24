@@ -93,6 +93,8 @@ public static class PurchaseReceipt
             foreach (var line in mine)
             {
                 var p = line.Purchase;
+                // SourceLink.For, never Tagged, here and in the tick table: a receipt is evidence,
+                // not a sale, and a citation carries no affiliate hop.
                 var where = line.Source is { } s ? $"{Inline(s.Name)} <{SourceLink.For(s, evt)}>" : PurchaseLedger.Elsewhere;
                 sb.Append("| ").Append(InZone(p.PurchasedAt, NashvilleZone))
                   .Append(" | ").Append(where)

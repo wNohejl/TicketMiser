@@ -224,11 +224,20 @@ public class AccountService(
         else
         {
             sub.AccountId = account.Id;
-            sub.ConfirmedAt ??= now;
+
+            // A row this press activates — pending, or unsubscribed — is the watch's from now on,
+            // so Stop watching switches it off again (AlertSubscriptions.MadeByWatch). A row the
+            // address had confirmed on its own and still has active is left as it was.
+            if (sub.ConfirmedAt is null)
+            {
+                sub.ConfirmedAt = now;
+                sub.ConfirmationSentAt = null;
+            }
 
             if (sub.UnsubscribedAt is not null)
             {
                 sub.UnsubscribedAt = null;
+                sub.ConfirmationSentAt = null;
                 sub.ConfirmToken = SubscriptionService.NewToken();
                 sub.UnsubscribeToken = SubscriptionService.NewToken();
             }
@@ -243,6 +252,41 @@ public class AccountService(
             // A double-click: the other request made the rows, which is the state asked for.
             db.ChangeTracker.Clear();
         }
+
+        return new WatchResult(evt.Id, evt.Slug);
+    }
+
+    /// <summary>
+    /// The account stops watching the event: its own watch is switched off — never another
+    /// account's, never the operator's — and the alert email follows the watch. The subscription
+    /// the watch made (or re-activated) is unsubscribed; one the address had confirmed on the
+    /// record page by itself, before it signed in, stays active, because the fan asked for that
+    /// email separately and its own one-click unsubscribe is the way to stop it. Null when the
+    /// account or the event does not exist; a watch already off is left off.
+    /// </summary>
+    public async Task<WatchResult?> UnwatchAsync(int accountId, int eventId, CancellationToken ct = default)
+    {
+        var account = await db.Accounts.FirstOrDefaultAsync(a => a.Id == accountId, ct);
+        var evt = await db.Events.AsNoTracking().Where(e => e.Id == eventId).Select(e => new { e.Id, e.Slug }).FirstOrDefaultAsync(ct);
+        if (account is null || evt is null)
+            return null;
+
+        var watches = await db.Watches
+            .OwnedBy(OwnerScope.ForAccount(accountId))
+            .Where(w => w.EventId == eventId && w.Enabled)
+            .ToListAsync(ct);
+
+        foreach (var watch in watches)
+            watch.Enabled = false;
+
+        var sub = await db.Subscriptions.FirstOrDefaultAsync(s => s.Email == account.Email && s.EventId == eventId, ct);
+        if (sub is { IsActive: true } && AlertSubscriptions.MadeByWatch(sub))
+            sub.UnsubscribedAt = clock.GetUtcNow();
+
+        await db.SaveChangesAsync(ct);
+
+        if (watches.Count > 0)
+            logger.LogInformation("Account {AccountId} stopped watching event {EventId}", accountId, eventId);
 
         return new WatchResult(evt.Id, evt.Slug);
     }

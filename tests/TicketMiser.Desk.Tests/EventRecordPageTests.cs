@@ -304,7 +304,7 @@ public class EventRecordPageTests : DeskTestContext
     }
 
     [Fact]
-    public void Signed_in_and_watching_the_page_says_so_and_offers_no_form()
+    public void Signed_in_and_watching_the_page_says_so_and_offers_stop_watching_as_a_protected_post()
     {
         Services.AddSingleton<IAccountQueries>(new FakeAccounts(7));
         Services.AddSingleton<IOnSaleRecordService>(new FakeRecords(Recorded()));
@@ -312,8 +312,15 @@ public class EventRecordPageTests : DeskTestContext
         var cut = Render<EventRecord>(p => p.Add(x => x.Slug, Address).Add(x => x.AccountId, 5));
 
         Assert.Equal("Watching", cut.Find("#watch-heading").TextContent);
-        Assert.Empty(cut.FindAll(".record-page__watch form"));
         Assert.Contains(cut.FindAll(".record-page__watch a"), a => a.GetAttribute("href") == "/account");
+
+        // The only form is the stop, posting to the account's own watch with a token.
+        var form = Assert.Single(cut.FindAll(".record-page__watch form"));
+        Assert.Equal("post", form.GetAttribute("method"));
+        Assert.Equal("/account/watches/7/stop", form.GetAttribute("action"));
+        Assert.Equal(AccountPageTests.FakeAntiforgery.Value, form.QuerySelector("input[name=__RequestVerificationToken]")!.GetAttribute("value"));
+        Assert.Contains("Stop watching", Assert.Single(form.QuerySelectorAll("button")).TextContent);
+        Assert.Contains("alert email that came with the watch", cut.Find(".record-page__watch").TextContent);
     }
 
     [Fact]

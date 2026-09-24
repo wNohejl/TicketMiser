@@ -73,6 +73,19 @@ services:
       Notifications__From: ${NOTIFICATIONS_FROM:-TicketMiser <alerts@ticketmiser.invalid>}
       Notifications__PublicBaseUrl: ${NOTIFICATIONS_PUBLIC_BASE_URL:-https://localhost:8443}
       Notifications__PickupDirectory: /tmp/outbox
+
+      # Affiliate deep links on price cells, from .env. Blank or disabled leaves every link the
+      # canonical event page. Only the web host renders price cells; the worker needs none.
+      Affiliates__Ticketmaster__Enabled: ${TICKETMASTER_AFFILIATE_ENABLED:-false}
+      Affiliates__Ticketmaster__Template: ${TICKETMASTER_AFFILIATE_TEMPLATE:-}
+      Affiliates__Ticketmaster__PublisherId: ${TICKETMASTER_AFFILIATE_PUBLISHER_ID:-}
+      Affiliates__Ticketmaster__AdId: ${TICKETMASTER_AFFILIATE_AD_ID:-}
+      Affiliates__Ticketmaster__ProgramId: ${TICKETMASTER_AFFILIATE_PROGRAM_ID:-}
+      Affiliates__SeatGeek__Enabled: ${SEATGEEK_AFFILIATE_ENABLED:-false}
+      Affiliates__SeatGeek__Template: ${SEATGEEK_AFFILIATE_TEMPLATE:-}
+      Affiliates__SeatGeek__PublisherId: ${SEATGEEK_AFFILIATE_PUBLISHER_ID:-}
+      Affiliates__SeatGeek__AdId: ${SEATGEEK_AFFILIATE_AD_ID:-}
+      Affiliates__SeatGeek__ProgramId: ${SEATGEEK_AFFILIATE_PROGRAM_ID:-}
     ports:
       - "127.0.0.1:${HTTPS_PORT:-8443}:8443"
     volumes:

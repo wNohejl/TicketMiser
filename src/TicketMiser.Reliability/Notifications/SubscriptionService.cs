@@ -197,12 +197,21 @@ public class SubscriptionService(
     }
 
     /// <summary>RFC 2369 and RFC 8058: a mail client's own unsubscribe button posts to this, one click, no page.</summary>
-    public IReadOnlyDictionary<string, string> UnsubscribeHeaders(Subscription sub) => new Dictionary<string, string>
-    {
-        ["List-Unsubscribe"] = $"<{_options.Link($"/s/unsubscribe/{sub.UnsubscribeToken}")}>",
-        ["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
-    };
+    public IReadOnlyDictionary<string, string> UnsubscribeHeaders(Subscription sub)
+        => UnsubscribeHeaders(_options, $"/s/unsubscribe/{sub.UnsubscribeToken}");
 
-    internal static bool IsUniqueViolation(DbUpdateException ex)
+    /// <summary>
+    /// The same two headers for any list: <paramref name="unsubscribePath"/> is the path whose
+    /// POST unsubscribes, and whose GET shows the one button. Every list's email carries them.
+    /// </summary>
+    public static IReadOnlyDictionary<string, string> UnsubscribeHeaders(NotificationOptions options, string unsubscribePath)
+        => new Dictionary<string, string>
+        {
+            ["List-Unsubscribe"] = $"<{options.Link(unsubscribePath)}>",
+            ["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
+        };
+
+    /// <summary>A unique index said no: another request or process wrote the same row first.</summary>
+    public static bool IsUniqueViolation(DbUpdateException ex)
         => ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation };
 }

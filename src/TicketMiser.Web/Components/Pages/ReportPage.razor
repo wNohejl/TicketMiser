@@ -1,3 +1,4 @@
+@using TicketMiser.Core.Entities
 @using TicketMiser.Web.Reports
 @inject IReportLibrary Reports
 @inject DeskBrand Brand
@@ -14,6 +15,12 @@
     from Program.cs and output-cached. The report's Markdown is turned into HTML with raw
     HTML disabled (ReportMarkdown), so the one MarkupString on this page is markup Markdig
     wrote, never markup the file carried.
+
+    The list and each published report carry "Get the monthly Nashville report by email": a
+    plain form posting to /reports/subscribe, the report list's own double opt-in (rule 8 of
+    docs/legal-guidelines.md: an event alert's address is never mailed a report). The page
+    stays scriptless; ?subscribed= after the form's 303 draws the notice, and the cache
+    policy varies by it.
 *@
 
 <!DOCTYPE html>
@@ -60,6 +67,14 @@
         .report-body th { color: var(--text-tertiary); font-size: var(--text-footnote); font-weight: var(--weight-semibold); }
         .report-body td { color: var(--text-primary); }
         .report-body table { display: block; overflow-x: auto; max-width: 100%; }
+        .record-page__subscribe { margin-top: var(--space-6); padding: var(--space-4); background: var(--surface-2); border-radius: var(--radius); max-width: 72ch; }
+        .record-page__subscribe h2 { font-size: var(--text-title3); font-weight: var(--weight-semibold); margin: 0 0 var(--space-2); }
+        .record-page__subscribe form { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
+        .record-page__subscribe .field { flex: 1 1 24ch; min-width: 0; }
+        .record-page__fine { color: var(--text-tertiary); font-size: var(--text-footnote); margin: var(--space-2) 0 0; }
+        .record-page__notice { color: var(--text-primary); font-size: var(--text-body); background: var(--accent-wash); border-radius: var(--radius); padding: var(--space-2) var(--space-3); margin: 0 0 var(--space-3); }
+        .record-page__notice--error { background: var(--state-negative-wash); }
+        .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
     </style>
 </head>
 <body>
@@ -99,6 +114,8 @@
             }
 
             <p><a href="/onsales">Upcoming Nashville on-sales</a></p>
+
+            @SubscribeForm(null)
         }
         else if (_report is null)
         {
@@ -118,6 +135,8 @@
                 @((MarkupString)_report.Html)
             </article>
 
+            @SubscribeForm(_report.Month)
+
             <footer>
                 <a href="/reports">Every published report</a> · Address <span class="num">/reports/@_report.Month</span>
             </footer>
@@ -129,6 +148,43 @@
 @code {
     /// <summary><c>yyyy-mm</c> from GET /reports/{month}; null for the list at GET /reports.</summary>
     [Parameter] public string? Month { get; set; }
+
+    /// <summary><c>?subscribed=</c> after the report form's 303: <c>pending</c> or <c>invalid</c>.</summary>
+    [Parameter] public string? Subscribed { get; set; }
+
+    /// <summary>
+    /// The report list's form. <paramref name="month"/> rides along only so the 303 lands back on
+    /// the page the form was on; the endpoint echoes it only when it is a well-formed month.
+    /// </summary>
+    private RenderFragment SubscribeForm(string? month) => __builder =>
+    {
+        <aside id="report-subscribe" class="record-page__subscribe" aria-labelledby="report-subscribe-heading">
+            <h2 id="report-subscribe-heading">Get the monthly Nashville report by email</h2>
+            @if (Subscribed == "pending")
+            {
+                <p class="record-page__notice" role="status">Check your inbox to confirm. Nothing is sent until the link in that email is opened and confirmed.</p>
+            }
+            else if (Subscribed == "invalid")
+            {
+                <p class="record-page__notice record-page__notice--error" role="alert">That does not look like an email address. Nothing was saved.</p>
+            }
+            <form method="post" action="/reports/subscribe">
+                @if (month is not null)
+                {
+                    <input type="hidden" name="month" value="@month" />
+                }
+                <label class="sr-only" for="report-subscribe-email">Email address</label>
+                <input id="report-subscribe-email" class="field" type="email" name="email" required
+                       maxlength="@Subscription.EmailMaxLength" autocomplete="email" placeholder="you@example.com" />
+                <DeskButton Emphasis="DeskEmphasis.Tinted" ButtonType="ButtonType.Submit">Email me the report</DeskButton>
+            </form>
+            <p class="record-page__fine">
+                One email when each month's report is published: its summary and a link to the whole
+                report. The address is used only for the report, never for event alerts, and each
+                email has a one-click unsubscribe.
+            </p>
+        </aside>
+    };
 
     private IReadOnlyList<ReportSummary> _published = [];
 

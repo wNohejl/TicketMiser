@@ -3,7 +3,9 @@
 @using TicketMiser.Core.Analytics
 @using TicketMiser.Core.Entities
 @using TicketMiser.Web.Services
+@using Microsoft.Extensions.Options
 @inject IJSRuntime JS
+@inject IOptions<AffiliateOptions> Affiliates
 
 @*
     "Was it really sold out?" — the on-sale record, drawn once for two readers.
@@ -22,6 +24,11 @@
     checking a figure should be one click from where it came from. InDesk decides only how
     that link is drawn — a DeskLink that opens a tab from a circuit, or a plain anchor a
     static page can serve with no JavaScript at all — never whether it is there.
+
+    The link is SourceLink.Tagged: the source's affiliate deep link when its programme is
+    configured, the canonical event page when not. Where a tagged link renders on the public
+    page, the line under the table says so in plain words (rule 7); the desk stays quiet,
+    because the operator configured it.
 *@
 
 @if (Record.Ticks.Count == 0)
@@ -193,6 +200,11 @@ else
     </p>
 }
 
+@if (!InDesk && HasTaggedLink)
+{
+    <p class="empty disclosure" style="padding:0" data-disclosure="affiliate">@AffiliateOptions.Disclosure</p>
+}
+
 @code {
     /// <summary>The record to draw. Reshaped only when the instance changes.</summary>
     [Parameter, EditorRequired] public OnSaleRecord Record { get; set; } = null!;
@@ -222,6 +234,9 @@ else
 
     /// <summary>Whether SeatGeek's numbers are on the page, and so whether its name must be.</summary>
     public bool HasSeatGeek => Record.Sources.Any(s => s.Key == "seatgeek");
+
+    /// <summary>Whether any cell on the page links through an affiliate programme, and so whether the disclosure must be shown.</summary>
+    public bool HasTaggedLink => _rows.Any(r => r.Tagged);
 
     protected override void OnParametersSet()
     {
@@ -301,13 +316,13 @@ else
         }
         else
         {
-            <a class="cite" href="@row.Url" title="@tooltip" rel="noopener noreferrer nofollow" target="_blank">@inner</a>
+            <a class="cite" href="@row.Url" title="@tooltip" rel="@(row.Tagged ? "sponsored nofollow noopener noreferrer" : "noopener noreferrer nofollow")" target="_blank">@inner</a>
         }
     };
 
     // ---- shaping -------------------------------------------------------------------------
 
-    private sealed record TickRow(OnSaleTick Tick, string SourceName, SourceKind? Kind, string? StatusCode, string Url);
+    private sealed record TickRow(OnSaleTick Tick, string SourceName, SourceKind? Kind, string? StatusCode, string Url, bool Tagged);
 
     private void Shape()
     {
@@ -330,7 +345,8 @@ else
                     source?.Name ?? $"source {t.SourceId}",
                     source?.Kind,
                     code,
-                    source is null ? string.Empty : SourceLink.For(source, Record.Event));
+                    source is null ? string.Empty : SourceLink.Tagged(source, Record.Event, Affiliates.Value),
+                    source is not null && SourceLink.IsTagged(source, Affiliates.Value));
             })
             .ToList();
 

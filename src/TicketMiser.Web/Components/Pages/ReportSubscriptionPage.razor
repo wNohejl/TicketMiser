@@ -1,0 +1,110 @@
+@inject DeskBrand Brand
+
+@*
+    The pages behind the links in a monthly-report email: /r/confirm/{token} and
+    /r/unsubscribe/{token}.
+
+    The report list is its own list (docs/legal-guidelines.md, rule 8), so its pages say what
+    it is for and nothing about the per-event alerts. Rendered the way SubscriptionPage is — a
+    whole static document, no circuit, no script — and never cached. Confirm is two steps, like
+    the sign-in link: the GET draws one button and the POST confirms, so a mail scanner that
+    opens every link confirms nobody. No page says whether an unsubscribe token matched.
+*@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="robots" content="noindex" />
+    <meta name="referrer" content="no-referrer" />
+    <base href="/" />
+    <title>@Heading — @Brand.Wordmark@Brand.Emphasis</title>
+    <link rel="stylesheet" href="_content/MudBlazor/MudBlazor.min.css" />
+    <link rel="stylesheet" href="@Assets["_content/TicketMiser.Desk/css/desk.css"]" />
+    <link rel="stylesheet" href="@Assets["_content/TicketMiser.Desk/css/mud-bridge.css"]" />
+    <style>
+        .record-page { max-width: 640px; margin: 0 auto; padding: var(--space-4) var(--space-3) var(--space-6); }
+        .record-page__brand { display: flex; align-items: baseline; gap: var(--space-2); margin-bottom: var(--space-4); }
+        .record-page__brand a { color: var(--text-secondary); text-decoration: none; font-size: var(--text-footnote); font-weight: var(--weight-semibold); letter-spacing: .08em; }
+        .record-page__brand a b { color: var(--text-primary); font-weight: var(--weight-semibold); }
+        .record-page__brand span { color: var(--text-tertiary); font-size: var(--text-footnote); }
+        .record-page h1 { font-size: var(--text-title1); font-weight: var(--weight-semibold); margin: 0 0 var(--space-2); line-height: 1.2; }
+        .record-page p { color: var(--text-secondary); font-size: var(--text-body); line-height: 1.5; margin: 0 0 var(--space-3); }
+        .record-page a { color: var(--accent); text-decoration: none; }
+        .record-page a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <main class="record-page">
+        <header class="record-page__brand">
+            <a href="/"><b>@Brand.Wordmark</b>@Brand.Emphasis</a>
+            <span>@Brand.Tagline</span>
+        </header>
+
+        <h1>@Heading</h1>
+
+        @switch (Kind)
+        {
+            case ReportSubscriptionPageKind.ConfirmPrompt:
+                <p>
+                    Get the monthly Nashville on-sale report by email: one email when each month's
+                    report is published, with its summary and a link to the whole report.
+                </p>
+                <form method="post" action="/r/confirm/@Uri.EscapeDataString(Token ?? string.Empty)">
+                    <DeskButton Emphasis="DeskEmphasis.Filled" ButtonType="ButtonType.Submit">Confirm</DeskButton>
+                </form>
+                break;
+
+            case ReportSubscriptionPageKind.Confirmed:
+                <p>
+                    You will get the monthly Nashville on-sale report by email, one email when each
+                    month's report is published.
+                </p>
+                <p>The address is used only for the monthly report, and each email has a one-click unsubscribe.</p>
+                <p><a href="/reports">Every published report</a></p>
+                break;
+
+            case ReportSubscriptionPageKind.ConfirmUnknown:
+                <p>
+                    This confirmation link does not match a report subscription. It may have been
+                    copied incompletely, or the address may have unsubscribed since it was sent.
+                </p>
+                <p><a href="/reports">Every published report</a></p>
+                break;
+
+            case ReportSubscriptionPageKind.UnsubscribePrompt:
+                <p>Stop the monthly Nashville report this link was sent with. No more reports will be sent to the address.</p>
+                <form method="post" action="/r/unsubscribe/@Uri.EscapeDataString(Token ?? string.Empty)">
+                    <DeskButton Emphasis="DeskEmphasis.Tinted" ButtonType="ButtonType.Submit">Unsubscribe</DeskButton>
+                </form>
+                break;
+
+            default:
+                <p>
+                    If this link belonged to a report subscription, it is unsubscribed, and no more
+                    reports will be sent to it.
+                </p>
+                <p><a href="/reports">Every published report</a></p>
+                break;
+        }
+    </main>
+</body>
+</html>
+
+@code {
+    [Parameter] public ReportSubscriptionPageKind Kind { get; set; }
+
+    /// <summary>The token, echoed into a prompt's form action; the unsubscribe prompt never looks it up.</summary>
+    [Parameter] public string? Token { get; set; }
+
+    private string Heading => Kind switch
+    {
+        ReportSubscriptionPageKind.ConfirmPrompt => "Confirm the monthly report",
+        ReportSubscriptionPageKind.Confirmed => "Subscription confirmed",
+        ReportSubscriptionPageKind.ConfirmUnknown => "Link not recognised",
+        ReportSubscriptionPageKind.UnsubscribePrompt => "Unsubscribe",
+        _ => "Unsubscribed"
+    };
+}

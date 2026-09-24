@@ -4,7 +4,10 @@
 @using TicketMiser.Web.Services
 @inherits DeskPanel
 @inject IWatchlistQueries Queries
+@using Microsoft.Extensions.Options
 @inject IJSRuntime JS
+@inject IOptions<AffiliateOptions> Affiliates
+@inject IDeskAlerts Alerts
 
 @*
     The board — every watched event, and where the best number is right now.
@@ -575,9 +578,16 @@ else
             new()
             {
                 Key = "unwatch",
-                Label = "Stop watching",
+                // The operator's stop is everyone's: it switches off every watch on the event,
+                // fans' included, so the label counts them before the press does.
+                Label = row.FanWatchers switch
+                {
+                    0 => "Stop watching",
+                    1 => "Stop watching (1 fan also watches)",
+                    var n => $"Stop watching ({n.ToString("N0", Money)} fans also watch)"
+                },
                 Icon = Icons.Material.Filled.VisibilityOff,
-                OpenWindow = () => UnwatchAsync(id)
+                OpenWindow = () => UnwatchAsync(row)
             }
         ];
     }
@@ -642,8 +652,30 @@ else
         }
     }
 
-    private async Task UnwatchAsync(int eventId)
+    /// <summary>
+    /// Stops the event's polling. With fans also watching, the desk asks first: the press
+    /// switches their watches off too, and their record stops growing. With none, it is the
+    /// operator's own watch and needs no question.
+    /// </summary>
+    private async Task UnwatchAsync(WatchlistRow row)
     {
+        var eventId = row.Event.Id;
+
+        if (row.FanWatchers > 0)
+        {
+            var fans = row.FanWatchers == 1 ? "1 fan watches" : $"{row.FanWatchers.ToString("N0", Money)} fans watch";
+
+            if (!await Alerts.ConfirmAsync(
+                    heading: $"Stop watching {row.Event.Name} for everyone?",
+                    message: $"{fans} this event from their own accounts. Stopping here switches off every watch on it, theirs included, and the event is no longer polled.",
+                    confirmLabel: "Stop for everyone",
+                    cancelLabel: "Keep watching",
+                    destructive: true))
+            {
+                return;
+            }
+        }
+
         await Queries.UnwatchAsync(eventId);
         _open = null;
         await LoadAsync();
@@ -671,9 +703,10 @@ else
         return Task.CompletedTask;
     }
 
+    /// <summary>A price cell's link: tagged when the source's affiliate programme is configured. The desk shows no disclosure; the operator knows.</summary>
     private async Task OpenSourceAsync(Source source, Event evt)
     {
-        var url = SourceLink.For(source, evt);
+        var url = SourceLink.Tagged(source, evt, Affiliates.Value);
 
         if (url.Length > 0)
             await JS.InvokeVoidAsync("open", url, "_blank", "noopener,noreferrer");

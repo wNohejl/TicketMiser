@@ -242,7 +242,11 @@ expressly allowed. The defensible asset is the record, so the plausible stack is
    the reason they exist.
 2. **Affiliate links on every price cell**, Ticketmaster and SeatGeek via Impact, StubHub
    via Partnerize once its API is granted. Join before the public URL goes up so the
-   links are compliant from the first visitor.
+   links are compliant from the first visitor. The mechanism exists (2026-09-23): price
+   cells go through `SourceLink.Tagged` and public pages show the rule 7 disclosure once
+   `Affiliates:Ticketmaster` or `Affiliates:SeatGeek` has `Enabled`, `Template`,
+   `PublisherId`, `AdId` and `ProgramId` filled (`TICKETMASTER_AFFILIATE_*` and
+   `SEATGEEK_AFFILIATE_*` in `.env`).
 3. **The monthly Nashville report as a newsletter**, free to fans, with a sponsored or
    paid tier for venue and artist teams deciding on face-value resale, and for the press
    that covers this beat weekly. Beehiiv or Substack, not a hand-rolled mailer.

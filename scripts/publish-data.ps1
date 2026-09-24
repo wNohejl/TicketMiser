@@ -7,9 +7,9 @@
     The desk's data lives in a Docker Postgres on this machine. The database is published as
     a compressed pg_dump under data/snapshots/ and committed alongside the code. The on-sale
     record is in it, always: those rows are never pruned and are the point of the product.
-    Personal data is not: the Subscriptions, AlertDeliveries, Accounts and SignInTokens
-    tables are dumped without their rows, and the watches and purchases an account owns are
-    left out with them. The operator's own (unowned) watches and purchases travel as before.
+    Personal data is not: the Subscriptions, AlertDeliveries, ReportSubscriptions,
+    ReportDeliveries, Accounts and SignInTokens tables are dumped without their rows, and
+    the watches and purchases an account owns are left out with them. The operator's own (unowned) watches and purchases travel as before.
 
     pg_dump can leave out a table's rows but not some of them, and an owned watch or purchase
     points at an Accounts row by foreign key, so a snapshot with Accounts empty and owned rows
@@ -51,22 +51,24 @@ $envText = Get-Content (Join-Path $root ".env") -Raw
 if ($envText -notmatch '(?m)^POSTGRES_PASSWORD=(.+)$') { throw ".env has no POSTGRES_PASSWORD. Run .\scripts\setup.ps1 first." }
 $pgEnv = "PGPASSWORD=$($Matches[1].Trim())"
 
-# Subscriber addresses, the record of what was sent to them, accounts and their sign-in links
-# are personal data, and a snapshot leaves the machine (legal-guidelines rule 8). Their tables
-# travel as schema only, so a restore has them empty. The \" survives cmd and reaches pg_dump
-# as a quoted, case-sensitive table name.
-$personalTables = @("Subscriptions", "AlertDeliveries", "Accounts", "SignInTokens")
+# Subscriber addresses (the event alerts' and the monthly report's), the record of what was sent
+# to them, accounts and their sign-in links are personal data, and a snapshot leaves the machine
+# (legal-guidelines rule 8). Their tables travel as schema only, so a restore has them empty.
+# The \" survives cmd and reaches pg_dump as a quoted, case-sensitive table name.
+$personalTables = @("Subscriptions", "AlertDeliveries", "ReportSubscriptions", "ReportDeliveries", "Accounts", "SignInTokens")
 $excludeData = $personalTables | ForEach-Object { "--exclude-table-data=public.\`"$_\`"" }
 
-# The scratch copy: every row but the sign-in links and subscriptions (Accounts stays for the
-# moment, so the owned rows that point at it restore), then the owned rows and the accounts
-# deleted, then the published dump taken from what is left.
+# The scratch copy: every row but the sign-in links and both lists' subscriptions and deliveries
+# (Accounts stays for the moment, so the owned rows that point at it restore), then the owned
+# rows and the accounts deleted (and both lists again, should a row have got through), then
+# the published dump taken from what is left.
 $scratch = "$($Database)_publish"
 $scratchFile = "/tmp/$scratch.dump"
 $scratchSql = @"
 DELETE FROM "Watches" WHERE "OwnerId" IS NOT NULL;
 DELETE FROM "Purchases" WHERE "OwnerId" IS NOT NULL;
 DELETE FROM "Subscriptions";
+DELETE FROM "ReportSubscriptions";
 DELETE FROM "SignInTokens";
 DELETE FROM "Accounts";
 "@
@@ -75,7 +77,7 @@ function Invoke-Psql([string]$Db, [string]$Sql) {
     if ($LASTEXITCODE -ne 0) { throw "psql on $Db failed: $out" }
 }
 try {
-    $excludeFirst = @("Subscriptions", "AlertDeliveries", "SignInTokens") | ForEach-Object { "--exclude-table-data=public.\`"$_\`"" }
+    $excludeFirst = @("Subscriptions", "AlertDeliveries", "ReportSubscriptions", "ReportDeliveries", "SignInTokens") | ForEach-Object { "--exclude-table-data=public.\`"$_\`"" }
     Invoke-Native { cmd /c "docker exec -e $pgEnv $Container pg_dump -U $User -Fc -Z 1 $($excludeFirst -join ' ') -f $scratchFile $Database" }
     if ($LASTEXITCODE -ne 0) { throw "pg_dump of the working copy failed" }
 
