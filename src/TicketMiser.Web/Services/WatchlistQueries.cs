@@ -134,13 +134,13 @@ public sealed class WatchlistQueries(IDbContextFactory<TicketMiserDbContext> fac
                         && e.Status != EventStatus.Cancelled
                         && (e.OnSaleAt == null || e.OnSaleTbd || e.OnSaleAt >= windowOpen));
 
-        if (search?.Trim() is { Length: > 0 } term)
+        // Every word, in any of the fields it could mean — the one rule the desk's searches share
+        // (SearchQueries). A searched % or _ is a character, not a wildcard.
+        foreach (var pattern in SearchQueries.Patterns(search))
         {
-            // ILIKE's escape character is the backslash: a searched % or _ is a character, not a wildcard.
-            var like = "%" + term.Replace(@"\", @"\\").Replace("%", @"\%").Replace("_", @"\_") + "%";
-            query = query.Where(e => EF.Functions.ILike(e.Name, like)
-                                     || (e.Performer != null && EF.Functions.ILike(e.Performer.Name, like))
-                                     || (e.Venue != null && EF.Functions.ILike(e.Venue.Name, like)));
+            query = query.Where(e => EF.Functions.ILike(e.Name, pattern, SearchQueries.Escape)
+                                     || (e.Performer != null && EF.Functions.ILike(e.Performer.Name, pattern, SearchQueries.Escape))
+                                     || (e.Venue != null && EF.Functions.ILike(e.Venue.Name, pattern, SearchQueries.Escape)));
         }
 
         var events = await query

@@ -129,6 +129,11 @@ builder.Services.AddScoped<IPurchaseQueries, PurchaseQueries>();
 // is announced on a Postgres channel (Data/Changes), and one connection here hears it for all.
 builder.Services.AddHostedService<DataChangeListener>();
 
+// What the command palette (Ctrl+K) finds beyond the desk's own windows: performers, events and
+// venues, by the one rule every search box on the desk shares. A context per call.
+builder.Services.AddSingleton<ISearchQueries, SearchQueries>();
+builder.Services.AddScoped<TicketMiser.Desk.Windowing.IDeskSearch, AppDeskSearch>();
+
 // Persist Data Protection keys outside the container when a path is configured, so a
 // replaced container does not invalidate every live circuit.
 if (builder.Configuration["DataProtection:KeyPath"] is { Length: > 0 } keyPath)

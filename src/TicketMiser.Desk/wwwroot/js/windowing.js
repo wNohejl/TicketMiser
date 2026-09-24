@@ -28,9 +28,21 @@ function zoomOf(element) {
 export function initialise(dotNetRef, shortcuts) {
     dotNet = dotNetRef;
     window.addEventListener('resize', reportViewport, { passive: true });
+    window.addEventListener('keydown', paletteHotkey);
     reportViewport();
 
     installShortcuts(shortcuts || []);
+}
+
+// Ctrl+K, or Cmd+K on a Mac, opens the command palette from anywhere — including from inside a
+// field, which is where a hand already on the keyboard usually is. The browser's own use of the
+// chord (focus the address bar's search) is the one given up for it. It is not one of the
+// windows' shortcuts below, so a catalogue must not give a window the K key.
+function paletteHotkey(e) {
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && (e.key || '').toLowerCase() === 'k') {
+        e.preventDefault();
+        dotNet?.invokeMethodAsync('OnPaletteRequested');
+    }
 }
 
 export function isMac() {

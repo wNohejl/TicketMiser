@@ -113,11 +113,9 @@ public sealed class DestinationQueries(IDbContextFactory<TicketMiserDbContext> f
 
         var query = db.Performers.AsNoTracking();
 
-        if (search?.Trim() is { Length: > 0 } term)
-        {
-            var like = "%" + term.Replace(@"\", @"\\").Replace("%", @"\%").Replace("_", @"\_") + "%";
-            query = query.Where(p => EF.Functions.ILike(p.Name, like));
-        }
+        // Every word, the one rule the desk's searches share (SearchQueries).
+        foreach (var pattern in SearchQueries.Patterns(search))
+            query = query.Where(p => EF.Functions.ILike(p.Name, pattern, SearchQueries.Escape));
 
         var rows = await query
             .Select(p => new
