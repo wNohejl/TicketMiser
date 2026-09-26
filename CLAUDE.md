@@ -13,6 +13,15 @@ long.
   `worktree-agent-*` branches, no parked stashes, no bookmark tags.
 - Push after every commit. Two machines clone from origin; an unpushed branch exists on one.
 
+## Two machines
+
+- Start with `git pull` on `TicketMiser_Development`. If `data/snapshots/ticketmiser.dump.json`
+  changed, the data did: `scripts/restore-data.ps1 -Force` loads it, replacing and not merging.
+- `.env`, user-secrets and `src/TicketMiser.Web/appsettings.Local.json` are per machine and
+  never committed. A missing source key shows as an unconfigured source; ask for it rather
+  than looking for it elsewhere.
+- Setting up a fresh machine, and which half travels: README, "Continuing on another machine".
+
 ## Authorship
 
 - Commits carry the developer's own git identity. **Never** add a `Co-Authored-By: Claude …`
