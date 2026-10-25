@@ -24,7 +24,7 @@
     A purchase needs no watch: the fan who bought on the night still wants the record.
 *@
 
-<div class="stack" style="--desk-gap:12px; padding:16px">
+<div style="padding:16px">
     @if (_loading)
     {
         <EmptyState>Reading the event.</EmptyState>
@@ -46,22 +46,27 @@
     }
     else
     {
-        <div>
-            <PanelHeader Tight>@_form.Event.Name</PanelHeader>
-            <div class="dim">
+        @* A grouped form after the Human Interface Guidelines (apple-hig-components, forms.md),
+           the same recipe as LineOps's wager window: the event as a title on the body, then
+           two groups — where the numbers start from, and the purchase — each a fill with an
+           inset rule between rows, the label leading and the control trailing; footers say
+           what a group does; the one Filled key leads under them. *@
+        <div class="fhead">
+            <h2 class="fhead__title">@_form.Event.Name</h2>
+            <div class="fhead__meta">
                 @(_form.Event.Venue?.Name ?? "Venue not recorded") · @Local(_form.Event.StartsAt)
             </div>
         </div>
 
-        <div class="stack" style="--desk-gap:6px">
-            <div class="field-lbl">Start from the price shown</div>
-            @if (_choices.Count == 0)
-            {
-                <span class="quiet">No source has a price for this event yet. Enter what you paid.</span>
-            }
-            else
-            {
-                <div class="row" data-prefill>
+        <h3 class="wgroup__head">Start from the price shown</h3>
+        <div class="wgroup">
+            <div class="wgroup__row" data-prefill>
+                @if (_choices.Count == 0)
+                {
+                    <span class="quiet">No source has a price for this event yet. Enter what you paid.</span>
+                }
+                else
+                {
                     @foreach (var choice in _choices)
                     {
                         @* The chosen start is Tinted, not Filled: it reports where the numbers
@@ -73,66 +78,77 @@
                             @choice.Label
                         </DeskButton>
                     }
-                </div>
-            }
-        </div>
-
-        <div class="row" style="align-items:flex-start">
-            <DeskField TValue="int?" Label="Tickets" Required="true" Mono="true" Error="@ErrorFor("quantity")"
-                       type="number" min="1" step="1" style="max-width:110px"
-                       data-field="quantity" @bind-Value="_quantity" />
-            <DeskField TValue="decimal?" Label="Price per ticket (USD)" Required="true" Mono="true" Error="@ErrorFor("price")"
-                       type="number" min="0.01" step="0.01" style="max-width:190px"
-                       data-field="price" @bind-Value="_price" />
-        </div>
-
-        <div class="field-set">
-            <span class="field-lbl">
-                Fees <span class="field-req" aria-hidden="true">*</span>
-            </span>
-            <DeskSwitch TValue="bool?" Options="FeeOptions" Label="Does the price include fees?"
-                        Value="_allIn" ValueChanged="@((bool? v) => _allIn = v)" data-field="allIn" />
-            @if (ErrorFor("allIn") is { } feeError)
-            {
-                <p class="field-err" role="alert">@feeError</p>
-            }
-            else if (_allIn is null && _chosenQuote?.AllIn == false)
-            {
-                <p class="quiet" style="margin:0">Prefilled from a face-value number. A receipt total includes fees; say which this is.</p>
-            }
-        </div>
-
-        <div class="row" style="align-items:flex-start">
-            <DeskSelect TValue="string" Label="Bought at" style="max-width:240px" data-field="source" @bind-Value="_source">
-                <option value="">Elsewhere (not tracked)</option>
-                @foreach (var s in _form.Sources)
-                {
-                    <option value="@s.Id.ToString(CultureInfo.InvariantCulture)">@s.Name (@PurchaseLedger.MarketWord(s.Kind))</option>
                 }
-            </DeskSelect>
-            <DeskField TValue="string" Label="When (Nashville time)" Error="@ErrorFor("purchasedAt")"
-                       type="datetime-local" style="max-width:220px" data-field="purchasedAt" @bind-Value="_when" />
+            </div>
         </div>
 
-        <DeskTextArea Label="Note" rows="2" placeholder="Section, row, order number — anything the receipt says"
-                      Error="@ErrorFor("note")" maxlength="@PurchaseLedger.NoteMaxLength" data-field="note" @bind-Value="_note" />
+        <h3 class="wgroup__head">Purchase</h3>
+        <div class="wgroup">
+            <div class="wgroup__row wgroup__row--form">
+                <span class="wgroup__label">Tickets <span class="field-req" aria-hidden="true">*</span></span>
+                <DeskField TValue="int?" Required="true" Mono="true" Error="@ErrorFor("quantity")"
+                           type="number" min="1" step="1" Class="wfield--short" aria-label="Tickets"
+                           data-field="quantity" @bind-Value="_quantity" />
+            </div>
+            <div class="wgroup__row wgroup__row--form">
+                <span class="wgroup__label">Price per ticket <span class="field-req" aria-hidden="true">*</span></span>
+                <DeskField TValue="decimal?" Required="true" Mono="true" Error="@ErrorFor("price")"
+                           type="number" min="0.01" step="0.01" Class="wfield--short" aria-label="Price per ticket (USD)"
+                           placeholder="USD" data-field="price" @bind-Value="_price" />
+            </div>
+            <div class="wgroup__row wgroup__row--form">
+                <span class="wgroup__label">Fees <span class="field-req" aria-hidden="true">*</span></span>
+                <div>
+                    <DeskSwitch TValue="bool?" Options="FeeOptions" Label="Does the price include fees?"
+                                Value="_allIn" ValueChanged="@((bool? v) => _allIn = v)" data-field="allIn" />
+                    @if (ErrorFor("allIn") is { } feeError)
+                    {
+                        <p class="field-err" role="alert">@feeError</p>
+                    }
+                </div>
+            </div>
+            <div class="wgroup__row wgroup__row--form">
+                <span class="wgroup__label">Bought at</span>
+                <DeskSelect TValue="string" Class="wfield--short" aria-label="Bought at" data-field="source" @bind-Value="_source">
+                    <option value="">Elsewhere (not tracked)</option>
+                    @foreach (var s in _form.Sources)
+                    {
+                        <option value="@s.Id.ToString(CultureInfo.InvariantCulture)">@s.Name (@PurchaseLedger.MarketWord(s.Kind))</option>
+                    }
+                </DeskSelect>
+            </div>
+            <div class="wgroup__row wgroup__row--form">
+                <span class="wgroup__label">When</span>
+                <DeskField TValue="string" Error="@ErrorFor("purchasedAt")" aria-label="When (Nashville time)"
+                           type="datetime-local" Class="wfield--short" data-field="purchasedAt" @bind-Value="_when" />
+            </div>
+            <div class="wgroup__row wgroup__row--form">
+                <span class="wgroup__label">Note</span>
+                <DeskTextArea rows="2" placeholder="Section, row, order number" aria-label="Note" Class="wfield--fill"
+                              Error="@ErrorFor("note")" maxlength="@PurchaseLedger.NoteMaxLength" data-field="note" @bind-Value="_note" />
+            </div>
+        </div>
+        <p class="wgroup__foot">
+            @if (_allIn is null && _chosenQuote?.AllIn == false)
+            {
+                <text>Prefilled from a face-value number. A receipt total includes fees; say which this is. </text>
+            }
+            Times are Nashville time. Graded against the day-of price once the event has been
+            played, and only against a day-of price of the same kind: all-in against all-in, face
+            value against face value.
+        </p>
 
         @if (_error is not null)
         {
             <Note State="DeskState.Warning" Style="margin:0">@_error</Note>
         }
 
-        <div class="row row--end">
+        <div class="factions">
             <DeskButton Emphasis="DeskEmphasis.Filled" Icon="@Icons.Material.Filled.Bolt"
                         Busy="@_saving" OnClick="SaveAsync">
                 Log purchase
             </DeskButton>
         </div>
-
-        <p class="empty" style="padding:0">
-            Graded against the day-of price once the event has been played — and only against a
-            day-of price of the same kind, all-in against all-in, face value against face value.
-        </p>
     }
 </div>
 
